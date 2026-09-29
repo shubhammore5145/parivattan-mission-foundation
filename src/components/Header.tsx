@@ -73,7 +73,7 @@ const Header = () => {
         <a href="#" className="flex items-center space-x-2 bg-[#fbfaf7] p-1 rounded-[10px]" onClick={handleHomeClick}>
           <img
             className="w-[58px] sm:w-[78px] md:w-[86px] transition-all duration-300 rounded-md"
-            src="/img/parivattan.PNG"
+            src="/img/parivattan_new.png"
             alt="Parivattan Logo"
           />
         </a>
@@ -153,7 +153,7 @@ const Header = () => {
             <a href="/" onClick={handleHomeClick} className="flex items-center space-x-2">
               <img
                 className="w-[60px] sm:w-[80px]"
-                src="/img/parivattanE.png"
+                src="/img/parivattan_new.png"
                 alt="Parivattan Logo"
               />
             </a>

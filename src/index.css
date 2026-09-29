@@ -84,7 +84,7 @@
 .page-section { @apply mx-auto w-full max-w-7xl px-5 py-20 md:px-10 md:py-28; }
 .eyebrow { @apply text-sm font-bold uppercase tracking-[0.18em] text-[#b5623b]; }
 .field { @apply flex flex-col gap-2 text-sm font-semibold; }
-.field input, .field select, .field textarea { @apply rounded-2xl border border-[#d9ddd4] bg-[#fbfaf7] px-4 py-3 font-normal outline-none transition focus:border-[#b5623b] focus:ring-2 focus:ring-[#b5623b]/20; }
+.field input, .field select, .field textarea { @apply rounded-2xl border border-[#d9ddd4] bg-[#fbfaf7] text-[#24312d] px-4 py-3 font-normal outline-none transition focus:border-[#b5623b] focus:ring-2 focus:ring-[#b5623b]/20; }
 
 @layer components {
   .btn-primary {
