@@ -28,6 +28,9 @@ const App = () => (
           <Route path="/story" element={<ContentPage />} />
           <Route path="/gallery" element={<ContentPage />} />
           <Route path="/blogs" element={<ContentPage />} />
+          <Route path="/admin" element={<AdminLogin />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/parivattan-admin/login/kishor" element={<AdminLogin />} />
           <Route path="/parivattan-admin/dashboard" element={<AdminDashboard />} />
     

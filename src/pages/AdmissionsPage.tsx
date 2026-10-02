@@ -1,504 +1,442 @@
-import { FormEvent, useState } from "react";
-import { 
-  ArrowRight, 
-  CheckCircle2, 
-  LoaderCircle, 
-  ShieldCheck, 
-  UserCircle, 
-  BookOpen, 
-  Clock, 
-  Info, 
-  Phone, 
-  MessageCircle, 
-  ChevronDown, 
-  ChevronUp, 
-  MapPin, 
-  Users, 
-  GraduationCap, 
+import { FormEvent, useState, useRef, ChangeEvent } from "react";
+import {
+  CheckCircle2,
+  LoaderCircle,
+  ShieldCheck,
+  User,
+  GraduationCap,
+  Building2,
+  MapPin,
+  Upload,
+  Camera,
+  FileText,
   Award,
-  HelpCircle
+  X,
+  FileCheck,
+  ArrowRight,
+  Sparkles,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { createAdmission } from "@/lib/supabase-admin";
-import { getRazorpayKeyId, loadRazorpay } from "@/lib/razorpay";
 import { toast } from "sonner";
 
-const programs = [
-  "Parivattan Overseas Schools - IELTS / TOEFL / PTE",
-  "Parivattan Foreign Language School",
-  "Parivattan Technology School"
-];
+interface FileData {
+  file: File | null;
+  name: string;
+  size: string;
+  dataUrl: string;
+  type: string;
+}
 
-const programCourses: Record<string, string[]> = {
-  "Parivattan Overseas Schools - IELTS / TOEFL / PTE": [
-    "IELTS Preparation (Academic / General)",
-    "TOEFL iBT Comprehensive Coaching",
-    "PTE Academic Preparation",
-    "Study Abroad Counseling & Visa Guidance",
-    "GRE / GMAT Foundation Coaching"
-  ],
-  "Parivattan Foreign Language School": [
-    "German Language (A1, A2, B1 Levels)",
-    "French Language (A1, A2 Levels)",
-    "Japanese Language (JLPT N5, N4)",
-    "Spanish Language Fundamentals",
-    "Spoken English & Professional Communication"
-  ],
-  "Parivattan Technology School": [
-    "Full-Stack Web Development (React / Node.js)",
-    "Python Programming & Data Analytics",
-    "AI, Generative Tools & Automation Basics",
-    "UI/UX Design & Frontend Development",
-    "Digital Marketing & SEO Strategies"
-  ]
+const emptyFileData: FileData = {
+  file: null,
+  name: "",
+  size: "",
+  dataUrl: "",
+  type: "",
 };
 
-const genders = ["Male", "Female", "Other"];
-const qualifications = ["10th Pass", "12th Pass", "Undergraduate (Pursuing)", "Graduate", "Post-Graduate", "Diploma", "Other"];
-const statuses = ["Student", "Working Professional", "Job Seeker", "Entrepreneur / Business Owner", "Other"];
-const timings = [
-  "Morning Batch (8:00 AM - 11:00 AM)", 
-  "Afternoon Batch (12:00 PM - 3:00 PM)", 
-  "Evening Batch (4:00 PM - 7:00 PM)", 
-  "Weekend Batch (Saturday & Sunday)"
-];
-const scholarshipOptions = [
-  "No - Standard Registration", 
-  "Yes - Request Scholarship / Fee Concession"
-];
-const sources = [
-  "Social Media (Instagram / LinkedIn / Facebook)", 
-  "Friend / Family Recommendation", 
-  "Official Website / Search", 
-  "Advertisement / Poster", 
-  "College / Campus Drive", 
-  "Other"
-];
-
-const faqs = [
-  {
-    q: "What happens after paying the ₹500 registration fee?",
-    a: "Once your payment is verified, our academic counseling team will contact you within 24 hours to confirm your batch timing, orientation schedule, and required enrollment documents."
-  },
-  {
-    q: "Are classes conducted online or in person?",
-    a: "We offer both flexible modes! You can choose interactive live online sessions or attend classroom batches in person at our foundation center based on your convenience."
-  },
-  {
-    q: "How does scholarship or fee assistance work?",
-    a: "Parivattan Mission Foundation provides merit and need-based fee concessions for deserving students. Simply select 'Yes' under the scholarship option, and our committee will assess eligibility during counseling."
-  },
-  {
-    q: "Who should I contact if I have any questions or payment issues?",
-    a: "For immediate assistance, call us at +91 7820831901 or click the WhatsApp Chat button on this page to speak directly with our admissions support desk."
-  }
-];
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
 
 export default function AdmissionsPage() {
   const [busy, setBusy] = useState(false);
-  const [openFaq, setOpenFaq] = useState<number | null>(0);
-  
-  const [form, setForm] = useState({ 
-    name: "", 
-    email: "", 
-    phone: "", 
-    dob: "", 
-    gender: genders[0], 
-    guardianName: "",
-    guardianPhone: "",
+  const [submittedId, setSubmittedId] = useState<string | null>(null);
+
+  // The 7 requested fields
+  const [form, setForm] = useState({
+    name: "",
+    education: "",
+    collegeName: "",
     address: "",
-    city: "", 
-    pincode: "",
-    qualification: qualifications[0], 
-    currentStatus: statuses[0],
-    program: programs[0], 
-    specificCourse: programCourses[programs[0]][0],
-    batchTiming: timings[0], 
-    scholarshipNeeded: scholarshipOptions[0],
-    source: sources[0],
-    message: "",
-    agreedToTerms: false
   });
-  
-  const update = (key: keyof typeof form, value: string | boolean) => {
-    setForm(current => {
-      const updated = { ...current, [key]: value };
-      // Auto-update first course when program changes
-      if (key === "program" && typeof value === "string" && programCourses[value]) {
-        updated.specificCourse = programCourses[value][0];
-      }
-      return updated;
-    });
+
+  const [identityProof, setIdentityProof] = useState<FileData>(emptyFileData);
+  const [photo, setPhoto] = useState<FileData>(emptyFileData);
+  const [casteCertificate, setCasteCertificate] = useState<FileData>(emptyFileData);
+
+  const update = (key: keyof typeof form, value: string) => {
+    setForm(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleFileUpload = (
+    e: ChangeEvent<HTMLInputElement>,
+    setter: (data: FileData) => void,
+    fieldLabel: string
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error(`${fieldLabel} must be smaller than 5MB.`);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setter({
+        file,
+        name: file.name,
+        size: formatFileSize(file.size),
+        dataUrl: reader.result as string,
+        type: file.type,
+      });
+      toast.success(`${fieldLabel} uploaded successfully!`);
+    };
+    reader.onerror = () => {
+      toast.error(`Failed to read ${fieldLabel}. Please try again.`);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDrop = (
+    e: React.DragEvent<HTMLDivElement>,
+    setter: (data: FileData) => void,
+    fieldLabel: string
+  ) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error(`${fieldLabel} must be smaller than 5MB.`);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setter({
+        file,
+        name: file.name,
+        size: formatFileSize(file.size),
+        dataUrl: reader.result as string,
+        type: file.type,
+      });
+      toast.success(`${fieldLabel} uploaded successfully!`);
+    };
+    reader.readAsDataURL(file);
   };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
 
-    if (!form.name || !form.email || !form.phone || !form.dob || !form.city || !form.address || !form.guardianName || !form.guardianPhone) { 
-      toast.error("Please fill in all required fields (Name, Email, Phone, Guardian Details, Address, City)."); 
-      return; 
+    if (!form.name.trim()) {
+      toast.error("Please enter your Name.");
+      return;
     }
-
-    if (!form.agreedToTerms) {
-      toast.error("Please agree to the terms and declaration before proceeding.");
+    if (!form.education.trim()) {
+      toast.error("Please enter your Education qualification.");
+      return;
+    }
+    if (!form.collegeName.trim()) {
+      toast.error("Please enter your College Name.");
+      return;
+    }
+    if (!form.address.trim()) {
+      toast.error("Please enter your Address.");
+      return;
+    }
+    if (!identityProof.dataUrl) {
+      toast.error("Please upload your Identity Proof document.");
+      return;
+    }
+    if (!photo.dataUrl) {
+      toast.error("Please upload your Photo.");
+      return;
+    }
+    if (!casteCertificate.dataUrl) {
+      toast.error("Please upload your Caste Certificate.");
       return;
     }
 
     setBusy(true);
     try {
-      await loadRazorpay();
-      const key = getRazorpayKeyId();
-      if (!key || !window.Razorpay) throw new Error("Payment gateway is not configured.");
-      
-      const fullMessage = [
-        `DOB: ${form.dob} | Gender: ${form.gender}`,
-        `Guardian: ${form.guardianName} | Guardian Contact: ${form.guardianPhone}`,
-        `Address: ${form.address}, City: ${form.city} - ${form.pincode}`,
-        `Qualification: ${form.qualification} | Status: ${form.currentStatus}`,
-        `Selected Course: ${form.specificCourse}`,
-        `Batch: ${form.batchTiming}`,
-        `Scholarship Aid: ${form.scholarshipNeeded}`,
-        `Source: ${form.source}`,
-        form.message ? `Additional Note: ${form.message}` : ""
-      ].filter(Boolean).join("\n");
+      const created = await createAdmission({
+        name: form.name.trim(),
+        education: form.education.trim(),
+        college_name: form.collegeName.trim(),
+        address: form.address.trim(),
+        identity_proof: identityProof.dataUrl,
+        identity_proof_name: identityProof.name,
+        photo: photo.dataUrl,
+        photo_name: photo.name,
+        caste_certificate: casteCertificate.dataUrl,
+        caste_certificate_name: casteCertificate.name,
+        status: "completed",
+      });
 
-      new window.Razorpay({ 
-        key, 
-        amount: 50000, 
-        currency: "INR", 
-        name: "Parivattan Mission Foundation", 
-        description: "Admission Registration Fee", 
-        prefill: { 
-          name: form.name, 
-          email: form.email, 
-          contact: form.phone 
-        }, 
-        theme: { color: "#b5623b" }, 
-        handler: async (response: { razorpay_payment_id: string }) => {
-          try {
-            await createAdmission({ 
-              name: form.name, 
-              email: form.email, 
-              phone: form.phone, 
-              program: `${form.program} - ${form.specificCourse}`,
-              message: fullMessage,
-              amount: 500, 
-              payment_id: response.razorpay_payment_id, 
-              status: "completed" 
-            });
-            toast.success("Application submitted successfully! We will contact you soon.");
-            setForm({ 
-              name: "", 
-              email: "", 
-              phone: "", 
-              dob: "", 
-              gender: genders[0], 
-              guardianName: "",
-              guardianPhone: "",
-              address: "",
-              city: "", 
-              pincode: "",
-              qualification: qualifications[0], 
-              currentStatus: statuses[0],
-              program: programs[0], 
-              specificCourse: programCourses[programs[0]][0],
-              batchTiming: timings[0], 
-              scholarshipNeeded: scholarshipOptions[0],
-              source: sources[0], 
-              message: "",
-              agreedToTerms: false
-            });
-          } catch { 
-            toast.error("Payment succeeded, but there was an issue saving your application. Please contact us with your payment ID."); 
-          }
-          setBusy(false);
-        }, 
-        modal: { 
-          ondismiss: () => setBusy(false) 
-        } 
-      }).open();
-    } catch (error) { 
-      toast.error(error instanceof Error ? error.message : "Unable to initiate payment gateway."); 
-      setBusy(false); 
+      setSubmittedId(created.id);
+      toast.success("Admission application submitted successfully!");
+    } catch (error) {
+      console.error("Submission error:", error);
+      toast.error("Failed to submit admission application. Please try again.");
+    } finally {
+      setBusy(false);
     }
+  };
+
+  const resetForm = () => {
+    setForm({
+      name: "",
+      education: "",
+      collegeName: "",
+      address: "",
+    });
+    setIdentityProof(emptyFileData);
+    setPhoto(emptyFileData);
+    setCasteCertificate(emptyFileData);
+    setSubmittedId(null);
   };
 
   return (
     <div className="min-h-screen bg-[#fbfaf7] text-[#24312d]">
       <Header />
-      <main className="page-section pt-36">
-        <div className="grid gap-12 xl:grid-cols-[0.8fr_1.2fr] xl:items-start">
-          
-          {/* Left Column: Information, FAQ, and Direct Contact */}
-          <div className="xl:sticky xl:top-36 space-y-8">
-            <div>
-              <p className="eyebrow">Admissions 2026</p>
-              <h1 className="mt-4 text-4xl sm:text-5xl font-serif leading-[1.08] md:text-6xl text-[#24312d]">
-                Begin with a curious mind.
-              </h1>
-              <p className="mt-5 text-base sm:text-lg text-[#65706a]">
-                Take the next step toward your future. A one-time registration fee of ₹500 is collected securely through Razorpay. Your application is saved once payment succeeds.
+      <main className="page-section pt-32 md:pt-36">
+        <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
+          {/* Left Column: Info & Guidance */}
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-[#b5623b]/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-[#b5623b]">
+              <Sparkles size={14} /> Admissions 2026-27
+            </div>
+            <h1 className="mt-4 text-4xl font-serif leading-[1.08] sm:text-5xl md:text-6xl text-[#24312d]">
+              Begin your learning journey.
+            </h1>
+            <p className="mt-6 text-base text-[#65706a] leading-relaxed md:text-lg">
+              Welcome to Parivattan Mission Foundation. Submit your application below with your educational details and required documents. Our admissions team will review your application.
+            </p>
+
+            {/* Checklist */}
+            <div className="mt-8 rounded-2xl border border-[#e2e5dc] bg-white/70 p-6 shadow-sm backdrop-blur-sm">
+              <h3 className="font-serif text-lg text-[#24312d]">Required Documents Checklist</h3>
+              <ul className="mt-4 space-y-3 text-sm text-[#65706a]">
+                <li className="flex items-center gap-2.5">
+                  <CheckCircle2 className="shrink-0 text-[#b5623b]" size={18} />
+                  <span>Valid <strong>Identity Proof</strong> (Aadhaar / Voter ID / PAN)</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <CheckCircle2 className="shrink-0 text-[#b5623b]" size={18} />
+                  <span>Recent <strong>Passport Size Photo</strong></span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <CheckCircle2 className="shrink-0 text-[#b5623b]" size={18} />
+                  <span>Competent Authority <strong>Caste Certificate</strong></span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="mt-8 space-y-3.5 text-sm text-[#65706a]">
+              <p className="flex items-center gap-3">
+                <CheckCircle2 className="shrink-0 text-[#b5623b]" size={20} />
+                <span>Transparent & merit-inclusive admission verification</span>
               </p>
-              
-              <div className="mt-6 space-y-3.5 text-[#55615b]">
-                <p className="flex items-center gap-3">
-                  <CheckCircle2 className="shrink-0 text-[#b5623b]" size={20} />
-                  <span>Personalized guidance and career counseling</span>
-                </p>
-                <p className="flex items-center gap-3">
-                  <CheckCircle2 className="shrink-0 text-[#b5623b]" size={20} />
-                  <span>Practical, industry-aligned curriculum</span>
-                </p>
-                <p className="flex items-center gap-3">
-                  <ShieldCheck className="shrink-0 text-[#b5623b]" size={20} />
-                  <span>Secure digital payment and prompt support</span>
-                </p>
-              </div>
-            </div>
-
-            {/* Quick Assistance & WhatsApp Card */}
-            <div className="rounded-3xl border border-[#e1e3d9] bg-[#fffefb] p-6 shadow-sm">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#b5623b]/10 text-[#b5623b]">
-                  <HelpCircle size={22} />
-                </div>
-                <div>
-                  <h3 className="font-serif text-lg font-medium text-[#24312d]">Have questions or need help?</h3>
-                  <p className="text-xs text-[#65706a]">Our admissions desk is here to assist you</p>
-                </div>
-              </div>
-              <p className="text-sm text-[#65706a] mb-5">
-                Reach out to us directly via WhatsApp or phone call for immediate help with your application.
+              <p className="flex items-center gap-3">
+                <CheckCircle2 className="shrink-0 text-[#b5623b]" size={20} />
+                <span>Programs designed around practical skills & growth</span>
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <a 
-                  href="https://wa.me/917820831901?text=Hello%20Parivattan%20Mission%20Foundation%2C%20I%20have%20an%20admission%20inquiry."
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-[#25D366] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#1ebc59] shadow-sm"
-                >
-                  <MessageCircle size={18} />
-                  WhatsApp Chat
-                </a>
-                <a 
-                  href="tel:+917820831901"
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-[#b5623b] px-4 py-3 text-sm font-semibold text-[#b5623b] transition hover:bg-[#b5623b] hover:text-white"
-                >
-                  <Phone size={18} />
-                  +91 7820831901
-                </a>
-              </div>
+              <p className="flex items-center gap-3">
+                <ShieldCheck className="shrink-0 text-[#b5623b]" size={20} />
+                <span>Encrypted & confidential document storage</span>
+              </p>
             </div>
-
-            {/* FAQs Accordion */}
-            <div className="rounded-3xl border border-[#e1e3d9] bg-[#fffefb] p-6 shadow-sm">
-              <h3 className="font-serif text-xl font-medium text-[#24312d] mb-4">
-                Frequently Asked Questions
-              </h3>
-              <div className="space-y-3">
-                {faqs.map((faq, idx) => {
-                  const isOpen = openFaq === idx;
-                  return (
-                    <div 
-                      key={idx} 
-                      className="border border-[#e7e9df] rounded-2xl overflow-hidden transition-all bg-[#fbfaf7]"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => setOpenFaq(isOpen ? null : idx)}
-                        className="w-full text-left px-4 py-3.5 flex items-center justify-between gap-3 text-sm font-semibold text-[#24312d] hover:text-[#b5623b]"
-                      >
-                        <span>{faq.q}</span>
-                        {isOpen ? <ChevronUp size={18} className="shrink-0 text-[#b5623b]" /> : <ChevronDown size={18} className="shrink-0 text-[#8b958f]" />}
-                      </button>
-                      {isOpen && (
-                        <div className="px-4 pb-4 pt-1 text-xs sm:text-sm text-[#5a6560] leading-relaxed border-t border-[#ecefe7]">
-                          {faq.a}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
           </div>
-          
-          {/* Right Column: Admission Application Form */}
-          <form onSubmit={submit} className="rounded-3xl bg-white p-6 sm:p-10 shadow-sm border border-[#e1e3d9]">
-            
-            {/* Section 1: Personal Info */}
-            <div className="mb-10">
-              <div className="flex items-center gap-3 mb-6 border-b border-[#e1e3d9] pb-4">
-                <UserCircle className="text-[#b5623b]" size={24} />
-                <div>
-                  <h2 className="text-2xl font-serif text-[#24312d]">Personal Information</h2>
-                  <p className="text-xs text-[#65706a]">Applicant personal details</p>
+
+          {/* Right Column: Admission Form or Success View */}
+          {submittedId ? (
+            <div className="rounded-3xl border border-[#e2e5dc] bg-white p-8 text-center shadow-lg md:p-12">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                <FileCheck size={42} />
+              </div>
+              <h2 className="mt-6 text-3xl font-serif text-[#24312d]">Application Submitted!</h2>
+              <p className="mt-2 text-sm text-[#65706a]">
+                Your admission application has been registered successfully.
+              </p>
+
+              <div className="mx-auto mt-6 max-w-md rounded-2xl bg-[#fbfaf7] p-5 text-left border border-[#e2e5dc]">
+                <p className="text-xs uppercase tracking-wider text-[#65706a] font-semibold">Application Reference</p>
+                <p className="mt-1 font-mono text-sm font-bold text-[#b5623b] break-all">{submittedId}</p>
+                <div className="mt-4 border-t border-[#e2e5dc] pt-3 text-xs space-y-1.5 text-[#65706a]">
+                  <p><strong className="text-[#24312d]">Applicant:</strong> {form.name}</p>
+                  <p><strong className="text-[#24312d]">Education:</strong> {form.education}</p>
+                  <p><strong className="text-[#24312d]">College:</strong> {form.collegeName}</p>
+                  <p><strong className="text-[#24312d]">Address:</strong> {form.address}</p>
+                  <p><strong className="text-[#24312d]">Documents:</strong> ID Proof, Photo, Caste Certificate attached</p>
                 </div>
               </div>
-              <div className="grid gap-5 md:grid-cols-2">
-                <Field label="Full Name" value={form.name} onChange={value => update("name", value)} placeholder="e.g. John Doe" />
-                <Field label="Email Address" type="email" value={form.email} onChange={value => update("email", value)} placeholder="e.g. john@example.com" />
-                <Field label="Mobile Number (WhatsApp Preferred)" type="tel" value={form.phone} onChange={value => update("phone", value)} placeholder="e.g. 9876543210" />
-                <Field label="Date of Birth" type="date" value={form.dob} onChange={value => update("dob", value)} />
-                <div className="md:col-span-2">
-                  <SelectField label="Gender" options={genders} value={form.gender} onChange={value => update("gender", value)} />
-                </div>
+
+              <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="w-full sm:w-auto rounded-full bg-[#b5623b] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#954b2c]"
+                >
+                  Submit Another Application
+                </button>
+                <Link
+                  to="/"
+                  className="w-full sm:w-auto rounded-full border border-[#d9ddd4] px-6 py-3 text-sm font-semibold text-[#24312d] transition hover:bg-[#fbfaf7]"
+                >
+                  Return to Home
+                </Link>
               </div>
             </div>
+          ) : (
+            <form onSubmit={submit} className="rounded-3xl border border-[#e2e5dc] bg-white p-7 shadow-sm md:p-10">
+              <div className="border-b border-[#eef0e8] pb-5 mb-6">
+                <h2 className="text-2xl font-serif text-[#24312d]">Admission Application Form</h2>
+                <p className="text-xs text-[#65706a] mt-1">Please provide accurate personal and academic information.</p>
+              </div>
 
-            {/* Section 2: Guardian & Emergency Contact */}
-            <div className="mb-10">
-              <div className="flex items-center gap-3 mb-6 border-b border-[#e1e3d9] pb-4">
-                <Users className="text-[#b5623b]" size={24} />
-                <div>
-                  <h2 className="text-2xl font-serif text-[#24312d]">Guardian & Emergency Contact</h2>
-                  <p className="text-xs text-[#65706a]">Parent or guardian contact information</p>
-                </div>
-              </div>
-              <div className="grid gap-5 md:grid-cols-2">
-                <Field label="Parent / Guardian Name" value={form.guardianName} onChange={value => update("guardianName", value)} placeholder="e.g. Robert Doe" />
-                <Field label="Guardian Phone Number" type="tel" value={form.guardianPhone} onChange={value => update("guardianPhone", value)} placeholder="e.g. 9822334455" />
-              </div>
-            </div>
-
-            {/* Section 3: Residential Address */}
-            <div className="mb-10">
-              <div className="flex items-center gap-3 mb-6 border-b border-[#e1e3d9] pb-4">
-                <MapPin className="text-[#b5623b]" size={24} />
-                <div>
-                  <h2 className="text-2xl font-serif text-[#24312d]">Residential Address</h2>
-                  <p className="text-xs text-[#65706a]">Current residence details</p>
-                </div>
-              </div>
-              <div className="grid gap-5 md:grid-cols-2">
-                <div className="md:col-span-2">
-                  <Field label="Full Address / Street Landmark" value={form.address} onChange={value => update("address", value)} placeholder="e.g. Flat 4B, Sunrise Residency, Main Road" />
-                </div>
-                <Field label="City / District" value={form.city} onChange={value => update("city", value)} placeholder="e.g. Pune, Mumbai, Nashik" />
-                <Field label="PIN Code" type="text" value={form.pincode} onChange={value => update("pincode", value)} placeholder="e.g. 411001" />
-              </div>
-            </div>
-
-            {/* Section 4: Education & Status */}
-            <div className="mb-10">
-              <div className="flex items-center gap-3 mb-6 border-b border-[#e1e3d9] pb-4">
-                <GraduationCap className="text-[#b5623b]" size={24} />
-                <div>
-                  <h2 className="text-2xl font-serif text-[#24312d]">Educational Background</h2>
-                  <p className="text-xs text-[#65706a]">Current educational status and qualification</p>
-                </div>
-              </div>
-              <div className="grid gap-5 md:grid-cols-2">
-                <SelectField label="Highest Qualification" options={qualifications} value={form.qualification} onChange={value => update("qualification", value)} />
-                <SelectField label="Current Status" options={statuses} value={form.currentStatus} onChange={value => update("currentStatus", value)} />
-              </div>
-            </div>
-
-            {/* Section 5: Program & Course Preferences */}
-            <div className="mb-10">
-              <div className="flex items-center gap-3 mb-6 border-b border-[#e1e3d9] pb-4">
-                <BookOpen className="text-[#b5623b]" size={24} />
-                <div>
-                  <h2 className="text-2xl font-serif text-[#24312d]">Program & Course Preferences</h2>
-                  <p className="text-xs text-[#65706a]">Choose your desired school and focus area</p>
-                </div>
-              </div>
-              <div className="grid gap-5 md:grid-cols-2">
-                <div className="md:col-span-2">
-                  <SelectField label="Select School / Program" options={programs} value={form.program} onChange={value => update("program", value)} />
-                </div>
-                <div className="md:col-span-2">
-                  <SelectField 
-                    label="Specific Course / Specialization" 
-                    options={programCourses[form.program] || []} 
-                    value={form.specificCourse} 
-                    onChange={value => update("specificCourse", value)} 
+              <div className="space-y-5">
+                {/* 1. Name */}
+                <div className="field">
+                  <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#24312d]">
+                    <User size={15} className="text-[#b5623b]" />
+                    Name <span className="text-red-500">*</span>
+                  </span>
+                  <input
+                    required
+                    type="text"
+                    value={form.name}
+                    onChange={e => update("name", e.target.value)}
+                    placeholder="Enter your full name"
+                    className="w-full"
                   />
                 </div>
-                <SelectField label="Preferred Batch Timing" options={timings} value={form.batchTiming} onChange={value => update("batchTiming", value)} />
-                <SelectField label="How did you hear about us?" options={sources} value={form.source} onChange={value => update("source", value)} />
-              </div>
-            </div>
 
-            {/* Section 6: Scholarship & Aid */}
-            <div className="mb-10">
-              <div className="flex items-center gap-3 mb-6 border-b border-[#e1e3d9] pb-4">
-                <Award className="text-[#b5623b]" size={24} />
-                <div>
-                  <h2 className="text-2xl font-serif text-[#24312d]">Scholarship & Financial Aid</h2>
-                  <p className="text-xs text-[#65706a]">Tuition assistance and scholarship options</p>
+                {/* 2. Education */}
+                <div className="field">
+                  <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#24312d]">
+                    <GraduationCap size={15} className="text-[#b5623b]" />
+                    Education <span className="text-red-500">*</span>
+                  </span>
+                  <input
+                    required
+                    type="text"
+                    value={form.education}
+                    onChange={e => update("education", e.target.value)}
+                    placeholder="e.g., 10th / 12th / Diploma / Bachelor's / Master's"
+                    className="w-full"
+                  />
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {["10th Standard", "12th Standard", "Diploma", "Graduation", "Post Graduation"].map(item => (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => update("education", item)}
+                        className={`rounded-full px-2.5 py-0.5 text-xs transition border ${
+                          form.education === item
+                            ? "bg-[#b5623b] text-white border-[#b5623b]"
+                            : "bg-[#fbfaf7] text-[#65706a] border-[#e2e5dc] hover:border-[#b5623b] hover:text-[#b5623b]"
+                        }`}
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <div>
-                <SelectField 
-                  label="Need Scholarship / Fee Assistance?" 
-                  options={scholarshipOptions} 
-                  value={form.scholarshipNeeded} 
-                  onChange={value => update("scholarshipNeeded", value)} 
-                />
-                <p className="mt-2 text-xs text-[#65706a]">
-                  * If selected, our admissions committee will assess eligibility based on merit and financial background during counseling.
-                </p>
-              </div>
-            </div>
 
-            {/* Section 7: Additional Information */}
-            <div className="mb-10">
-              <div className="flex items-center gap-3 mb-6 border-b border-[#e1e3d9] pb-4">
-                <Info className="text-[#b5623b]" size={24} />
-                <div>
-                  <h2 className="text-2xl font-serif text-[#24312d]">Additional Information</h2>
-                  <p className="text-xs text-[#65706a]">Share your goals, queries, or specific needs (optional)</p>
+                {/* 3. College Name */}
+                <div className="field">
+                  <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#24312d]">
+                    <Building2 size={15} className="text-[#b5623b]" />
+                    College Name <span className="text-red-500">*</span>
+                  </span>
+                  <input
+                    required
+                    type="text"
+                    value={form.collegeName}
+                    onChange={e => update("collegeName", e.target.value)}
+                    placeholder="Enter your college / school / institute name"
+                    className="w-full"
+                  />
                 </div>
+
+                {/* 4. Address */}
+                <div className="field">
+                  <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#24312d]">
+                    <MapPin size={15} className="text-[#b5623b]" />
+                    Address <span className="text-red-500">*</span>
+                  </span>
+                  <textarea
+                    required
+                    rows={3}
+                    value={form.address}
+                    onChange={e => update("address", e.target.value)}
+                    placeholder="Enter your complete residential address (House no., street, city, state, pin code)"
+                    className="w-full"
+                  />
+                </div>
+
+                {/* 5. Identity Proof */}
+                <FileUploadBox
+                  label="Identity Proof"
+                  description="Upload Aadhaar Card, Voter ID, PAN or Govt ID (PDF, JPG, PNG - Max 5MB)"
+                  icon={<FileText size={18} className="text-[#b5623b]" />}
+                  fileData={identityProof}
+                  accept=".pdf,image/*"
+                  isRequired={true}
+                  onFileSelect={e => handleFileUpload(e, setIdentityProof, "Identity Proof")}
+                  onDrop={e => handleDrop(e, setIdentityProof, "Identity Proof")}
+                  onRemove={() => setIdentityProof(emptyFileData)}
+                />
+
+                {/* 6. Photo */}
+                <PhotoUploadBox
+                  label="Photo"
+                  description="Recent passport size photograph (JPG, PNG - Max 5MB)"
+                  fileData={photo}
+                  isRequired={true}
+                  onFileSelect={e => handleFileUpload(e, setPhoto, "Photo")}
+                  onDrop={e => handleDrop(e, setPhoto, "Photo")}
+                  onRemove={() => setPhoto(emptyFileData)}
+                />
+
+                {/* 7. Caste Certificate */}
+                <FileUploadBox
+                  label="Caste Certificate"
+                  description="Upload valid caste certificate document (PDF, JPG, PNG - Max 5MB)"
+                  icon={<Award size={18} className="text-[#b5623b]" />}
+                  fileData={casteCertificate}
+                  accept=".pdf,image/*"
+                  isRequired={true}
+                  onFileSelect={e => handleFileUpload(e, setCasteCertificate, "Caste certificate")}
+                  onDrop={e => handleDrop(e, setCasteCertificate, "Caste certificate")}
+                  onRemove={() => setCasteCertificate(emptyFileData)}
+                />
               </div>
-              <label className="field">
-                <span>What would you like us to know? (Optional)</span>
-                <textarea 
-                  rows={3} 
-                  value={form.message} 
-                  onChange={e => update("message", e.target.value)} 
-                  placeholder="e.g. My goal is to work abroad, score IELTS 7.5+, or learn full-stack web development..." 
-                />
-              </label>
-            </div>
 
-            {/* Section 8: Terms & Declaration */}
-            <div className="mb-8 rounded-2xl bg-[#fbfaf7] border border-[#e1e3d9] p-5">
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  checked={form.agreedToTerms} 
-                  onChange={e => update("agreedToTerms", e.target.checked)}
-                  className="mt-1 h-4 w-4 rounded border-gray-300 text-[#b5623b] focus:ring-[#b5623b]"
-                />
-                <span className="text-xs sm:text-sm text-[#46534e] leading-relaxed">
-                  I hereby declare that all information provided is accurate and true. I agree to the terms, code of conduct, and admission guidelines of Parivattan Mission Foundation.
-                </span>
-              </label>
-            </div>
-
-            {/* Submit Action */}
-            <div className="pt-4 border-t border-[#e1e3d9]">
-              <button 
+              <button
                 type="submit"
-                disabled={busy} 
-                className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#b5623b] px-6 py-4 font-semibold text-white transition hover:bg-[#954b2c] disabled:opacity-60 shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+                disabled={busy}
+                className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#b5623b] px-6 py-4 font-semibold text-white shadow-sm transition hover:bg-[#954b2c] hover:shadow-md disabled:opacity-60"
               >
-                {busy ? <LoaderCircle className="animate-spin" size={18} /> : <ArrowRight size={18} />} 
-                {busy ? "Opening secure payment gateway..." : "Continue to payment · ₹500"}
+                {busy ? (
+                  <>
+                    <LoaderCircle className="animate-spin" size={18} />
+                    Submitting Application...
+                  </>
+                ) : (
+                  <>
+                    <ArrowRight size={18} />
+                    Submit Admission Application
+                  </>
+                )}
               </button>
-              <p className="mt-4 text-center text-xs text-[#65706a]">
-                A ₹500 registration fee is required to complete enrolment. Applications are finalized upon successful payment.
-              </p>
-              <Link to="/" className="mt-5 block text-center text-sm font-semibold text-[#b5623b] hover:text-[#954b2c]">
-                ← Return to Home
-              </Link>
-            </div>
 
-          </form>
+              <p className="mt-4 text-center text-xs text-[#65706a]">
+                By submitting, you certify that the uploaded documents and personal details are genuine.
+              </p>
+
+              <Link to="/" className="mt-5 block text-center text-sm font-semibold text-[#b5623b] hover:underline">
+                Return to home
+              </Link>
+            </form>
+          )}
         </div>
       </main>
       <Footer />
@@ -506,50 +444,191 @@ export default function AdmissionsPage() {
   );
 }
 
-function Field({ 
-  label, 
-  type = "text", 
-  value, 
-  onChange,
-  placeholder 
-}: { 
-  label: string; 
-  type?: string; 
-  value: string; 
-  onChange: (value: string) => void;
-  placeholder?: string;
-}) { 
+// Reusable Document Upload Box for Identity Proof & Caste Certificate
+function FileUploadBox({
+  label,
+  description,
+  icon,
+  fileData,
+  accept,
+  isRequired,
+  onFileSelect,
+  onDrop,
+  onRemove,
+}: {
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+  fileData: FileData;
+  accept: string;
+  isRequired?: boolean;
+  onFileSelect: (e: ChangeEvent<HTMLInputElement>) => void;
+  onDrop: (e: React.DragEvent<HTMLDivElement>) => void;
+  onRemove: () => void;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   return (
-    <label className="field">
-      <span>{label} *</span>
-      <input 
-        required 
-        type={type} 
-        value={value} 
-        onChange={event => onChange(event.target.value)} 
-        placeholder={placeholder}
+    <div className="field">
+      <span className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-[#24312d]">
+        <span className="flex items-center gap-1.5">
+          {icon}
+          {label} {isRequired && <span className="text-red-500">*</span>}
+        </span>
+        {fileData.file && (
+          <span className="text-[11px] font-normal text-emerald-600 flex items-center gap-1">
+            <CheckCircle2 size={13} /> Attached
+          </span>
+        )}
+      </span>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={accept}
+        onChange={onFileSelect}
+        className="hidden"
       />
-    </label>
-  ); 
+
+      {fileData.file || fileData.dataUrl ? (
+        <div className="flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50/40 p-3.5 transition">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+              <FileCheck size={20} />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-[#24312d]">{fileData.name}</p>
+              <p className="text-xs text-[#65706a]">{fileData.size}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="rounded-lg px-2.5 py-1 text-xs font-medium text-[#b5623b] hover:bg-[#b5623b]/10"
+            >
+              Change
+            </button>
+            <button
+              type="button"
+              onClick={onRemove}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-[#65706a] hover:bg-red-50 hover:text-red-600"
+              title="Remove file"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div
+          onClick={() => fileInputRef.current?.click()}
+          onDragOver={e => e.preventDefault()}
+          onDrop={onDrop}
+          className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#d9ddd4] bg-[#fbfaf7] p-5 text-center transition hover:border-[#b5623b] hover:bg-white"
+        >
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#b5623b]/10 text-[#b5623b]">
+            <Upload size={20} />
+          </div>
+          <p className="mt-2 text-sm font-medium text-[#24312d]">
+            Click to upload or drag & drop
+          </p>
+          <p className="mt-0.5 text-xs text-[#65706a]">{description}</p>
+        </div>
+      )}
+    </div>
+  );
 }
 
-function SelectField({ 
-  label, 
-  options, 
-  value, 
-  onChange 
-}: { 
-  label: string; 
-  options: string[]; 
-  value: string; 
-  onChange: (value: string) => void;
+// Dedicated Photo Upload Box with Instant Image Preview
+function PhotoUploadBox({
+  label,
+  description,
+  fileData,
+  isRequired,
+  onFileSelect,
+  onDrop,
+  onRemove,
+}: {
+  label: string;
+  description: string;
+  fileData: FileData;
+  isRequired?: boolean;
+  onFileSelect: (e: ChangeEvent<HTMLInputElement>) => void;
+  onDrop: (e: React.DragEvent<HTMLDivElement>) => void;
+  onRemove: () => void;
 }) {
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
   return (
-    <label className="field">
-      <span>{label} *</span>
-      <select value={value} onChange={e => onChange(e.target.value)}>
-        {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-      </select>
-    </label>
+    <div className="field">
+      <span className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-[#24312d]">
+        <span className="flex items-center gap-1.5">
+          <Camera size={15} className="text-[#b5623b]" />
+          {label} {isRequired && <span className="text-red-500">*</span>}
+        </span>
+        {fileData.dataUrl && (
+          <span className="text-[11px] font-normal text-emerald-600 flex items-center gap-1">
+            <CheckCircle2 size={13} /> Photo selected
+          </span>
+        )}
+      </span>
+
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        onChange={onFileSelect}
+        className="hidden"
+      />
+
+      {fileData.dataUrl ? (
+        <div className="flex items-center gap-4 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-3.5">
+          <img
+            src={fileData.dataUrl}
+            alt="Applicant Photo Preview"
+            className="h-16 w-16 shrink-0 rounded-xl object-cover border border-[#e2e5dc] shadow-sm"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-[#24312d]">{fileData.name}</p>
+            <p className="text-xs text-[#65706a]">{fileData.size}</p>
+            <span className="mt-1 inline-block rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+              Passport Photo Ready
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => photoInputRef.current?.click()}
+              className="rounded-lg px-2.5 py-1 text-xs font-medium text-[#b5623b] hover:bg-[#b5623b]/10"
+            >
+              Change
+            </button>
+            <button
+              type="button"
+              onClick={onRemove}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-[#65706a] hover:bg-red-50 hover:text-red-600"
+              title="Remove photo"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div
+          onClick={() => photoInputRef.current?.click()}
+          onDragOver={e => e.preventDefault()}
+          onDrop={onDrop}
+          className="flex cursor-pointer items-center gap-4 rounded-2xl border-2 border-dashed border-[#d9ddd4] bg-[#fbfaf7] p-4 transition hover:border-[#b5623b] hover:bg-white"
+        >
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#b5623b]/10 text-[#b5623b]">
+            <Camera size={24} />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-medium text-[#24312d]">Upload Passport Size Photo</p>
+            <p className="text-xs text-[#65706a]">{description}</p>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

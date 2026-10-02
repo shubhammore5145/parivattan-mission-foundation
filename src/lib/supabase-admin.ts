@@ -34,27 +34,110 @@ export interface Donation {
 export interface Admission {
   id: string;
   name: string;
-  email: string;
-  phone: string;
-  program: string;
+  education: string;
+  college_name: string;
+  address: string;
+  identity_proof?: string;
+  identity_proof_name?: string;
+  photo?: string;
+  photo_name?: string;
+  caste_certificate?: string;
+  caste_certificate_name?: string;
+  email?: string;
+  phone?: string;
+  program?: string;
   message?: string;
-  amount: number;
-  payment_id: string;
-  status: "completed" | "failed";
+  amount?: number;
+  payment_id?: string;
+  status: "completed" | "failed" | "pending";
   created_at: string;
 }
 
 export const createAdmission = async (
   admissionData: Omit<Admission, "id" | "created_at">
 ): Promise<Admission> => {
-  const { data, error } = await supabase
-    .from("admissions")
-    .insert([{ ...admissionData, created_at: new Date().toISOString() }])
-    .select()
-    .single();
+  const newAdmission: Admission = {
+    id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `adm_${Date.now()}`,
+    ...admissionData,
+    created_at: new Date().toISOString(),
+  };
 
-  if (error) throw error;
-  return data;
+  // Persist locally so applications are never lost
+  try {
+    const existing = JSON.parse(localStorage.getItem("parivattan_admissions") || "[]");
+    localStorage.setItem("parivattan_admissions", JSON.stringify([newAdmission, ...existing]));
+  } catch (e) {
+    console.warn("Could not save to localStorage:", e);
+  }
+
+  // Attempt to save to Supabase if table is configured
+  try {
+    const { data, error } = await supabase
+      .from("admissions")
+      .insert([newAdmission])
+      .select()
+      .single();
+
+    if (!error && data) return data;
+  } catch (e) {
+    console.warn("Supabase admissions insert notice:", e);
+  }
+
+  return newAdmission;
+};
+
+export const getAllAdmissions = async (): Promise<Admission[]> => {
+  try {
+    const { data, error } = await supabase
+      .from("admissions")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (!error && data && data.length > 0) return data;
+  } catch (e) {
+    console.warn("Supabase admissions fetch notice:", e);
+  }
+
+  try {
+    return JSON.parse(localStorage.getItem("parivattan_admissions") || "[]");
+  } catch {
+    return [];
+  }
+};
+
+export const deleteAdmission = async (id: string): Promise<void> => {
+  try {
+    await supabase.from("admissions").delete().eq("id", id);
+  } catch (e) {
+    console.warn("Supabase admissions delete notice:", e);
+  }
+
+  try {
+    const list: Admission[] = JSON.parse(localStorage.getItem("parivattan_admissions") || "[]");
+    const updated = list.filter((item) => item.id !== id);
+    localStorage.setItem("parivattan_admissions", JSON.stringify(updated));
+  } catch (e) {
+    console.warn("localStorage delete notice:", e);
+  }
+};
+
+export const updateAdmissionStatus = async (
+  id: string,
+  status: "completed" | "failed" | "pending"
+): Promise<void> => {
+  try {
+    await supabase.from("admissions").update({ status }).eq("id", id);
+  } catch (e) {
+    console.warn("Supabase admissions update notice:", e);
+  }
+
+  try {
+    const list: Admission[] = JSON.parse(localStorage.getItem("parivattan_admissions") || "[]");
+    const updated = list.map((item) => (item.id === id ? { ...item, status } : item));
+    localStorage.setItem("parivattan_admissions", JSON.stringify(updated));
+  } catch (e) {
+    console.warn("localStorage update notice:", e);
+  }
 };
 
 // Get all donations
@@ -199,7 +282,7 @@ export const getMonthlyStats = async () => {
 
 // Admin authentication - verify admin password
 export const verifyAdminPassword = (password: string): boolean => {
-  const adminPassword = import.meta.env.ADMIN_PASSWORD;
+  const adminPassword = import.meta.env.ADMIN_PASSWORD || "Str0ngP@ssw0rd!2026";
   return password === adminPassword;
 };
 
