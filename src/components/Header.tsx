@@ -72,8 +72,8 @@ const Header = () => {
       <div className="container mx-auto flex max-w-7xl items-center justify-between gap-5 px-4">
         <a href="#" className="flex items-center space-x-2 bg-[#fbfaf7] p-1 rounded-[10px]" onClick={handleHomeClick}>
           <img
-            className="w-[58px] sm:w-[78px] md:w-[86px] transition-all duration-300 rounded-md"
-            src="/img/parivattan.PNG"
+            className="w-[58px] sm:w-[78px] md:w-[86px] h-auto object-contain transition-all duration-300 rounded-md"
+            src="/img/parivattanE.png"
             alt="Parivattan Logo"
           />
         </a>
@@ -152,7 +152,7 @@ const Header = () => {
           <div className="flex justify-between items-center mb-8">
             <a href="/" onClick={handleHomeClick} className="flex items-center space-x-2">
               <img
-                className="w-[60px] sm:w-[80px]"
+                className="w-[60px] sm:w-[80px] h-auto object-contain"
                 src="/img/parivattanE.png"
                 alt="Parivattan Logo"
               />

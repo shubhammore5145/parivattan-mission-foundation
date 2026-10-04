@@ -19,6 +19,15 @@ import {
   Mail,
   Eye,
   Reply,
+  GraduationCap,
+  Building2,
+  MapPin,
+  Camera,
+  Award,
+  FileText,
+  ExternalLink,
+  FileCheck,
+  CheckCircle2,
 } from "lucide-react";
 import {
   getAllDonations,
@@ -37,6 +46,10 @@ import {
   Contact,
   getVisitorStats,
   VisitorStats,
+  getAllAdmissions,
+  deleteAdmission,
+  updateAdmissionStatus,
+  Admission,
 } from "@/lib/supabase-admin";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -78,10 +91,18 @@ const AdminDashboard = () => {
   });
   const [submitting, setSubmitting] = useState(false);
   const [showPieChart, setShowPieChart] = useState(false);
-  const [activeTab, setActiveTab] = useState<"donations" | "contacts">("donations");
+  const [activeTab, setActiveTab] = useState<"donations" | "contacts" | "admissions">("donations");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+
+  // Admissions State
+  const [admissions, setAdmissions] = useState<Admission[]>([]);
+  const [admissionsLoading, setAdmissionsLoading] = useState(false);
+  const [admissionsSearch, setAdmissionsSearch] = useState("");
+  const [selectedAdmission, setSelectedAdmission] = useState<Admission | null>(null);
+  const [deletingAdmissionId, setDeletingAdmissionId] = useState<string | null>(null);
+  const [viewingDoc, setViewingDoc] = useState<{ title: string; url: string; isImage: boolean } | null>(null);
   const [visitorStats, setVisitorStats] = useState<VisitorStats>({
     today: 0,
     yesterday: 0,
@@ -357,16 +378,19 @@ const AdminDashboard = () => {
     };
   }, [navigate]);
 
-  // Load donations and stats
+  // Load donations, visitor stats and admissions
   useEffect(() => {
     loadData();
     loadVisitorData();
+    loadAdmissions();
   }, []);
 
-  // Load contacts when tab changes
+  // Load data when tab changes
   useEffect(() => {
     if (activeTab === "contacts") {
       loadContacts();
+    } else if (activeTab === "admissions") {
+      loadAdmissions();
     }
   }, [activeTab]);
 
@@ -471,6 +495,112 @@ const AdminDashboard = () => {
         return "bg-gray-100 text-gray-800";
     }
   };
+
+  // Admission Handlers
+  const loadAdmissions = async () => {
+    try {
+      setAdmissionsLoading(true);
+      const list = await getAllAdmissions();
+      setAdmissions(list);
+    } catch (err) {
+      console.error("Error loading admissions:", err);
+    } finally {
+      setAdmissionsLoading(false);
+    }
+  };
+
+  const handleAdmissionStatusUpdate = async (
+    id: string,
+    status: "completed" | "pending" | "failed"
+  ) => {
+    try {
+      await updateAdmissionStatus(id, status);
+      setAdmissions((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, status } : a))
+      );
+      if (selectedAdmission && selectedAdmission.id === id) {
+        setSelectedAdmission({ ...selectedAdmission, status });
+      }
+    } catch (err) {
+      console.error("Error updating admission status:", err);
+    }
+  };
+
+  const handleDeleteAdmission = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this admission application?")) {
+      return;
+    }
+    try {
+      setDeletingAdmissionId(id);
+      await deleteAdmission(id);
+      setAdmissions((prev) => prev.filter((a) => a.id !== id));
+      if (selectedAdmission && selectedAdmission.id === id) {
+        setSelectedAdmission(null);
+      }
+    } catch (err) {
+      console.error("Error deleting admission:", err);
+    } finally {
+      setDeletingAdmissionId(null);
+    }
+  };
+
+  const exportAdmissionsToExcel = () => {
+    const headers = [
+      "Application ID",
+      "Applicant Name",
+      "Education",
+      "College Name",
+      "Address",
+      "Identity Proof Attached",
+      "Photo Attached",
+      "Caste Certificate Attached",
+      "Status",
+      "Submitted Date",
+    ];
+
+    const csvData = filteredAdmissions.map((a) => [
+      a.id,
+      a.name,
+      a.education || "",
+      a.college_name || "",
+      (a.address || "").replace(/\n/g, " "),
+      a.identity_proof ? "Yes" : "No",
+      a.photo ? "Yes" : "No",
+      a.caste_certificate ? "Yes" : "No",
+      a.status || "completed",
+      a.created_at ? new Date(a.created_at).toLocaleDateString("en-IN") : "",
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...csvData.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `admissions_${new Date().toISOString().split("T")[0]}.csv`
+    );
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const filteredAdmissions = admissions.filter((a) => {
+    if (!admissionsSearch.trim()) return true;
+    const q = admissionsSearch.toLowerCase();
+    return (
+      a.name?.toLowerCase().includes(q) ||
+      a.education?.toLowerCase().includes(q) ||
+      a.college_name?.toLowerCase().includes(q) ||
+      a.address?.toLowerCase().includes(q) ||
+      a.id?.toLowerCase().includes(q)
+    );
+  });
 
   const handleStatusUpdate = async (id: string, newStatus: "pending" | "completed" | "failed") => {
     try {
@@ -668,6 +798,16 @@ const AdminDashboard = () => {
               <p className="text-slate-500 mt-2">Manage donations, contacts and track fundraising</p>
             </div>
             <div className="flex items-center gap-3 flex-wrap">
+              <a
+                href="/admissions"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center px-4 py-2 bg-[#b5623b] text-white font-semibold rounded-lg hover:bg-[#954b2c] transition-colors shadow-sm"
+                title="Open live admission form"
+              >
+                <ExternalLink size={18} className="mr-2" />
+                Admission Form
+              </a>
               <button
                 onClick={() => setShowPieChart(true)}
                 className="flex items-center px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-lg hover:from-purple-600 hover:to-purple-700 transition-colors"
@@ -725,6 +865,22 @@ const AdminDashboard = () => {
               {contacts.filter(c => c.status === "new").length > 0 && (
                 <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
                   {contacts.filter(c => c.status === "new").length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab("admissions")}
+              className={`flex items-center gap-2 px-6 py-3 font-semibold transition-colors border-b-2 -mb-[2px] ${
+                activeTab === "admissions"
+                  ? "text-[#b5623b] border-[#b5623b]"
+                  : "text-slate-500 border-transparent hover:text-[#b5623b]"
+              }`}
+            >
+              <GraduationCap size={20} />
+              Admissions
+              {admissions.length > 0 && (
+                <span className="bg-[#b5623b] text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                  {admissions.length}
                 </span>
               )}
             </button>
@@ -1175,6 +1331,249 @@ const AdminDashboard = () => {
               )}
             </>
           )}
+
+          {/* Admissions Tab */}
+          {activeTab === "admissions" && (
+            <>
+              {admissionsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#b5623b]"></div>
+                </div>
+              ) : (
+                <>
+                  {/* Admissions Stats */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+                    <div className="bg-gradient-to-br from-amber-50 to-orange-100 rounded-xl p-6 border border-amber-200 text-center">
+                      <div className="text-sm text-amber-700 font-semibold">Total Applications</div>
+                      <div className="text-3xl font-bold text-amber-950 mt-2">
+                        {admissions.length}
+                      </div>
+                    </div>
+                    <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-xl p-6 border border-emerald-200 text-center">
+                      <div className="text-sm text-emerald-700 font-semibold">Completed / Verified</div>
+                      <div className="text-3xl font-bold text-emerald-950 mt-2">
+                        {admissions.filter(a => a.status === "completed").length}
+                      </div>
+                    </div>
+                    <div className="bg-gradient-to-br from-yellow-50 to-amber-100 rounded-xl p-6 border border-yellow-200 text-center">
+                      <div className="text-sm text-yellow-700 font-semibold">Pending Review</div>
+                      <div className="text-3xl font-bold text-yellow-950 mt-2">
+                        {admissions.filter(a => a.status === "pending").length}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions & Search */}
+                  <div className="bg-white rounded-xl border border-slate-200 p-4 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between shadow-sm">
+                    <div className="relative w-full md:w-96">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input
+                        type="text"
+                        placeholder="Search student, education, college..."
+                        value={admissionsSearch}
+                        onChange={(e) => setAdmissionsSearch(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#b5623b]"
+                      />
+                    </div>
+                    <div className="flex items-center gap-3 w-full md:w-auto justify-end flex-wrap">
+                      <button
+                        onClick={exportAdmissionsToExcel}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-green-600 text-white text-sm font-semibold rounded-lg hover:from-emerald-700 hover:to-green-700 transition-colors shadow-sm"
+                      >
+                        <Download size={16} />
+                        Export Admissions CSV
+                      </button>
+                      <a
+                        href="/admissions"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-2 bg-[#b5623b] text-white text-sm font-semibold rounded-lg hover:bg-[#954b2c] transition-colors shadow-sm"
+                      >
+                        <ExternalLink size={16} />
+                        Open Admission Form
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Admissions Table */}
+                  <div className="bg-white rounded-xl border-2 border-slate-200 overflow-hidden shadow-lg">
+                    {filteredAdmissions.length === 0 ? (
+                      <div className="p-12 text-center">
+                        <div className="inline-flex items-center justify-center w-16 h-16 bg-amber-100 rounded-full mb-4 text-[#b5623b]">
+                          <GraduationCap size={32} />
+                        </div>
+                        <p className="text-slate-800 text-lg font-semibold mb-2">No admission applications found</p>
+                        <p className="text-slate-500 text-sm max-w-md mx-auto mb-6">
+                          {admissionsSearch
+                            ? "No applications match your search query."
+                            : "New applications submitted from the website admission form will appear here with student details, photo, and documents."}
+                        </p>
+                        <a
+                          href="/admissions"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#b5623b] text-white text-sm font-semibold rounded-lg hover:bg-[#954b2c] transition"
+                        >
+                          <ExternalLink size={16} />
+                          Open Admission Form
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead className="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                              <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
+                                Applicant
+                              </th>
+                              <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
+                                Education
+                              </th>
+                              <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
+                                College Name
+                              </th>
+                              <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
+                                Documents
+                              </th>
+                              <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
+                                Status
+                              </th>
+                              <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-600">
+                                Date
+                              </th>
+                              <th className="px-5 py-3.5 text-center text-xs font-semibold uppercase tracking-wider text-slate-600">
+                                Actions
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {filteredAdmissions.map((item) => (
+                              <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                                <td className="px-5 py-4">
+                                  <div className="flex items-center gap-3">
+                                    {item.photo ? (
+                                      <img
+                                        src={item.photo}
+                                        alt={item.name}
+                                        onClick={() =>
+                                          setViewingDoc({
+                                            title: `${item.name} - Photo`,
+                                            url: item.photo!,
+                                            isImage: true,
+                                          })
+                                        }
+                                        className="h-11 w-11 rounded-full object-cover border border-slate-200 cursor-pointer shadow-sm hover:scale-105 transition"
+                                      />
+                                    ) : (
+                                      <div className="h-11 w-11 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 font-bold">
+                                        {item.name?.charAt(0) || "A"}
+                                      </div>
+                                    )}
+                                    <div>
+                                      <p className="font-semibold text-slate-900 text-sm">{item.name}</p>
+                                      <p className="text-[11px] font-mono text-slate-400 truncate max-w-[140px]">{item.id}</p>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-5 py-4 text-sm text-slate-700 font-medium">
+                                  <span className="inline-block bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md text-xs font-semibold">
+                                    {item.education || "N/A"}
+                                  </span>
+                                </td>
+                                <td className="px-5 py-4 text-sm text-slate-700 max-w-[180px] truncate" title={item.college_name}>
+                                  {item.college_name || "N/A"}
+                                </td>
+                                <td className="px-5 py-4 text-xs">
+                                  <div className="flex flex-col gap-1">
+                                    {item.identity_proof && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setViewingDoc({
+                                            title: `${item.name} - Identity Proof`,
+                                            url: item.identity_proof!,
+                                            isImage: item.identity_proof!.startsWith("data:image/"),
+                                          })
+                                        }
+                                        className="inline-flex items-center gap-1 text-emerald-700 hover:text-emerald-900 hover:underline"
+                                      >
+                                        <FileCheck size={13} /> ID Proof
+                                      </button>
+                                    )}
+                                    {item.caste_certificate && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setViewingDoc({
+                                            title: `${item.name} - Caste Certificate`,
+                                            url: item.caste_certificate!,
+                                            isImage: item.caste_certificate!.startsWith("data:image/"),
+                                          })
+                                        }
+                                        className="inline-flex items-center gap-1 text-amber-700 hover:text-amber-900 hover:underline"
+                                      >
+                                        <Award size={13} /> Caste Cert.
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-5 py-4">
+                                  <select
+                                    value={item.status || "completed"}
+                                    onChange={(e) =>
+                                      handleAdmissionStatusUpdate(item.id, e.target.value as any)
+                                    }
+                                    className={`text-xs font-semibold rounded-lg px-2.5 py-1.5 border border-slate-200 ${
+                                      item.status === "completed"
+                                        ? "bg-green-50 text-green-700"
+                                        : item.status === "pending"
+                                        ? "bg-yellow-50 text-yellow-700"
+                                        : "bg-red-50 text-red-700"
+                                    }`}
+                                  >
+                                    <option value="completed">Completed / Verified</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="failed">Rejected</option>
+                                  </select>
+                                </td>
+                                <td className="px-5 py-4 text-xs text-slate-500 whitespace-nowrap">
+                                  {item.created_at ? new Date(item.created_at).toLocaleDateString("en-IN") : "-"}
+                                </td>
+                                <td className="px-5 py-4 text-center">
+                                  <div className="flex items-center justify-center gap-1">
+                                    <button
+                                      onClick={() => setSelectedAdmission(item)}
+                                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                                      title="View Full Application"
+                                    >
+                                      <Eye size={18} />
+                                    </button>
+                                    <button
+                                      disabled={deletingAdmissionId === item.id}
+                                      onClick={() => handleDeleteAdmission(item.id)}
+                                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition disabled:opacity-50"
+                                      title="Delete Application"
+                                    >
+                                      <Trash2 size={18} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Results Summary */}
+                  <div className="mt-6 text-center text-sm text-slate-500">
+                    Showing {filteredAdmissions.length} of {admissions.length} admission applications
+                  </div>
+                </>
+              )}
+            </>
+          )}
         </div>
       </div>
 
@@ -1254,6 +1653,253 @@ const AdminDashboard = () => {
                   </a>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admission Detail Modal */}
+      {selectedAdmission && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-200">
+            <div className="sticky top-0 flex justify-between items-center p-6 border-b border-slate-200 bg-white z-10">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-[#b5623b]">
+                  <GraduationCap size={22} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-serif font-bold text-slate-800">
+                    Admission Application Details
+                  </h2>
+                  <p className="text-xs text-slate-500 font-mono">ID: {selectedAdmission.id}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedAdmission(null)}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Applicant Profile */}
+              <div className="flex items-center gap-4 rounded-2xl bg-[#fbfaf7] p-4 border border-slate-200">
+                {selectedAdmission.photo ? (
+                  <img
+                    src={selectedAdmission.photo}
+                    alt={selectedAdmission.name}
+                    className="h-20 w-20 rounded-2xl object-cover border border-slate-200 shadow-sm cursor-pointer hover:opacity-90"
+                    onClick={() =>
+                      setViewingDoc({
+                        title: `${selectedAdmission.name} - Photo`,
+                        url: selectedAdmission.photo!,
+                        isImage: true,
+                      })
+                    }
+                  />
+                ) : (
+                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-amber-100 text-[#b5623b] text-2xl font-bold">
+                    {selectedAdmission.name?.charAt(0) || "A"}
+                  </div>
+                )}
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-slate-900">{selectedAdmission.name}</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Submitted on:{" "}
+                    {selectedAdmission.created_at
+                      ? new Date(selectedAdmission.created_at).toLocaleString("en-IN")
+                      : "-"}
+                  </p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-600">Status:</span>
+                    <select
+                      value={selectedAdmission.status || "completed"}
+                      onChange={(e) =>
+                        handleAdmissionStatusUpdate(selectedAdmission.id, e.target.value as any)
+                      }
+                      className="text-xs font-semibold rounded-md px-2.5 py-1 border border-slate-300 bg-white"
+                    >
+                      <option value="completed">Completed / Verified</option>
+                      <option value="pending">Pending</option>
+                      <option value="failed">Rejected</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Education & College */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-xl border border-slate-200 p-4 bg-slate-50/50">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Education</p>
+                  <p className="mt-1 text-base font-semibold text-slate-900">{selectedAdmission.education || "N/A"}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200 p-4 bg-slate-50/50">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">College Name</p>
+                  <p className="mt-1 text-base font-semibold text-slate-900">{selectedAdmission.college_name || "N/A"}</p>
+                </div>
+              </div>
+
+              {/* Address */}
+              <div className="rounded-xl border border-slate-200 p-4 bg-slate-50/50">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Residential Address</p>
+                <p className="mt-1 text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">{selectedAdmission.address || "N/A"}</p>
+              </div>
+
+              {/* Uploaded Documents */}
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-3">Attached Documents</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Photo */}
+                  <div className="rounded-xl border border-slate-200 p-3 bg-white flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                        <Camera size={14} className="text-[#b5623b]" />
+                        Photo
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1 truncate">
+                        {selectedAdmission.photo_name || "Passport Photo"}
+                      </p>
+                    </div>
+                    {selectedAdmission.photo ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setViewingDoc({
+                            title: `${selectedAdmission.name} - Photo`,
+                            url: selectedAdmission.photo!,
+                            isImage: true,
+                          })
+                        }
+                        className="mt-3 w-full rounded-lg bg-amber-50 px-2 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100 transition text-center"
+                      >
+                        View Photo
+                      </button>
+                    ) : (
+                      <span className="mt-3 text-xs text-slate-400 italic">Not available</span>
+                    )}
+                  </div>
+
+                  {/* Identity Proof */}
+                  <div className="rounded-xl border border-slate-200 p-3 bg-white flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                        <FileText size={14} className="text-emerald-600" />
+                        Identity Proof
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1 truncate">
+                        {selectedAdmission.identity_proof_name || "Identity Document"}
+                      </p>
+                    </div>
+                    {selectedAdmission.identity_proof ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setViewingDoc({
+                            title: `${selectedAdmission.name} - Identity Proof`,
+                            url: selectedAdmission.identity_proof!,
+                            isImage: selectedAdmission.identity_proof!.startsWith("data:image/"),
+                          })
+                        }
+                        className="mt-3 w-full rounded-lg bg-emerald-50 px-2 py-1.5 text-xs font-medium text-emerald-800 hover:bg-emerald-100 transition text-center"
+                      >
+                        View Document
+                      </button>
+                    ) : (
+                      <span className="mt-3 text-xs text-slate-400 italic">Not available</span>
+                    )}
+                  </div>
+
+                  {/* Caste Certificate */}
+                  <div className="rounded-xl border border-slate-200 p-3 bg-white flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                        <Award size={14} className="text-[#b5623b]" />
+                        Caste Certificate
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1 truncate">
+                        {selectedAdmission.caste_certificate_name || "Caste Certificate"}
+                      </p>
+                    </div>
+                    {selectedAdmission.caste_certificate ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setViewingDoc({
+                            title: `${selectedAdmission.name} - Caste Certificate`,
+                            url: selectedAdmission.caste_certificate!,
+                            isImage: selectedAdmission.caste_certificate!.startsWith("data:image/"),
+                          })
+                        }
+                        className="mt-3 w-full rounded-lg bg-amber-50 px-2 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100 transition text-center"
+                      >
+                        View Document
+                      </button>
+                    ) : (
+                      <span className="mt-3 text-xs text-slate-400 italic">Not available</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-between pt-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => handleDeleteAdmission(selectedAdmission.id)}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-600 hover:text-red-700"
+                >
+                  <Trash2 size={15} /> Delete Application
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedAdmission(null)}
+                  className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document / Photo Viewer Modal */}
+      {viewingDoc && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
+            <div className="flex justify-between items-center p-4 border-b border-slate-200 bg-slate-50">
+              <h3 className="font-semibold text-slate-800 text-sm truncate max-w-[400px]">{viewingDoc.title}</h3>
+              <div className="flex items-center gap-2">
+                <a
+                  href={viewingDoc.url}
+                  download={viewingDoc.title}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition"
+                >
+                  <Download size={14} /> Download
+                </a>
+                <button
+                  onClick={() => setViewingDoc(null)}
+                  className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-600 transition"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+            <div className="p-4 flex-1 overflow-auto flex items-center justify-center bg-slate-900/5 min-h-[300px]">
+              {viewingDoc.isImage ? (
+                <img
+                  src={viewingDoc.url}
+                  alt={viewingDoc.title}
+                  className="max-h-[70vh] max-w-full rounded-lg object-contain shadow"
+                />
+              ) : (
+                <iframe
+                  src={viewingDoc.url}
+                  title={viewingDoc.title}
+                  className="w-full h-[70vh] rounded-lg border-0"
+                />
+              )}
             </div>
           </div>
         </div>
