@@ -14,10 +14,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
-  Heart,
-  Quote,
-  Pause,
-  Play,
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -27,64 +23,34 @@ import { toast } from "sonner";
 interface CommunitySlide {
   id: number;
   image: string;
-  category: string;
-  badge: string;
   tagline: string;
-  subtext: string;
-  quote: string;
-  location: string;
 }
 
 const COMMUNITY_SLIDES: CommunitySlide[] = [
   {
     id: 1,
     image: "/img/slides/slide1.jpg",
-    category: "Zero Hunger & Sustenance",
-    badge: "SDG 2 • Food Security",
     tagline: "Nourishing Every Household with Care & Dignity",
-    subtext: "Ensuring daily nutrition, wholesome meals, and foundational sustenance for children and families across rural settlements in Maharashtra.",
-    quote: "“No child should ever have to study or sleep on an empty stomach.”",
-    location: "Rural Dharashiv & Marathwada",
   },
   {
     id: 2,
     image: "/img/slides/slide2.jpg",
-    category: "Universal Quality Education",
-    badge: "SDG 4 • Inclusive Classrooms",
     tagline: "Every Child Deserves a Classroom and a Reason to Smile",
-    subtext: "Unlocking bright futures through foundational literacy, inclusive care, and language learning pathways for rural youth.",
-    quote: "“Education is the single most powerful tool to break generational poverty.”",
-    location: "Grassroots Learning Centers",
   },
   {
     id: 3,
     image: "/img/slides/slide3.jpg",
-    category: "Maternal & Child Well-Being",
-    badge: "SDG 5 • Family Empowerment",
     tagline: "Empowering Mothers, Securing the Next Generation",
-    subtext: "Grassroots community initiatives supporting mothers, adolescent daughters, and safe early childhood nurturing spaces.",
-    quote: "“When you empower a mother, you uplift an entire village.”",
-    location: "Community Hamlets & Outreaches",
   },
   {
     id: 4,
     image: "/img/slides/slide4.jpg",
-    category: "Livelihood & Traditional Heritage",
-    badge: "SDG 8 • Economic Self-Reliance",
     tagline: "Preserving Traditional Crafts, Building Self-Reliant Livelihoods",
-    subtext: "Supporting rural artisans and families with vocational skill training, financial awareness, and sustainable market access.",
-    quote: "“Dignity of labor and sustainable self-reliance for every rural household.”",
-    location: "Rural Artisan Clusters",
   },
   {
     id: 5,
     image: "/img/slides/slide5.jpg",
-    category: "Youth Potential & Skill Pathways",
-    badge: "SDG 10 • Equal Opportunity",
     tagline: "Transforming Hardship into Opportunity Through Practical Education",
-    subtext: "Creating accredited learning and career pathways so every child can step beyond hardship into a world of opportunities.",
-    quote: "“Opening doors to higher education and promising global career paths.”",
-    location: "Youth Career Initiatives",
   },
 ];
 
@@ -180,271 +146,131 @@ export default function ContactPage() {
     <div className="min-h-screen bg-[#fbfaf7] text-[#24312d] selection:bg-[#b5623b]/20">
       <Header />
 
-      <main className="pt-24 md:pt-28">
-        {/* Antara Style: Full-width Hero Banner with Overlaid Block */}
-        <section className="relative w-full h-[340px] md:h-[440px] overflow-hidden bg-[#24312d]">
-          {/* Background Image with Atmospheric Overlay */}
-          <img
-            src="/img/hero.jpg"
-            alt="Parivattan Mission Foundation Contact"
-            className="w-full h-full object-cover object-center opacity-45 transform scale-105"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#24312d]/90 via-[#24312d]/60 to-[#24312d]/40 pointer-events-none" />
-
-          {/* Antara Signature Solid Overlaid Box on Banner */}
-          <div className="container mx-auto px-4 sm:px-6 lg:px-8 h-full relative z-10 flex flex-col justify-end pb-10 md:pb-14">
-            {/* Breadcrumb */}
-            <div className="flex items-center gap-2 text-xs text-stone-300 mb-4">
-              <Link to="/" className="hover:text-[#f2c5a8] transition">
-                Home
-              </Link>
-              <ChevronRight size={13} />
-              <span className="text-[#f2c5a8] font-semibold">Contact Us</span>
+      <main className="pt-28 md:pt-36">
+        {/* Top Contact Header & Community Photo Showcase */}
+        <section className="pb-8">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-6xl">
+            {/* Breadcrumb & Section Header */}
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 text-xs text-stone-500 mb-3">
+                  <Link to="/" className="hover:text-[#b5623b] transition">
+                    Home
+                  </Link>
+                  <ChevronRight size={13} className="text-stone-400" />
+                  <span className="text-[#b5623b] font-semibold">Contact Us</span>
+                </div>
+                <div className="inline-block bg-[#b5623b] text-white px-7 py-3.5 shadow-md rounded-tr-2xl rounded-bl-sm">
+                  <span className="text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] text-[#f2c5a8] block mb-0.5">
+                    Get In Touch
+                  </span>
+                  <h1 className="text-2xl md:text-4xl font-serif font-bold tracking-tight text-white m-0">
+                    Contact Us
+                  </h1>
+                </div>
+              </div>
+              <p className="text-stone-600 text-xs sm:text-sm max-w-md leading-relaxed font-sans">
+                Connect directly with our Dharashiv administrative office or reach our grassroots educational initiative helpline.
+              </p>
             </div>
 
-            {/* Antara Style Overlaid Box (.bannertextarea-2) */}
-            <div className="inline-block self-start bg-[#b5623b] text-white px-8 py-5 md:px-12 md:py-6 shadow-2xl rounded-tr-3xl rounded-bl-sm">
-              <span className="text-[11px] md:text-xs font-bold uppercase tracking-[0.2em] text-[#f2c5a8] block mb-1">
-                Get In Touch
-              </span>
-              <h1 className="text-3xl md:text-5xl font-serif font-bold tracking-tight text-white m-0">
-                Contact Us
-              </h1>
+            {/* Photo Showcase Viewport - Handles all photo ratios without cutting heads/bodies */}
+            <div
+              className="relative w-full h-[380px] sm:h-[460px] md:h-[520px] rounded-3xl overflow-hidden bg-[#18221f] flex items-center justify-center border border-stone-200/60 shadow-xl group"
+              onMouseEnter={() => setIsAutoPlaying(false)}
+              onMouseLeave={() => setIsAutoPlaying(true)}
+            >
+              {/* Ambient Blurred Background Layer (smoothly fills any letterbox space) */}
+              {COMMUNITY_SLIDES.map((slide, index) => (
+                <div
+                  key={`bg-${slide.id}`}
+                  className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                    index === currentSlide ? "opacity-35" : "opacity-0 pointer-events-none"
+                  }`}
+                >
+                  <img
+                    src={slide.image}
+                    alt=""
+                    aria-hidden="true"
+                    className="w-full h-full object-cover blur-3xl scale-125"
+                  />
+                  <div className="absolute inset-0 bg-black/25 pointer-events-none" />
+                </div>
+              ))}
+
+              {/* Sharp Centered Slide Image (object-contain ensures complete, uncropped photo) */}
+              {COMMUNITY_SLIDES.map((slide, index) => (
+                <div
+                  key={slide.id}
+                  className={`absolute inset-0 p-3 sm:p-5 flex items-center justify-center transition-opacity duration-1000 ease-in-out ${
+                    index === currentSlide ? "opacity-100 z-10" : "opacity-0 pointer-events-none"
+                  }`}
+                >
+                  <img
+                    src={slide.image}
+                    alt={slide.tagline}
+                    className="max-h-full max-w-full object-contain rounded-2xl shadow-2xl transition-all duration-700 select-none"
+                  />
+                </div>
+              ))}
+
+              {/* Slider Navigation Arrows */}
+              <div className="absolute top-1/2 -translate-y-1/2 inset-x-3 sm:inset-x-5 flex justify-between z-20 pointer-events-none">
+                <button
+                  type="button"
+                  onClick={handlePrevSlide}
+                  className="pointer-events-auto w-10 h-10 rounded-full bg-black/50 hover:bg-[#b5623b] backdrop-blur-md border border-white/20 text-white flex items-center justify-center transition-all duration-200 shadow-md hover:scale-105 cursor-pointer"
+                  aria-label="Previous photo"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNextSlide}
+                  className="pointer-events-auto w-10 h-10 rounded-full bg-black/50 hover:bg-[#b5623b] backdrop-blur-md border border-white/20 text-white flex items-center justify-center transition-all duration-200 shadow-md hover:scale-105 cursor-pointer"
+                  aria-label="Next photo"
+                >
+                  <ChevronRight size={20} />
+                </button>
+              </div>
+
+              {/* Slide Counter Badge (Top Right) */}
+              <div className="absolute top-4 right-4 z-20">
+                <span className="px-3 py-1 rounded-full text-xs font-mono font-bold backdrop-blur-md bg-black/60 text-white border border-white/20">
+                  {currentSlide + 1} / {COMMUNITY_SLIDES.length}
+                </span>
+              </div>
+            </div>
+
+            {/* Clean Tagline Bar directly below the photo */}
+            <div className="mt-3.5 rounded-2xl bg-[#24312d] text-white py-3.5 px-5 sm:px-7 shadow-md border border-stone-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                <p className="font-serif italic text-sm sm:text-base text-stone-100 font-medium truncate">
+                  “{COMMUNITY_SLIDES[currentSlide].tagline}”
+                </p>
+              </div>
+              {/* Dots */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {COMMUNITY_SLIDES.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setCurrentSlide(idx)}
+                    className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                      idx === currentSlide ? "w-6 bg-[#e5a37f]" : "w-2 bg-white/40 hover:bg-white/70"
+                    }`}
+                    aria-label={`Go to photo ${idx + 1}`}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </section>
 
         {/* Antara Style: Main Contact Content */}
-        <section className="py-16 md:py-24">
+        <section className="py-12 md:py-20">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-6xl">
-            {/* Top Automatic Slideshow with Prominent Taglines */}
-            <div className="mb-16 sm:mb-20">
-              {/* Section Sub-Header for Community Impact */}
-              <div className="text-center max-w-3xl mx-auto mb-8 sm:mb-10">
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#b5623b]/10 text-[#b5623b] text-xs font-bold uppercase tracking-wider mb-3">
-                  <Sparkles size={14} className="text-[#b5623b]" />
-                  <span>Grassroots Voices & Ground Reality</span>
-                </div>
-                <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold text-[#24312d] tracking-tight">
-                  Moments of Hope & Transformation
-                </h2>
-                <p className="mt-3 text-stone-600 text-sm sm:text-base leading-relaxed">
-                  Every outreach initiative is rooted in real communities. Witness the lives touched, meals shared, and futures shaped through our mission.
-                </p>
-              </div>
-
-              {/* Carousel Viewport Card */}
-              <div
-                className="relative w-full h-[360px] sm:h-[440px] md:h-[500px] lg:h-[540px] rounded-3xl overflow-hidden border border-stone-200 shadow-2xl bg-[#1c2623] group"
-                onMouseEnter={() => setIsAutoPlaying(false)}
-                onMouseLeave={() => setIsAutoPlaying(true)}
-              >
-                {/* Ambient Glow Background Layer */}
-                {COMMUNITY_SLIDES.map((slide, index) => (
-                  <div
-                    key={`bg-${slide.id}`}
-                    className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-                      index === currentSlide ? "opacity-35" : "opacity-0 pointer-events-none"
-                    }`}
-                  >
-                    <img
-                      src={slide.image}
-                      alt=""
-                      aria-hidden="true"
-                      className="w-full h-full object-cover blur-3xl scale-125"
-                    />
-                  </div>
-                ))}
-
-                {/* Main Crisp Slide Images */}
-                {COMMUNITY_SLIDES.map((slide, index) => (
-                  <div
-                    key={slide.id}
-                    className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-                      index === currentSlide ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"
-                    }`}
-                  >
-                    <img
-                      src={slide.image}
-                      alt={slide.tagline}
-                      className="w-full h-full object-cover object-center transform transition-transform duration-7000 ease-out scale-100 group-hover:scale-105"
-                    />
-
-                    {/* Subtle Cinematic Vignette */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#1c2623]/80 via-transparent to-black/30" />
-
-                    {/* Top Badge Overlay */}
-                    <div className="absolute top-5 left-5 sm:top-7 sm:left-7 z-20 flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-bold uppercase tracking-wider backdrop-blur-md bg-white/95 text-[#24312d] shadow-sm border border-white/60">
-                        <Heart size={12} className="text-[#b5623b] fill-[#b5623b]" />
-                        <span>{slide.badge}</span>
-                      </span>
-                      <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium backdrop-blur-md bg-black/45 text-stone-200 border border-white/20">
-                        <MapPin size={11} className="text-[#e5a37f]" />
-                        <span>{slide.location}</span>
-                      </span>
-                    </div>
-
-                    {/* Top Right Counter Pill */}
-                    <div className="absolute top-5 right-5 sm:top-7 sm:right-7 z-20">
-                      <span className="px-3.5 py-1 rounded-full text-xs font-mono font-bold backdrop-blur-md bg-black/55 text-white border border-white/20">
-                        {String(index + 1).padStart(2, "0")} / {String(COMMUNITY_SLIDES.length).padStart(2, "0")}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-
-                {/* Navigation Arrows */}
-                <div className="absolute top-1/2 -translate-y-1/2 inset-x-4 sm:inset-x-6 flex justify-between z-30 pointer-events-none">
-                  <button
-                    type="button"
-                    onClick={handlePrevSlide}
-                    className="pointer-events-auto w-11 h-11 rounded-full bg-black/50 hover:bg-[#b5623b] backdrop-blur-md border border-white/25 text-white flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110 cursor-pointer"
-                    aria-label="Previous slide"
-                  >
-                    <ChevronLeft size={22} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleNextSlide}
-                    className="pointer-events-auto w-11 h-11 rounded-full bg-black/50 hover:bg-[#b5623b] backdrop-blur-md border border-white/25 text-white flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110 cursor-pointer"
-                    aria-label="Next slide"
-                  >
-                    <ChevronRight size={22} />
-                  </button>
-                </div>
-
-                {/* Bottom Progress Bar inside image frame */}
-                <div className="absolute bottom-0 inset-x-0 h-1.5 bg-black/30 z-30 overflow-hidden">
-                  <div
-                    className="h-full bg-[#e5a37f] transition-all duration-500 ease-out"
-                    style={{
-                      width: `${((currentSlide + 1) / COMMUNITY_SLIDES.length) * 100}%`,
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* DEDICATED TAGLINE & NARRATIVE CARD DIRECTLY BELOW THE IMAGE */}
-              <div className="mt-4 rounded-3xl bg-white border border-stone-200/90 p-6 sm:p-8 md:p-9 shadow-lg">
-                <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-                  {/* Left Column: Tagline, Narrative & Quote */}
-                  <div className="flex-1 space-y-4">
-                    {/* Meta Category Pill */}
-                    <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <span className="font-bold text-[#b5623b] uppercase tracking-wider bg-[#b5623b]/10 px-3 py-1 rounded-full">
-                        {COMMUNITY_SLIDES[currentSlide].category}
-                      </span>
-                      <span className="text-stone-300">•</span>
-                      <span className="text-stone-600 font-semibold">
-                        {COMMUNITY_SLIDES[currentSlide].badge}
-                      </span>
-                      <span className="text-stone-300">•</span>
-                      <span className="text-stone-400">
-                        {COMMUNITY_SLIDES[currentSlide].location}
-                      </span>
-                    </div>
-
-                    {/* Big Bold Tagline */}
-                    <h3 className="text-2xl sm:text-3xl md:text-3xl font-serif font-bold text-[#24312d] leading-snug tracking-tight">
-                      {COMMUNITY_SLIDES[currentSlide].tagline}
-                    </h3>
-
-                    {/* Subtext description */}
-                    <p className="text-stone-600 text-sm sm:text-base leading-relaxed max-w-3xl">
-                      {COMMUNITY_SLIDES[currentSlide].subtext}
-                    </p>
-
-                    {/* Quote Callout */}
-                    <div className="p-4 rounded-2xl bg-amber-50/70 border-l-4 border-[#b5623b] flex items-start gap-3">
-                      <Quote size={20} className="text-[#b5623b] shrink-0 rotate-180 mt-0.5" />
-                      <p className="text-xs sm:text-sm font-serif italic text-[#783e25] leading-relaxed">
-                        {COMMUNITY_SLIDES[currentSlide].quote}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Right Column: Slide Progress Status & Toggle */}
-                  <div className="md:w-56 shrink-0 flex flex-col justify-between p-4 rounded-2xl bg-stone-50 border border-stone-200/70">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-xs font-semibold text-stone-700">
-                        <span>Story Progress</span>
-                        <span className="font-mono text-[#b5623b] font-bold">
-                          {currentSlide + 1} / {COMMUNITY_SLIDES.length}
-                        </span>
-                      </div>
-                      <div className="w-full bg-stone-200 h-2 rounded-full overflow-hidden">
-                        <div
-                          className="bg-[#b5623b] h-full transition-all duration-300"
-                          style={{
-                            width: `${((currentSlide + 1) / COMMUNITY_SLIDES.length) * 100}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="mt-4 pt-3 border-t border-stone-200 text-xs text-stone-500 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <span className={`h-2.5 w-2.5 rounded-full ${isAutoPlaying ? "bg-emerald-500 animate-pulse" : "bg-stone-400"}`} />
-                        <span className="text-[11px] font-medium text-stone-600">
-                          {isAutoPlaying ? "Auto-cycling every 4.5s" : "Paused on hover"}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setIsAutoPlaying(!isAutoPlaying)}
-                        className="w-full py-1.5 px-3 rounded-lg border border-stone-300 hover:border-[#b5623b] text-stone-700 hover:text-[#b5623b] text-[11px] font-semibold flex items-center justify-center gap-1.5 transition bg-white cursor-pointer"
-                      >
-                        {isAutoPlaying ? (
-                          <>
-                            <Pause size={12} />
-                            <span>Pause Slideshow</span>
-                          </>
-                        ) : (
-                          <>
-                            <Play size={12} />
-                            <span>Resume Slideshow</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 5 Clickable Image Thumbnails Bar */}
-                <div className="mt-6 pt-6 border-t border-stone-200 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-                  {COMMUNITY_SLIDES.map((slide, idx) => (
-                    <button
-                      key={slide.id}
-                      type="button"
-                      onClick={() => setCurrentSlide(idx)}
-                      className={`group text-left p-2 rounded-2xl border transition-all duration-300 flex items-center gap-3 cursor-pointer ${
-                        idx === currentSlide
-                          ? "border-[#b5623b] bg-amber-50/60 shadow-sm ring-2 ring-[#b5623b]/25"
-                          : "border-stone-200 bg-white hover:border-stone-300 hover:bg-stone-50"
-                      }`}
-                    >
-                      <img
-                        src={slide.image}
-                        alt={slide.tagline}
-                        className="w-12 h-12 rounded-xl object-cover shrink-0"
-                      />
-                      <div className="min-w-0">
-                        <span className={`block text-[10px] font-bold uppercase tracking-wider truncate ${
-                          idx === currentSlide ? "text-[#b5623b]" : "text-stone-500"
-                        }`}>
-                          Story {String(idx + 1).padStart(2, "0")}
-                        </span>
-                        <span className="block text-xs font-semibold text-stone-900 truncate">
-                          {slide.category.split(" ")[0]}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
             {/* Row 1: Location & Map (Left) + Contact Details (Right) */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 mb-16 md:mb-24 items-stretch">
               {/* Left Column: Location & Google Map */}
