@@ -1,14 +1,16 @@
 import React, { useEffect } from "react";
 import Header from "../components/Header";
-import WelcomeModal from "../components/WelcomeModal";
-
 import Hero from "../components/Hero";
+import OurImpact from "../components/home/OurImpact";
 import Mission from "../components/Mission";
-import Services from "../components/Services";
-import Contact from "../components/Contact";
-import Donate from "../components/Donate";
+import OurProgrammes from "../components/home/OurProgrammes";
+import HomeCoursesSection from "../components/HomeCoursesSection";
+import WhyChooseUs from "../components/home/WhyChooseUs";
+import HowItWorks from "../components/home/HowItWorks";
 import Testimonials from "../components/Testimonials";
-import Volunteer from "../components/Volunteer";
+import HomeFaq from "../components/home/HomeFaq";
+import Donate from "../components/Donate";
+import Contact from "../components/Contact";
 import Footer from "../components/Footer";
 import { logVisitor } from "@/lib/supabase-admin";
 
@@ -52,16 +54,19 @@ const Index = () => {
   }, []);
 
   return (
-    <div className="min-h-screen overflow-hidden">
-      {/* <WelcomeModal /> */}
+    <div className="min-h-screen overflow-hidden bg-[#fbfaf7]">
       <Header />
       <Hero />
+      <OurImpact />
       <Mission />
+      <OurProgrammes />
+      <HomeCoursesSection />
+      <WhyChooseUs />
+      <HowItWorks />
+      <Testimonials />
+      <HomeFaq />
       <Donate />
-      {/* <Services /> */}
-      {/* <Testimonials /> */}
-      {/* <Volunteer /> */}
-      <Contact/>
+      <Contact />
       <Footer />
     </div>
   );

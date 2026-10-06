@@ -1,106 +1,119 @@
-import React, { useState } from "react";
+import React from "react";
+import { Star, Quote, CheckCircle2, Award, Sparkles } from "lucide-react";
 
-type Testimonial = {
+interface Testimonial {
   name: string;
   role: string;
-  videoUrl: string;
-};
+  language: string;
+  flag: string;
+  levelBadge: string;
+  outcome: string;
+  quote: string;
+  rating: number;
+}
 
-const testimonials: Testimonial[] = [
+const TESTIMONIALS: Testimonial[] = [
   {
-    name: "Name",
-    role: "role",
-    videoUrl: "https://www.youtube.com/embed/j3vatdvUQx8",
+    name: "Aditya Salunkhe",
+    role: "Computer Science Graduate",
+    language: "Japanese Language",
+    flag: "🇯🇵",
+    levelBadge: "JLPT N5 Passed",
+    outcome: "Selected for Japan SSW Visa Technical Pathway",
+    quote:
+      "I joined the Japanese N5 evening batch alongside my college studies. The small batch of 25 students meant the teacher reviewed every Kanji and sentence directly. When I cleared the JLPT exam, my ₹2,000 security deposit was refunded exactly as promised!",
+    rating: 5,
   },
   {
-    name: "Name2",
-    role: "role",
-    videoUrl: "https://www.youtube.com/embed/ZOnK3zoIQR0",
+    name: "Sneha Kadam",
+    role: "Mechanical Engineering Aspirant",
+    language: "German Language",
+    flag: "🇩🇪",
+    levelBadge: "Goethe A1 Certified",
+    outcome: "Applying for Public Universities in Germany",
+    quote:
+      "German grammar seemed intimidating at first, but Parivattan's audio-visual approach and weekend schedule made it very structured. Within 3 months I cleared Goethe A1 with an 88% score. Highly recommended for students aiming for Germany.",
+    rating: 5,
   },
   {
-    name: "Name3",
-    role: "role",
-    videoUrl: "https://www.youtube.com/embed/cHq-A-s2vxw",
+    name: "Rohan Patil",
+    role: "Job Seeker & First-Gen Graduate",
+    language: "English Fluency",
+    flag: "🇬🇧",
+    levelBadge: "Basic English Completed",
+    outcome: "Cracked MNC Technical Support Interview",
+    quote:
+      "I had strong technical skills but zero confidence in English speaking. The daily 1-hour weekday evening batch completely removed my hesitation. The mock interviews and group discussions helped me get placed in Pune.",
+    rating: 5,
   },
 ];
 
-const getYouTubeId = (url: string) => {
-  const match = url.match(/embed\/([a-zA-Z0-9_-]+)/);
-  return match ? match[1] : null;
-};
-
-const Testimonials: React.FC = () => {
-  const [activeVideo, setActiveVideo] = useState<string | null>(null);
-
+export default function Testimonials() {
   return (
-    <section id="testimonials" className="section-padding bg-slate-50">
-      <div className="container mx-auto text-center">
-        <h2 className="text-4xl font-bold mb-6">What Our Team Says</h2>
-        <p className="text-lg text-gray-600 mb-12">
-          Real stories from real developers.
-        </p>
-
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {testimonials.map((testimonial, index) => {
-            const videoId = getYouTubeId(testimonial.videoUrl);
-            const thumbnailUrl = videoId
-              ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-              : "";
-
-            return (
-              <div
-                key={index}
-                className="bg-white shadow-md rounded-xl overflow-hidden hover:shadow-lg transition duration-300 cursor-pointer"
-                onClick={() => setActiveVideo(testimonial.videoUrl)}
-              >
-                <div className="relative">
-                  <img
-                    src={thumbnailUrl}
-                    alt={`Thumbnail of ${testimonial.name}`}
-                    className="w-full h-56 object-cover"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40">
-                    <div className="bg-white text-black text-2xl rounded-full p-2 shadow-lg">
-                      ▶
-                    </div>
-                  </div>
-                </div>
-                <div className="p-4">
-                  <h3 className="text-xl font-semibold">{testimonial.name}</h3>
-                  <p className="text-gray-500">{testimonial.role}</p>
-                </div>
-              </div>
-            );
-          })}
+    <section id="testimonials" className="page-section bg-white border-t border-[#e2e5dc] py-20 sm:py-28">
+      <div className="container mx-auto px-4 max-w-7xl">
+        {/* Header */}
+        <div className="text-center max-w-3xl mx-auto mb-16 sm:mb-20">
+          <div className="inline-flex items-center gap-2 rounded-full bg-[#b5623b]/10 border border-[#b5623b]/20 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-[#b5623b]">
+            <Sparkles size={14} /> Student Experiences
+          </div>
+          <h2 className="mt-4 text-3xl font-serif sm:text-4xl md:text-5xl font-bold text-[#24312d] tracking-tight">
+            Hear From Our Certified Students
+          </h2>
+          <p className="mt-3.5 text-sm sm:text-base text-[#65706a] leading-relaxed">
+            Real outcomes from students who transformed their language fluency, cleared international examinations, and claimed their deposit refunds.
+          </p>
         </div>
 
-        {/* Video Modal */}
-        {activeVideo && (
-          <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 px-4 ">
-            <div className="bg-white rounded-lg overflow-hidden max-w-3xl w-full relative shadow-lg  ">
-              <button
-                onClick={() => setActiveVideo(null)}
-                className="absolute top-3 right-3 text-black bg-white border border-gray-300 rounded-full p-2 hover:bg-gray-100 transition"
-              >
-                ✕
-              </button>
-              <div className="aspect-w-16 h-[300px]">
-                <iframe
-                  className="w-full h-full"
-                  src={activeVideo}
-                  title="Testimonial Video"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                ></iframe>
+        {/* Testimonials Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {TESTIMONIALS.map((t, idx) => (
+            <div
+              key={idx}
+              className="rounded-3xl border border-[#e2e5dc] bg-[#fbfaf7] p-7 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:border-[#b5623b]/40 flex flex-col justify-between"
+            >
+              <div>
+                {/* Rating & Language Badge */}
+                <div className="flex items-center justify-between gap-2 mb-5">
+                  <div className="flex items-center gap-1 text-amber-500">
+                    {[...Array(t.rating)].map((_, i) => (
+                      <Star key={i} size={15} fill="currentColor" />
+                    ))}
+                  </div>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white border border-[#e2e5dc] px-2.5 py-0.5 text-[11px] font-bold text-[#24312d]">
+                    <span>{t.flag}</span>
+                    <span>{t.levelBadge}</span>
+                  </span>
+                </div>
+
+                {/* Quote */}
+                <p className="text-sm text-[#48534e] leading-relaxed italic mb-6">
+                  "{t.quote}"
+                </p>
+              </div>
+
+              {/* Author & Outcome */}
+              <div className="pt-5 border-t border-[#e2e5dc]/60">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-serif font-bold text-base text-[#24312d]">
+                      {t.name}
+                    </h4>
+                    <p className="text-xs text-[#87938b]">{t.role}</p>
+                  </div>
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700" title="Verified Graduate">
+                    <CheckCircle2 size={16} />
+                  </span>
+                </div>
+
+                <div className="mt-3 inline-block rounded-xl bg-white border border-[#e2e5dc] px-3 py-1 text-[11px] font-semibold text-[#b5623b]">
+                  🎯 {t.outcome}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          ))}
+        </div>
       </div>
     </section>
   );
-};
-
-export default Testimonials;
-
+}

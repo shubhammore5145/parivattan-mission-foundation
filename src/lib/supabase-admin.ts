@@ -282,7 +282,10 @@ export const getMonthlyStats = async () => {
 
 // Admin authentication - verify admin password
 export const verifyAdminPassword = (password: string): boolean => {
-  const adminPassword = import.meta.env.ADMIN_PASSWORD || "Str0ngP@ssw0rd!2026";
+  const adminPassword =
+    import.meta.env.VITE_ADMIN_PASSWORD ||
+    import.meta.env.ADMIN_PASSWORD ||
+    "Parivattan@Adm!n#2026$kPio";
   return password === adminPassword;
 };
 

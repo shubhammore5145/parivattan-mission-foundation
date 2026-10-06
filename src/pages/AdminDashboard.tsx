@@ -28,7 +28,11 @@ import {
   ExternalLink,
   FileCheck,
   CheckCircle2,
+  Users,
+  Phone,
 } from "lucide-react";
+import { StudentUser } from "@/types/student";
+import { getAllRegisteredStudents, deleteRegisteredStudent } from "@/lib/student-auth";
 import {
   getAllDonations,
   getDonationsByStatus,
@@ -91,10 +95,17 @@ const AdminDashboard = () => {
   });
   const [submitting, setSubmitting] = useState(false);
   const [showPieChart, setShowPieChart] = useState(false);
-  const [activeTab, setActiveTab] = useState<"donations" | "contacts" | "admissions">("donations");
+  const [activeTab, setActiveTab] = useState<"donations" | "contacts" | "admissions" | "students">("donations");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+
+  // Students / Users State
+  const [students, setStudents] = useState<StudentUser[]>([]);
+  const [studentsLoading, setStudentsLoading] = useState(false);
+  const [studentsSearch, setStudentsSearch] = useState("");
+  const [selectedStudent, setSelectedStudent] = useState<StudentUser | null>(null);
+  const [deletingStudentId, setDeletingStudentId] = useState<string | null>(null);
 
   // Admissions State
   const [admissions, setAdmissions] = useState<Admission[]>([]);
@@ -378,11 +389,12 @@ const AdminDashboard = () => {
     };
   }, [navigate]);
 
-  // Load donations, visitor stats and admissions
+  // Load donations, visitor stats, admissions and students
   useEffect(() => {
     loadData();
     loadVisitorData();
     loadAdmissions();
+    loadStudents();
   }, []);
 
   // Load data when tab changes
@@ -391,6 +403,8 @@ const AdminDashboard = () => {
       loadContacts();
     } else if (activeTab === "admissions") {
       loadAdmissions();
+    } else if (activeTab === "students") {
+      loadStudents();
     }
   }, [activeTab]);
 
@@ -599,6 +613,89 @@ const AdminDashboard = () => {
       a.college_name?.toLowerCase().includes(q) ||
       a.address?.toLowerCase().includes(q) ||
       a.id?.toLowerCase().includes(q)
+    );
+  });
+
+  // Student / User Handlers
+  const loadStudents = () => {
+    try {
+      setStudentsLoading(true);
+      const list = getAllRegisteredStudents();
+      setStudents(list);
+    } catch (err) {
+      console.error("Error loading students:", err);
+    } finally {
+      setStudentsLoading(false);
+    }
+  };
+
+  const handleDeleteStudent = (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this student user?")) {
+      return;
+    }
+    try {
+      setDeletingStudentId(id);
+      deleteRegisteredStudent(id);
+      setStudents((prev) => prev.filter((s) => s.id !== id));
+      if (selectedStudent && selectedStudent.id === id) {
+        setSelectedStudent(null);
+      }
+    } catch (err) {
+      console.error("Error deleting student:", err);
+    } finally {
+      setDeletingStudentId(null);
+    }
+  };
+
+  const exportStudentsToExcel = () => {
+    const headers = [
+      "Student PRN",
+      "Full Name",
+      "Email Address",
+      "Phone Number",
+      "City",
+      "State",
+      "Registered Date",
+    ];
+
+    const csvData = filteredStudents.map((s) => [
+      s.prn,
+      s.name,
+      s.email,
+      s.phone,
+      s.city || "",
+      s.state || "",
+      s.registeredAt ? new Date(s.registeredAt).toLocaleDateString("en-IN") : "",
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...csvData.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `registered_students_${new Date().toISOString().split("T")[0]}.csv`
+    );
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const filteredStudents = students.filter((s) => {
+    if (!studentsSearch.trim()) return true;
+    const q = studentsSearch.toLowerCase();
+    return (
+      s.name?.toLowerCase().includes(q) ||
+      s.email?.toLowerCase().includes(q) ||
+      s.phone?.toLowerCase().includes(q) ||
+      s.prn?.toLowerCase().includes(q) ||
+      s.city?.toLowerCase().includes(q)
     );
   });
 
@@ -881,6 +978,25 @@ const AdminDashboard = () => {
               {admissions.length > 0 && (
                 <span className="bg-[#b5623b] text-white text-xs font-bold px-2 py-0.5 rounded-full">
                   {admissions.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("students");
+                loadStudents();
+              }}
+              className={`flex items-center gap-2 px-6 py-3 font-semibold transition-colors border-b-2 -mb-[2px] ${
+                activeTab === "students"
+                  ? "text-emerald-700 border-emerald-700"
+                  : "text-slate-500 border-transparent hover:text-emerald-600"
+              }`}
+            >
+              <Users size={20} />
+              Students / Users
+              {students.length > 0 && (
+                <span className="bg-emerald-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                  {students.length}
                 </span>
               )}
             </button>
@@ -1574,6 +1690,193 @@ const AdminDashboard = () => {
               )}
             </>
           )}
+
+          {/* Students / Users Tab */}
+          {activeTab === "students" && (
+            <>
+              {/* Top Stats */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                    <Users size={24} />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">Total Registered Students</div>
+                    <div className="text-2xl font-bold text-slate-800">{students.length}</div>
+                    <div className="text-xs text-emerald-600 font-medium">Active Student PRNs</div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                    <GraduationCap size={24} />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">Admission Applications</div>
+                    <div className="text-2xl font-bold text-slate-800">{admissions.length}</div>
+                    <div className="text-xs text-blue-600 font-medium">Submitted by Students</div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
+                    <Award size={24} />
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">Academic Year</div>
+                    <div className="text-2xl font-bold text-slate-800">2026-27</div>
+                    <div className="text-xs text-amber-600 font-medium">Centralized Admission Portal</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Search & Export Action Bar */}
+              <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm mb-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <input
+                      type="text"
+                      placeholder="Search students by Name, PRN, Email, Phone, City..."
+                      value={studentsSearch}
+                      onChange={(e) => setStudentsSearch(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 text-sm"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={exportStudentsToExcel}
+                      className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs sm:text-sm transition shadow-sm"
+                    >
+                      <Download size={16} />
+                      Export Students CSV
+                    </button>
+                    <button
+                      onClick={loadStudents}
+                      className="px-3 py-2.5 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs text-slate-600 transition"
+                      title="Refresh Student List"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Students Table */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                {studentsLoading ? (
+                  <div className="p-12 text-center text-slate-500">
+                    <div className="animate-spin w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full mx-auto mb-3" />
+                    Loading students list...
+                  </div>
+                ) : filteredStudents.length === 0 ? (
+                  <div className="p-12 text-center text-slate-500">
+                    <Users size={40} className="mx-auto text-slate-300 mb-2" />
+                    <p className="font-semibold text-slate-700">No student users found</p>
+                    <p className="text-xs text-slate-400 mt-1">Try another search query</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-slate-50 text-slate-600 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200">
+                        <tr>
+                          <th className="px-5 py-3.5">PRN Number</th>
+                          <th className="px-5 py-3.5">Student Name</th>
+                          <th className="px-5 py-3.5">Contact Information</th>
+                          <th className="px-5 py-3.5">City / Location</th>
+                          <th className="px-5 py-3.5">Registered Date</th>
+                          <th className="px-5 py-3.5 text-center">Admissions</th>
+                          <th className="px-5 py-3.5 text-center">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {filteredStudents.map((s) => {
+                          const userAdmissions = admissions.filter(
+                            (a) =>
+                              (a.name && a.name.toLowerCase() === s.name.toLowerCase()) ||
+                              (a.email && a.email.toLowerCase() === s.email.toLowerCase()) ||
+                              (a.phone && a.phone.includes(s.phone))
+                          );
+                          return (
+                            <tr key={s.id} className="hover:bg-slate-50/80 transition">
+                              <td className="px-5 py-4">
+                                <span className="font-mono text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg">
+                                  {s.prn}
+                                </span>
+                              </td>
+                              <td className="px-5 py-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-sm shrink-0">
+                                    {s.name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <div className="font-semibold text-slate-800">{s.name}</div>
+                                    <div className="text-[11px] text-slate-400">ID: {s.id}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-5 py-4 text-xs space-y-0.5">
+                                <div className="text-slate-700 flex items-center gap-1.5">
+                                  <Mail size={13} className="text-slate-400" />
+                                  <a href={`mailto:${s.email}`} className="hover:text-blue-600 underline truncate max-w-[200px]">
+                                    {s.email}
+                                  </a>
+                                </div>
+                                <div className="text-slate-500 flex items-center gap-1.5">
+                                  <Phone size={13} className="text-slate-400" />
+                                  <span>{s.phone}</span>
+                                </div>
+                              </td>
+                              <td className="px-5 py-4 text-xs text-slate-600">
+                                {s.city || "Pune"}, {s.state || "Maharashtra"}
+                              </td>
+                              <td className="px-5 py-4 text-xs text-slate-500 whitespace-nowrap">
+                                {s.registeredAt ? new Date(s.registeredAt).toLocaleDateString("en-IN") : "-"}
+                              </td>
+                              <td className="px-5 py-4 text-center">
+                                <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                                  userAdmissions.length > 0
+                                    ? "bg-blue-100 text-blue-800 border border-blue-200"
+                                    : "bg-slate-100 text-slate-500"
+                                }`}>
+                                  {userAdmissions.length} Applied
+                                </span>
+                              </td>
+                              <td className="px-5 py-4 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={() => setSelectedStudent(s)}
+                                    className="p-2 text-emerald-700 hover:bg-emerald-50 rounded-lg transition"
+                                    title="View Student Details & Admissions"
+                                  >
+                                    <Eye size={18} />
+                                  </button>
+                                  <button
+                                    disabled={deletingStudentId === s.id}
+                                    onClick={() => handleDeleteStudent(s.id)}
+                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition disabled:opacity-50"
+                                    title="Delete Student"
+                                  >
+                                    <Trash2 size={18} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Count Summary */}
+              <div className="mt-6 text-center text-sm text-slate-500">
+                Showing {filteredStudents.length} of {students.length} registered students / users
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -1859,6 +2162,120 @@ const AdminDashboard = () => {
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Student Detail Modal */}
+      {selectedStudent && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-200">
+            <div className="sticky top-0 flex justify-between items-center p-6 border-b border-slate-200 bg-white z-10">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800 font-bold text-lg">
+                  {selectedStudent.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h2 className="text-xl font-serif font-bold text-slate-800">
+                    {selectedStudent.name}
+                  </h2>
+                  <p className="text-xs text-slate-500 font-mono">PRN: {selectedStudent.prn}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedStudent(null)}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Profile Details */}
+              <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+                <div>
+                  <span className="text-slate-400 block font-semibold">Email:</span>
+                  <span className="text-slate-800 font-medium">{selectedStudent.email}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block font-semibold">Phone:</span>
+                  <span className="text-slate-800 font-medium">{selectedStudent.phone}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block font-semibold">City:</span>
+                  <span className="text-slate-800 font-medium">{selectedStudent.city || "Pune"}, {selectedStudent.state || "Maharashtra"}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block font-semibold">Registered:</span>
+                  <span className="text-slate-800 font-medium">{new Date(selectedStudent.registeredAt).toLocaleDateString("en-IN")}</span>
+                </div>
+              </div>
+
+              {/* Associated Admissions */}
+              <div>
+                <h4 className="text-sm font-bold text-slate-800 mb-3">
+                  Submitted Admissions by this Student:
+                </h4>
+                {(() => {
+                  const userAdmissions = admissions.filter(
+                    (a) =>
+                      (a.name && a.name.toLowerCase() === selectedStudent.name.toLowerCase()) ||
+                      (a.email && a.email.toLowerCase() === selectedStudent.email.toLowerCase()) ||
+                      (a.phone && a.phone.includes(selectedStudent.phone))
+                  );
+                  if (userAdmissions.length === 0) {
+                    return (
+                      <div className="p-4 bg-slate-50 rounded-xl text-center text-xs text-slate-500 border">
+                        No admission form submitted yet by this student.
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="space-y-3">
+                      {userAdmissions.map((adm) => (
+                        <div key={adm.id} className="p-4 rounded-xl border border-slate-200 bg-white space-y-2 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-800">{adm.name}</span>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              adm.status === "completed" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                            }`}>
+                              {adm.status || "completed"}
+                            </span>
+                          </div>
+                          <div className="text-slate-600">
+                            <strong>Education:</strong> {adm.education} · <strong>College:</strong> {adm.college_name}
+                          </div>
+                          <div className="text-slate-500">
+                            <strong>Address:</strong> {adm.address}
+                          </div>
+                          {adm.program && (
+                            <div className="text-emerald-700 font-semibold">
+                              Course: {adm.program}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-slate-200 flex justify-between items-center">
+              <button
+                type="button"
+                onClick={() => handleDeleteStudent(selectedStudent.id)}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-600 hover:text-red-700"
+              >
+                <Trash2 size={15} /> Delete Student User
+              </button>
+              <button
+                onClick={() => setSelectedStudent(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs transition"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

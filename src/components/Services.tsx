@@ -42,12 +42,6 @@ interface CategoryStats {
   target_amount?: number;
 }
 
-// Declare Razorpay for TypeScript
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
 
 // Static service definitions
 const staticServices: Service[] = [

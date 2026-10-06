@@ -85,48 +85,66 @@ const Hero = () => {
       </div>
 
       <div className="container mx-auto px-5 z-10 text-left pt-20">
-        <div className="flex flex-col items-center gap-3 mb-6">
-          {/* <div className="inline-block px-4 py-2 bg-blue-600/20 backdrop-blur-sm border border-blue-400/30 rounded-full">
-            <span className="text-blue-200 font-medium text-sm uppercase tracking-wider">Empowering Communities Since 2020</span>
-          </div> */}
-          {/* <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white text-sm font-semibold">
-            <span className="inline-block h-2 w-2 rounded-full bg-emerald-300 animate-pulse"></span>
-            {liveVisitors === 1 ? '1 person viewing now' : `${liveVisitors} people viewing now`}
-          </div> */}
+        {/* Modern Live & Admissions Badge */}
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white text-xs sm:text-sm font-semibold shadow-xs">
+            <span className="inline-block h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Admissions 2026-27 Open</span>
+            <span className="text-white/40">•</span>
+            <span className="text-[#f2c5a8]">Foreign Languages & Global Careers</span>
+          </div>
+          {liveVisitors > 0 && (
+            <div className="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/20 backdrop-blur-md border border-white/10 text-white/80 text-xs">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-300"></span>
+              <span>{liveVisitors === 1 ? '1 student viewing' : `${liveVisitors} students viewing`}</span>
+            </div>
+          )}
         </div>
-        <div className="mb-7 max-w-3xl text-sm font-bold uppercase tracking-[0.2em] text-[#f2c5a8]">Education creates room to choose</div>
+
+        <div className="mb-4 max-w-3xl text-xs sm:text-sm font-bold uppercase tracking-[0.25em] text-[#f2c5a8]">
+          Education creates room to choose
+        </div>
         <h1
           ref={titleRef}
-          className="opacity-0 max-w-4xl text-5xl md:text-7xl lg:text-8xl font-serif font-normal mb-6 leading-[0.98] text-white"
+          className="opacity-0 max-w-4xl text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-serif font-normal mb-6 leading-[1.02] text-white"
         >
           Education should open <span className="text-[#f2c5a8]">more doors.</span>
         </h1>
         <p
           ref={subtitleRef}
-          className="opacity-0 text-lg md:text-xl text-white/75 max-w-2xl mb-10 leading-relaxed"
+          className="opacity-0 text-base sm:text-lg md:text-xl text-white/80 max-w-2xl mb-8 leading-relaxed font-light"
         >
-          Parivattan builds practical learning pathways with communities, so more people can move toward the future they imagine.
+          Parivattan builds certified language training and practical learning pathways, empowering students to access global universities and careers.
         </p>
-        <div ref={buttonRef} className="opacity-0 flex flex-col sm:flex-row gap-4 items-start">
+
+        {/* CTA Buttons */}
+        <div ref={buttonRef} className="opacity-0 flex flex-wrap gap-3 sm:gap-4 items-center mb-12">
+          <a 
+            href="#courses" 
+            className="px-7 py-3.5 bg-[#e5a37f] text-[#24312d] font-bold text-sm sm:text-base rounded-full hover:bg-[#f2c5a8] transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:-translate-y-1 flex items-center gap-2"
+          >
+            <span>Explore Language Courses</span>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+          </a>
+          <a 
+            href="/admissions" 
+            className="px-7 py-3.5 bg-white/10 backdrop-blur-md text-white font-bold text-sm sm:text-base rounded-full border border-white/30 hover:bg-white/20 transition-all duration-300 flex items-center gap-2 hover:-translate-y-0.5"
+          >
+            <span>Admissions Portal</span>
+          </a>
           <a 
             href="#donate" 
-            className="px-8 py-4 bg-[#e5a37f] text-[#24312d] font-semibold rounded-full hover:bg-[#f2c5a8] transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:-translate-y-1 flex items-center gap-2"
+            className="px-6 py-3.5 text-white/90 hover:text-white font-semibold text-sm transition-all duration-300 flex items-center gap-2"
           >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <svg className="w-4 h-4 text-[#e5a37f]" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
             </svg>
-            Make a Donation
-          </a>
-          <a 
-            href="#mission" 
-            className="px-8 py-4 bg-white/10 backdrop-blur-sm text-white font-semibold rounded-full border border-white/35 hover:bg-white/20 transition-all duration-300 flex items-center gap-2"
-          >
-            Learn More About Us
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
+            <span>Donate</span>
           </a>
         </div>
+
       </div>
 
       {/* Decorative element - modern wave */}
