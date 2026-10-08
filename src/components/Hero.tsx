@@ -53,17 +53,10 @@ const Hero = () => {
               className="w-full h-full object-cover"
             />
           </SwiperSlide>
-          {/* <SwiperSlide>
-            <img
-              src="/img/silder1.jpg"
-              alt="Community Support and Education"
-              className="w-full h-full object-cover"
-            />
-          </SwiperSlide> */}
           <SwiperSlide>
             <img
-              src="/img/silder2.jpg"
-              alt="Healthcare and Wellness Programs"
+              src="/img/purpose.jpg"
+              alt="Educational Empowerment & Mentorship"
               className="w-full h-full object-cover"
             />
           </SwiperSlide>

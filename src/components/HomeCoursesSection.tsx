@@ -301,8 +301,30 @@ export default function HomeCoursesSection() {
           })}
         </div>
 
+        {/* Upcoming Programs Quick Preview */}
+        <div className="mt-8 rounded-2xl border border-dashed border-[#d5d9cf] bg-white/70 p-4 sm:p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 text-amber-800 border border-amber-500/20 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider">
+                <Sparkles size={12} className="text-amber-600" />
+                Coming Soon
+              </span>
+              <span className="text-xs sm:text-sm font-semibold text-[#24312d]">
+                New Languages Launching in 2026: <strong className="text-[#24312d]">Russian 🇷🇺</strong>, <strong className="text-[#24312d]">Chinese (Mandarin) 🇨🇳</strong>, and <strong className="text-[#24312d]">Spanish 🇪🇸</strong>
+              </span>
+            </div>
+            <Link
+              to="/courses"
+              className="inline-flex items-center gap-1 text-xs font-bold text-[#b5623b] hover:text-[#954b2c] transition shrink-0"
+            >
+              <span>Explore Upcoming Cohorts</span>
+              <ArrowRight size={13} />
+            </Link>
+          </div>
+        </div>
+
         {/* Bottom Feature Callout & Navigation Strip */}
-        <div className="mt-14 sm:mt-16 rounded-3xl border border-[#e2e5dc] bg-gradient-to-r from-white via-[#fbfaf7] to-white p-6 sm:p-8 shadow-xs">
+        <div className="mt-8 sm:mt-10 rounded-3xl border border-[#e2e5dc] bg-gradient-to-r from-white via-[#fbfaf7] to-white p-6 sm:p-8 shadow-xs">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-4 text-center lg:text-left">
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#b5623b]/10 text-[#b5623b]">
@@ -323,7 +345,7 @@ export default function HomeCoursesSection() {
                 to="/courses"
                 className="inline-flex items-center gap-2 rounded-full border border-[#24312d] px-6 py-3 text-xs sm:text-sm font-bold text-[#24312d] hover:bg-[#24312d] hover:text-white transition shadow-2xs"
               >
-                <span>View All 4 Courses</span>
+                <span>View All Courses</span>
                 <ChevronRight size={15} />
               </Link>
               <Link

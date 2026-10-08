@@ -5,6 +5,7 @@ import OurImpact from "../components/home/OurImpact";
 import Mission from "../components/Mission";
 import OurProgrammes from "../components/home/OurProgrammes";
 import HomeCoursesSection from "../components/HomeCoursesSection";
+import ClassroomVideos from "../components/home/ClassroomVideos";
 import WhyChooseUs from "../components/home/WhyChooseUs";
 import HowItWorks from "../components/home/HowItWorks";
 import Testimonials from "../components/Testimonials";
@@ -61,6 +62,7 @@ const Index = () => {
       <Mission />
       <OurProgrammes />
       <HomeCoursesSection />
+      <ClassroomVideos />
       <WhyChooseUs />
       <HowItWorks />
       <Testimonials />

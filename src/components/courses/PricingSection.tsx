@@ -11,10 +11,10 @@ export default function PricingSection({ onSelectPlan }: PricingSectionProps) {
       flag: "🇯🇵",
       level: "Japanese N5",
       badge: "Foundation • 6 Months",
-      courseFee: 2000,
-      securityDeposit: 2000,
-      hasDeposit: true,
-      refundCondition: "The security deposit is refundable according to the applicable course conditions.",
+      courseFee: 100,
+      securityDeposit: 0,
+      hasDeposit: false,
+      refundCondition: "Nominal subsidized fee of flat ₹100.",
       features: [
         "Complete Hiragana & Katakana mastery",
         "~100 core Kanji characters",
@@ -28,10 +28,10 @@ export default function PricingSection({ onSelectPlan }: PricingSectionProps) {
       flag: "🇯🇵",
       level: "Japanese N4",
       badge: "Intermediate • 6 Months",
-      courseFee: 4000,
-      securityDeposit: 2000,
-      hasDeposit: true,
-      refundCondition: "Security deposit is refundable after successfully passing the required examination.",
+      courseFee: 100,
+      securityDeposit: 0,
+      hasDeposit: false,
+      refundCondition: "Nominal subsidized fee of flat ₹100.",
       features: [
         "~300 Kanji & complex sentence patterns",
         "Intermediate Kaiwa (speaking) dialogue",
@@ -45,15 +45,15 @@ export default function PricingSection({ onSelectPlan }: PricingSectionProps) {
       flag: "🇯🇵",
       level: "Japanese N3",
       badge: "Advanced • 7 Months",
-      courseFee: 8000,
-      securityDeposit: 2000,
-      hasDeposit: true,
-      refundCondition: "Security deposit is refundable after successfully passing both required examinations.",
+      courseFee: 100,
+      securityDeposit: 0,
+      hasDeposit: false,
+      refundCondition: "Nominal subsidized fee of flat ₹100.",
       features: [
         "Business Japanese & ~650 Kanji mastery",
         "Daily Monday to Friday immersion (7:00 PM)",
         "Advanced reading & listening fluency",
-        "Double examination deposit refund criteria",
+        "Comprehensive JLPT N3 preparation",
       ],
       isPopular: false,
     },
@@ -62,13 +62,13 @@ export default function PricingSection({ onSelectPlan }: PricingSectionProps) {
       flag: "🇩🇪",
       level: "German A1",
       badge: "Beginner • 3 Months",
-      courseFee: 4000,
+      courseFee: 100,
       securityDeposit: 0,
       hasDeposit: false,
-      refundCondition: "No security deposit required. Pure fee model.",
+      refundCondition: "Nominal subsidized fee of flat ₹100.",
       features: [
         "Goethe-Zertifikat A1 curriculum",
-        "Friday & Saturday (7:00 PM – 8:30 PM)",
+        "Monday, Wednesday & Friday (7:00 PM – 8:30 PM)",
         "Articles, nominative & accusative cases",
         "Speaking & pronunciation drills",
       ],
@@ -79,13 +79,13 @@ export default function PricingSection({ onSelectPlan }: PricingSectionProps) {
       flag: "🇩🇪",
       level: "German A2",
       badge: "Elementary • 3–4.5 Months",
-      courseFee: 6000,
+      courseFee: 100,
       securityDeposit: 0,
       hasDeposit: false,
-      refundCondition: "No security deposit required. Pure fee model.",
+      refundCondition: "Nominal subsidized fee of flat ₹100.",
       features: [
         "Goethe-Zertifikat A2 curriculum",
-        "Friday & Saturday (7:00 PM – 8:30 PM)",
+        "Tuesday, Thursday & Saturday (7:00 PM – 8:30 PM)",
         "Dative cases & modal verb conjugations",
         "Fluency in daily European interactions",
       ],
@@ -96,10 +96,10 @@ export default function PricingSection({ onSelectPlan }: PricingSectionProps) {
       flag: "🇬🇧",
       level: "English Basic",
       badge: "Fluency • 3 Months",
-      courseFee: 2000,
+      courseFee: 100,
       securityDeposit: 0,
       hasDeposit: false,
-      refundCondition: "No security deposit required. Pure fee model.",
+      refundCondition: "Nominal subsidized fee of flat ₹100.",
       features: [
         "Spoken English & grammar foundations",
         "Monday to Friday (7:00 PM – 8:00 PM)",
@@ -113,10 +113,10 @@ export default function PricingSection({ onSelectPlan }: PricingSectionProps) {
       flag: "🇫🇷",
       level: "French A1",
       badge: "Beginner • 3 Months",
-      courseFee: 3000,
+      courseFee: 100,
       securityDeposit: 0,
       hasDeposit: false,
-      refundCondition: "No security deposit required. Pure fee model.",
+      refundCondition: "Nominal subsidized fee of flat ₹100.",
       features: [
         "DELF A1 accredited curriculum",
         "Monday to Friday (7:00 PM – 8:00 PM)",
@@ -131,20 +131,20 @@ export default function PricingSection({ onSelectPlan }: PricingSectionProps) {
     <section id="pricing" className="page-section bg-white border-t border-[#e2e5dc]">
       <div className="text-center max-w-3xl mx-auto mb-14">
         <div className="inline-flex items-center gap-2 rounded-full bg-[#b5623b]/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-[#b5623b]">
-          <ShieldCheck size={14} /> 100% Transparent Structure
+          <ShieldCheck size={14} /> 100% Subsidized Mission Fee
         </div>
         <h2 className="mt-3 text-3xl font-serif sm:text-4xl md:text-5xl text-[#24312d]">
-          Fees & Security Deposit
+          Flat ₹100 Fee for All Courses
         </h2>
         <p className="mt-4 text-sm sm:text-base text-[#65706a]">
-          We clearly separate <strong>Course Fees</strong> and <strong>Security Deposits</strong> so students understand the exact payment structure before enrolling.
+          Under the Parivattan Mission Foundation educational initiative, all certified foreign language & technical courses are made accessible at a <strong>flat nominal admission fee of ₹100 only</strong>.
         </p>
 
-        {/* Security deposit highlight alert */}
-        <div className="mt-6 rounded-2xl bg-amber-50 border border-amber-200 p-4 text-left max-w-2xl mx-auto flex items-start gap-3">
-          <Info className="text-amber-700 shrink-0 mt-0.5" size={18} />
-          <p className="text-xs text-amber-900 leading-relaxed">
-            <strong>Security Deposit Notice:</strong> Security deposits are charged only for Japanese courses and are <strong>refundable</strong> subject to fulfilling the designated examination criteria for each level. German, English, and French courses have <strong>no security deposit</strong>.
+        {/* Flat fee highlight alert */}
+        <div className="mt-6 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-left max-w-2xl mx-auto flex items-start gap-3">
+          <Info className="text-emerald-700 shrink-0 mt-0.5" size={18} />
+          <p className="text-xs text-emerald-900 leading-relaxed">
+            <strong>Subsidized Flat Fee:</strong> No security deposits or hidden charges. Pay just <strong>₹100</strong> to enroll, receive official course materials, student ID, and full lecture access.
           </p>
         </div>
       </div>

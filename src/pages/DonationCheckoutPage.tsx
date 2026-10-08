@@ -237,7 +237,7 @@ export default function DonationCheckoutPage() {
                     </div>
                     <div>
                       <span className="text-[10px] text-[#65706a] block uppercase font-bold">Location</span>
-                      <span className="font-medium">Dharashiv (Osmanabad), Maharashtra 413501</span>
+                      <span className="font-medium">Tuljapur, Dharashiv (Osmanabad), Maharashtra 413601</span>
                     </div>
                   </div>
                 </div>

@@ -43,6 +43,11 @@ export interface Admission {
   photo_name?: string;
   caste_certificate?: string;
   caste_certificate_name?: string;
+  education_proof?: string;
+  education_proof_name?: string;
+  gender?: string;
+  current_address?: string;
+  permanent_address?: string;
   email?: string;
   phone?: string;
   program?: string;

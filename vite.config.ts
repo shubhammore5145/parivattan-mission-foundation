@@ -7,12 +7,8 @@ import { componentTagger } from "lovable-tagger";
 export default defineConfig(({ mode }) => ({
   envPrefix: ["VITE_", "PUBLIC_", "ADMIN_", "APP_", "API_", "RAZORPAY_"],
   server: {
-    host: "::",
+    host: true,
     port: 8080,
-    hmr: {
-      protocol: 'ws',
-      host: 'localhost',
-    },
   },
   plugins: [
     react(),

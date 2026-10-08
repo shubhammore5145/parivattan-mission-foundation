@@ -19,13 +19,25 @@ import {
 export default function UpcomingBatches() {
   const navigate = useNavigate();
   const [selectedLang, setSelectedLang] = useState<string>("all");
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Re-read live seats when an admission is placed or admin updates capacity
+  React.useEffect(() => {
+    const handleUpdate = () => setRefreshKey((k) => k + 1);
+    window.addEventListener("batch-seats-updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    return () => {
+      window.removeEventListener("batch-seats-updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
+  }, []);
 
   // Collect all batches across all courses and levels
   const allBatches: {
     course: LanguageCourse;
     level: CourseLevel;
     batch: any;
-    seatsInfo: { totalSeats: number; enrolled: number; remainingSeats: number; isFull: boolean };
+    seatsInfo: { totalSeats: number; enrolled: number; remainingSeats: number; isFull: boolean; isManuallyFull?: boolean };
   }[] = [];
 
   LANGUAGE_COURSES.forEach((course) => {
@@ -100,7 +112,8 @@ export default function UpcomingBatches() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredBatches.map(({ course, level, batch, seatsInfo }) => {
             const pct = Math.min(100, Math.round((seatsInfo.enrolled / seatsInfo.totalSeats) * 100));
-            const isAlmostFull = seatsInfo.remainingSeats <= 4;
+            const isFull = seatsInfo.isFull;
+            const isAlmostFull = !isFull && seatsInfo.remainingSeats <= 4;
 
             return (
               <div
@@ -116,9 +129,20 @@ export default function UpcomingBatches() {
                         {course.name}
                       </span>
                     </div>
-                    <span className="rounded-full bg-white border border-[#e2e5dc] px-2.5 py-0.5 text-[11px] font-bold text-[#b5623b]">
-                      Level {level.level}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {isFull ? (
+                        <span className="rounded-full bg-red-100 border border-red-200 px-2.5 py-0.5 text-[11px] font-bold text-red-700">
+                          Admission Full
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
+                          {seatsInfo.remainingSeats} Seats Left
+                        </span>
+                      )}
+                      <span className="rounded-full bg-white border border-[#e2e5dc] px-2.5 py-0.5 text-[11px] font-bold text-[#b5623b]">
+                        Level {level.level}
+                      </span>
+                    </div>
                   </div>
 
                   <h3 className="text-lg font-serif font-bold text-[#24312d]">
@@ -148,36 +172,56 @@ export default function UpcomingBatches() {
                     <div className="h-2 w-full overflow-hidden rounded-full bg-[#f1f3ed]">
                       <div
                         className={`h-full rounded-full transition-all duration-500 ${
-                          isAlmostFull ? "bg-amber-600" : "bg-[#24312d]"
+                          isFull
+                            ? "bg-red-600"
+                            : isAlmostFull
+                            ? "bg-amber-600"
+                            : "bg-[#24312d]"
                         }`}
-                        style={{ width: `${pct}%` }}
+                        style={{ width: `${isFull ? 100 : pct}%` }}
                       />
                     </div>
                     <div className="mt-2 flex items-center justify-between text-[11px]">
-                      {isAlmostFull ? (
+                      {isFull ? (
+                        <span className="font-bold text-red-600 flex items-center gap-1">
+                          <AlertCircle size={11} /> Admission Full (प्रवेश पूर्ण)
+                        </span>
+                      ) : isAlmostFull ? (
                         <span className="font-bold text-amber-700 flex items-center gap-1">
                           <AlertCircle size={11} /> Only {seatsInfo.remainingSeats} seats left!
                         </span>
                       ) : (
                         <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                          <CheckCircle2 size={11} /> Seats Available
+                          <CheckCircle2 size={11} /> {seatsInfo.remainingSeats} Seats Available
                         </span>
                       )}
-                      <span className="text-[#87938b] font-medium">{pct}% Full</span>
+                      <span className="text-[#87938b] font-medium">
+                        {isFull ? "100% Full" : `${pct}% Filled`}
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Bottom Enroll Action */}
                 <div className="mt-6 pt-4 border-t border-[#e2e5dc]/60">
-                  <button
-                    type="button"
-                    onClick={() => handleEnrollBatch(course.id, level.id, batch.id)}
-                    className="w-full rounded-2xl bg-[#24312d] py-3 text-xs font-bold text-white transition hover:bg-[#b5623b] shadow-xs flex items-center justify-center gap-1.5"
-                  >
-                    <span>Reserve Seat in Batch</span>
-                    <ArrowRight size={13} />
-                  </button>
+                  {isFull ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="w-full rounded-2xl bg-gray-100 border border-gray-200 py-3 text-xs font-bold text-gray-400 cursor-not-allowed flex items-center justify-center gap-1.5"
+                    >
+                      <span>Admission Full (Batch Closed)</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleEnrollBatch(course.id, level.id, batch.id)}
+                      className="w-full rounded-2xl bg-[#24312d] py-3 text-xs font-bold text-white transition hover:bg-[#b5623b] shadow-xs flex items-center justify-center gap-1.5"
+                    >
+                      <span>Reserve Seat in Batch</span>
+                      <ArrowRight size={13} />
+                    </button>
+                  )}
                 </div>
               </div>
             );

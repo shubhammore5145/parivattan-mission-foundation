@@ -16,6 +16,8 @@ import {
   Check,
   Sparkles,
   FileCheck2,
+  Award,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { StudentUser, Course } from "@/types/student";
@@ -31,6 +33,8 @@ export interface RegistrationFormData {
   email: string;
   phone: string;
   address: string;
+  currentAddress?: string;
+  permanentAddress?: string;
   city: string;
   district: string;
   pincode: string;
@@ -85,6 +89,17 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
     casteCertUrl: "",
   });
 
+  // Current & Permanent Addresses
+  const [isSameAddress, setIsSameAddress] = useState(true);
+  const [currentAddressLine, setCurrentAddressLine] = useState("");
+  const [currentCity, setCurrentCity] = useState(student.city || "Pune");
+  const [currentDistrict, setCurrentDistrict] = useState("Pune");
+  const [currentPincode, setCurrentPincode] = useState("411001");
+  const [permAddressLine, setPermAddressLine] = useState("");
+  const [permCity, setPermCity] = useState(student.city || "Pune");
+  const [permDistrict, setPermDistrict] = useState("Pune");
+  const [permPincode, setPermPincode] = useState("411001");
+
   const [declarationAgreed, setDeclarationAgreed] = useState(false);
 
   const updateField = (key: keyof RegistrationFormData, val: string) => {
@@ -100,63 +115,73 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      toast.error(`${label} ची साईझ ५MB पेक्षा कमी असावी.`);
+      toast.error(`${label} file size must be less than 5MB.`);
       return;
     }
 
     const reader = new FileReader();
     reader.onload = () => {
       updateField(fieldKey, reader.result as string);
-      toast.success(`${label} अपलोड झाले!`);
+      toast.success(`${label} uploaded successfully!`);
     };
     reader.readAsDataURL(file);
-  };
-
-  const handleLoadSampleDocs = () => {
-    setForm((prev) => ({
-      ...prev,
-      photoUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&h=300&fit=crop&crop=faces",
-      idProofUrl: "https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=500&auto=format&fit=crop",
-      marksheetUrl: "https://images.unsplash.com/photo-1606326608606-aa0b62935f2b?w=500&auto=format&fit=crop",
-      fatherName: "Ramesh More",
-      motherName: "Sunita More",
-      address: "Flat 402, Shanti Heights, Near Shivaji Chowk",
-      collegeName: "Fergusson College / Government Polytechnic",
-    }));
-    toast.success("चाचणीसाठी नमुना कागदपत्रे व माहिती भरली गेली!");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!form.fullName.trim()) {
-      toast.error("कृपया विद्यार्थ्याचे पूर्ण नाव भरा.");
+      toast.error("Please enter candidate's full legal name.");
       return;
     }
     if (!form.fatherName.trim()) {
-      toast.error("कृपया वडिलांचे / पालकांचे नाव भरा.");
+      toast.error("Please enter father's or guardian's name.");
       return;
     }
     if (!form.phone.trim()) {
-      toast.error("कृपया संपर्क मोबाईल नंबर भरा.");
+      toast.error("Please enter a valid contact phone number.");
       return;
     }
-    if (!form.address.trim()) {
-      toast.error("कृपया पत्ता भरा.");
+    if (!currentAddressLine.trim()) {
+      toast.error("Please enter current residential address.");
+      return;
+    }
+    if (!isSameAddress && !permAddressLine.trim()) {
+      toast.error("Please enter permanent hometown address.");
       return;
     }
     if (!form.collegeName.trim()) {
-      toast.error("कृपया शाळा / कॉलेजचे नाव भरा.");
-      return;
-    }
-    if (!declarationAgreed) {
-      toast.error("कृपया नियमावली व हमीपत्राच्या अटी मान्य करा.");
+      toast.error("Please enter school or college name.");
       return;
     }
 
-    // Default sample photo / docs if empty so user is never blocked
+    // Strict validation: if category is not General, caste certificate is strictly required
+    if (form.category !== "General" && !form.casteCertUrl) {
+      toast.error(
+        `Caste Certificate is mandatory for ${form.category} category students. Please upload your document.`
+      );
+      return;
+    }
+
+    if (!declarationAgreed) {
+      toast.error("Please accept the rules and declaration.");
+      return;
+    }
+
+    const fullCurrent = `${currentAddressLine}, ${currentCity}, ${currentDistrict} - ${currentPincode}`;
+    const fullPermanent = isSameAddress
+      ? fullCurrent
+      : `${permAddressLine}, ${permCity}, ${permDistrict} - ${permPincode}`;
+
+    // Default sample photo / docs if empty so student is never blocked in demo/sandbox
     const finalData: RegistrationFormData = {
       ...form,
+      address: fullCurrent,
+      currentAddress: fullCurrent,
+      permanentAddress: fullPermanent,
+      city: currentCity,
+      district: currentDistrict,
+      pincode: currentPincode,
       photoUrl:
         form.photoUrl ||
         "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&h=300&fit=crop&crop=faces",
@@ -166,6 +191,7 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
       marksheetUrl:
         form.marksheetUrl ||
         "https://images.unsplash.com/photo-1606326608606-aa0b62935f2b?w=500&auto=format&fit=crop",
+      casteCertUrl: form.casteCertUrl || "",
     };
 
     onSubmit(finalData);
@@ -179,13 +205,13 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
           <div>
             <div className="inline-flex items-center gap-1.5 rounded-full bg-[#b5623b]/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#b5623b]">
               <Sparkles size={13} />
-              स्टेप ३ : प्रवेश अर्ज भरणी (Step 3: Admission Registration)
+              Step 3: Course Admission Registration
             </div>
             <h2 className="mt-2 text-2xl sm:text-3xl font-serif font-bold text-[#24312d]">
-              विद्यापीठ पद्धतीचा प्रवेश अर्ज (CAP Form)
+              Course Admission Application Form
             </h2>
             <p className="mt-1 text-xs sm:text-sm text-[#65706a]">
-              विद्यार्थी PRN: <strong className="text-[#24312d]">{student.prn}</strong> · शैक्षणिक वर्ष २०२६-२७
+              Student PRN: <strong className="text-[#24312d]">{student.prn}</strong> · Academic Session 2026-27
             </p>
           </div>
 
@@ -195,7 +221,7 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
             className="self-start sm:self-center inline-flex items-center gap-1.5 rounded-xl border border-gray-300 px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition"
           >
             <ArrowLeft size={14} />
-            कोर्स बदला (Change Course)
+            Change Course
           </button>
         </div>
 
@@ -213,31 +239,17 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
                 {course.title}
               </h4>
               <p className="text-xs text-[#65706a]">
-                कालावधी: {course.duration} · प्रारंभ: {course.batchStart}
+                Duration: {course.duration} · Batch Starts: {course.batchStart}
               </p>
             </div>
           </div>
 
           <div className="text-right md:border-l md:border-gray-200 md:pl-5 shrink-0 flex items-center md:flex-col md:items-end justify-between">
-            <span className="text-xs text-[#65706a]">प्रवेश शुल्क (Fee):</span>
+            <span className="text-xs text-[#65706a]">Admission Fee:</span>
             <span className="text-xl font-bold text-[#24312d]">
               ₹{course.finalPayable.toLocaleString("en-IN")}
             </span>
           </div>
-        </div>
-
-        {/* Quick autofill sample test docs banner */}
-        <div className="mt-4 rounded-xl bg-blue-50/70 border border-blue-200 p-3 flex items-center justify-between gap-2">
-          <div className="text-xs text-blue-900">
-            💡 <strong>चाचणीसाठी जलद भरणा:</strong> एका क्लिकवर नमुना माहिती व कागदपत्रे भरा.
-          </div>
-          <button
-            type="button"
-            onClick={handleLoadSampleDocs}
-            className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 text-xs font-bold transition shrink-0"
-          >
-            नमुना डेटा भरा (Fill Demo Data)
-          </button>
         </div>
       </div>
 
@@ -247,14 +259,14 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
         <div className="rounded-3xl border border-[#e2e5dc] bg-white p-6 sm:p-8 shadow-sm">
           <div className="flex items-center gap-2.5 pb-4 border-b border-[#eef0e8]">
             <div className="w-8 h-8 rounded-lg bg-[#b5623b]/10 text-[#b5623b] flex items-center justify-center font-bold text-sm">
-              १
+              1
             </div>
             <div>
               <h3 className="font-serif text-lg font-bold text-[#24312d]">
-                वैयक्तिक माहिती (Personal Details)
+                Candidate Personal Details
               </h3>
               <p className="text-xs text-[#65706a]">
-                विद्यार्थ्याचे नाव, पालक माहिती व कायमस्वरूपी पत्ता
+                Student name, parent information and permanent residential address
               </p>
             </div>
           </div>
@@ -262,7 +274,7 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
           <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <label className="block text-xs font-bold uppercase tracking-wider text-[#24312d] mb-1">
-                विद्यार्थ्याचे पूर्ण नाव (Full Name as per 10th Certificate) *
+                Full Legal Name (as per certificates) *
               </label>
               <input
                 type="text"
@@ -275,12 +287,12 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-[#24312d] mb-1">
-                वडिलांचे / पालकांचे नाव (Father's/Guardian's Name) *
+                Father's / Guardian's Name *
               </label>
               <input
                 type="text"
                 required
-                placeholder="उदा. Ramesh Sitaram More"
+                placeholder="e.g. Ramesh Sitaram More"
                 value={form.fatherName}
                 onChange={(e) => updateField("fatherName", e.target.value)}
                 className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 px-3.5 text-sm text-[#24312d] focus:border-[#b5623b] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#b5623b]/20 transition"
@@ -289,11 +301,11 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-[#24312d] mb-1">
-                आईचे नाव (Mother's Name)
+                Mother's Name
               </label>
               <input
                 type="text"
-                placeholder="उदा. Sunita"
+                placeholder="e.g. Sunita"
                 value={form.motherName}
                 onChange={(e) => updateField("motherName", e.target.value)}
                 className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 px-3.5 text-sm text-[#24312d] focus:border-[#b5623b] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#b5623b]/20 transition"
@@ -302,7 +314,7 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-[#24312d] mb-1">
-                जन्मतारीख (Date of Birth) *
+                Date of Birth *
               </label>
               <input
                 type="date"
@@ -316,41 +328,41 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#24312d] mb-1">
-                  लिंग (Gender) *
+                  Gender *
                 </label>
                 <select
                   value={form.gender}
                   onChange={(e) => updateField("gender", e.target.value)}
                   className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 px-3 text-sm text-[#24312d] focus:border-[#b5623b] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#b5623b]/20 transition"
                 >
-                  <option value="Male">पुरुष (Male)</option>
-                  <option value="Female">स्त्री (Female)</option>
-                  <option value="Other">इतर (Other)</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
                 </select>
               </div>
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#24312d] mb-1">
-                  प्रवर्ग (Category) *
+                  Category *
                 </label>
                 <select
                   value={form.category}
                   onChange={(e) => updateField("category", e.target.value)}
                   className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 px-3 text-sm text-[#24312d] focus:border-[#b5623b] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#b5623b]/20 transition"
                 >
-                  <option value="General">खुला (General)</option>
-                  <option value="OBC">इतर मागास (OBC)</option>
-                  <option value="SC">अनुसूचित जाती (SC)</option>
-                  <option value="ST">अनुसूचित जमाती (ST)</option>
-                  <option value="EWS">आर्थिक दुर्बल (EWS)</option>
-                  <option value="NT/VJNT">भटक्या जमाती (NT)</option>
+                  <option value="General">General / Open</option>
+                  <option value="OBC">OBC</option>
+                  <option value="SC">SC</option>
+                  <option value="ST">ST</option>
+                  <option value="EWS">EWS</option>
+                  <option value="NT/VJNT">NT / VJNT</option>
                 </select>
               </div>
             </div>
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-[#24312d] mb-1">
-                मोबाईल नंबर (WhatsApp/Calling) *
+                Mobile Number (Calling & WhatsApp) *
               </label>
               <input
                 type="tel"
@@ -363,7 +375,7 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-[#24312d] mb-1">
-                ई-मेल पत्ता (Email) *
+                Email Address *
               </label>
               <input
                 type="email"
@@ -374,29 +386,33 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
               />
             </div>
 
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-bold uppercase tracking-wider text-[#24312d] mb-1">
-                कायमस्वरूपी निवासी पत्ता (Full Address) *
-              </label>
+            {/* Address: Current and Permanent */}
+            <div className="sm:col-span-2 pt-2 border-t border-[#eef0e8]">
+              <div className="flex items-center gap-2 mb-2">
+                <MapPin size={16} className="text-[#b5623b]" />
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#24312d]">
+                  1. Current Residential Address *
+                </h4>
+              </div>
               <textarea
                 required
                 rows={2}
-                placeholder="घर क्र., गल्ली, परिसर, पोस्ट..."
-                value={form.address}
-                onChange={(e) => updateField("address", e.target.value)}
+                placeholder="Flat / Room No., Society / Building Name, Street, Landmark..."
+                value={currentAddressLine}
+                onChange={(e) => setCurrentAddressLine(e.target.value)}
                 className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 px-3.5 text-sm text-[#24312d] focus:border-[#b5623b] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#b5623b]/20 transition"
               />
             </div>
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-[#24312d] mb-1">
-                शहर / तालुका (City/Taluka) *
+                Current City / Town *
               </label>
               <input
                 type="text"
                 required
-                value={form.city}
-                onChange={(e) => updateField("city", e.target.value)}
+                value={currentCity}
+                onChange={(e) => setCurrentCity(e.target.value)}
                 className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 px-3.5 text-sm text-[#24312d] focus:border-[#b5623b] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#b5623b]/20 transition"
               />
             </div>
@@ -404,30 +420,108 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#24312d] mb-1">
-                  जिल्हा (District) *
+                  Current District *
                 </label>
                 <input
                   type="text"
                   required
-                  value={form.district}
-                  onChange={(e) => updateField("district", e.target.value)}
-                  className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 px-3 text-sm text-[#24312d] focus:border-[#b5623b] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#b5623b]/20 transition"
+                  value={currentDistrict}
+                  onChange={(e) => setCurrentDistrict(e.target.value)}
+                  className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 px-3.5 text-sm text-[#24312d] focus:border-[#b5623b] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#b5623b]/20 transition"
                 />
               </div>
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#24312d] mb-1">
-                  पिनकोड (Pincode) *
+                  Current Pincode *
                 </label>
                 <input
                   type="text"
                   required
                   maxLength={6}
-                  value={form.pincode}
-                  onChange={(e) => updateField("pincode", e.target.value)}
-                  className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 px-3 text-sm text-[#24312d] focus:border-[#b5623b] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#b5623b]/20 transition"
+                  value={currentPincode}
+                  onChange={(e) => setCurrentPincode(e.target.value)}
+                  className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 px-3.5 text-sm text-[#24312d] focus:border-[#b5623b] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#b5623b]/20 transition"
                 />
               </div>
             </div>
+
+            {/* Same as current toggle */}
+            <div className="sm:col-span-2 py-1">
+              <label className="inline-flex items-center gap-2.5 cursor-pointer rounded-xl bg-[#fbfaf7] border border-[#d5d9cf] px-4 py-2.5 hover:border-[#b5623b]/50 transition">
+                <input
+                  type="checkbox"
+                  checked={isSameAddress}
+                  onChange={(e) => setIsSameAddress(e.target.checked)}
+                  className="w-4 h-4 rounded text-[#b5623b] focus:ring-[#b5623b]"
+                />
+                <span className="text-xs font-semibold text-[#24312d]">
+                  Permanent hometown address is same as current residential address
+                </span>
+              </label>
+            </div>
+
+            {/* Permanent Address fields (if different) */}
+            {!isSameAddress && (
+              <>
+                <div className="sm:col-span-2 pt-2 border-t border-dashed border-[#eef0e8]">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Building2 size={16} className="text-[#b5623b]" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#24312d]">
+                      2. Permanent Hometown Address *
+                    </h4>
+                  </div>
+                  <textarea
+                    required
+                    rows={2}
+                    placeholder="House / Flat No., Village / Native Place, Post, Taluka..."
+                    value={permAddressLine}
+                    onChange={(e) => setPermAddressLine(e.target.value)}
+                    className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 px-3.5 text-sm text-[#24312d] focus:border-[#b5623b] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#b5623b]/20 transition"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#24312d] mb-1">
+                    Permanent City / Town *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={permCity}
+                    onChange={(e) => setPermCity(e.target.value)}
+                    className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 px-3.5 text-sm text-[#24312d] focus:border-[#b5623b] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#b5623b]/20 transition"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-[#24312d] mb-1">
+                      Permanent District *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={permDistrict}
+                      onChange={(e) => setPermDistrict(e.target.value)}
+                      className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 px-3.5 text-sm text-[#24312d] focus:border-[#b5623b] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#b5623b]/20 transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-[#24312d] mb-1">
+                      Permanent Pincode *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={6}
+                      value={permPincode}
+                      onChange={(e) => setPermPincode(e.target.value)}
+                      className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 px-3.5 text-sm text-[#24312d] focus:border-[#b5623b] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#b5623b]/20 transition"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -435,14 +529,14 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
         <div className="rounded-3xl border border-[#e2e5dc] bg-white p-6 sm:p-8 shadow-sm">
           <div className="flex items-center gap-2.5 pb-4 border-b border-[#eef0e8]">
             <div className="w-8 h-8 rounded-lg bg-[#b5623b]/10 text-[#b5623b] flex items-center justify-center font-bold text-sm">
-              २
+              2
             </div>
             <div>
               <h3 className="font-serif text-lg font-bold text-[#24312d]">
-                शैक्षणिक पात्रता (Academic Background)
+                Academic Background
               </h3>
               <p className="text-xs text-[#65706a]">
-                उच्चतम शिक्षण, कॉलेज व प्राप्त गुणांची टक्केवारी
+                Highest qualification, institution details and score
               </p>
             </div>
           </div>
@@ -450,30 +544,30 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
           <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-[#24312d] mb-1">
-                उच्चतम पात्रता (Highest Qualification) *
+                Highest Qualification *
               </label>
               <select
                 value={form.qualification}
                 onChange={(e) => updateField("qualification", e.target.value)}
                 className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 px-3 text-sm text-[#24312d] focus:border-[#b5623b] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#b5623b]/20 transition"
               >
-                <option value="10th Pass (SSC)">१० वी उत्तीर्ण (10th SSC)</option>
-                <option value="12th Pass">१२ वी उत्तीर्ण (12th HSC / Arts/Commerce/Science)</option>
-                <option value="Diploma Engineering">पॉलिटेक्निक डिप्लोमा (Diploma)</option>
-                <option value="B.E. / B.Tech / BCA / BCS">पदवीधर (Graduate - Engg/Tech/Science)</option>
-                <option value="B.Com / B.A / Other Graduate">पदवीधर (Graduate - Commerce/Arts)</option>
-                <option value="Post Graduate (Master Degree)">पदव्युत्तर (Post Graduate)</option>
+                <option value="10th Pass (SSC)">10th Pass (SSC)</option>
+                <option value="12th Pass">12th Pass (HSC - Arts / Commerce / Science)</option>
+                <option value="Diploma Engineering">Polytechnic Diploma</option>
+                <option value="B.E. / B.Tech / BCA / BCS">Graduate (Tech / Engineering / Science)</option>
+                <option value="B.Com / B.A / Other Graduate">Graduate (Commerce / Arts / Others)</option>
+                <option value="Post Graduate (Master Degree)">Post Graduate (Master's Degree)</option>
               </select>
             </div>
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-[#24312d] mb-1">
-                शाळा / कॉलेजचे नाव (School / College Name) *
+                School / College Name *
               </label>
               <input
                 type="text"
                 required
-                placeholder="उदा. Modern College of Arts, Science & Commerce"
+                placeholder="e.g. Modern College of Arts, Science & Commerce"
                 value={form.collegeName}
                 onChange={(e) => updateField("collegeName", e.target.value)}
                 className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 px-3.5 text-sm text-[#24312d] focus:border-[#b5623b] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#b5623b]/20 transition"
@@ -482,7 +576,7 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-[#24312d] mb-1">
-                उत्तीर्ण वर्ष (Year of Passing)
+                Year of Passing
               </label>
               <input
                 type="text"
@@ -494,11 +588,11 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-[#24312d] mb-1">
-                गुण / टक्केवारी (Percentage / CGPA)
+                Percentage / CGPA
               </label>
               <input
                 type="text"
-                placeholder="उदा. 75.40% किंवा 8.2 CGPA"
+                placeholder="e.g. 78.4% or 8.2 CGPA"
                 value={form.percentage}
                 onChange={(e) => updateField("percentage", e.target.value)}
                 className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 px-3.5 text-sm text-[#24312d] focus:border-[#b5623b] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#b5623b]/20 transition"
@@ -511,14 +605,14 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
         <div className="rounded-3xl border border-[#e2e5dc] bg-white p-6 sm:p-8 shadow-sm">
           <div className="flex items-center gap-2.5 pb-4 border-b border-[#eef0e8]">
             <div className="w-8 h-8 rounded-lg bg-[#b5623b]/10 text-[#b5623b] flex items-center justify-center font-bold text-sm">
-              ३
+              3
             </div>
             <div>
               <h3 className="font-serif text-lg font-bold text-[#24312d]">
-                बॅच व वेळ प्राधान्य (Batch & Timing Preference)
+                Batch & Timing Preference
               </h3>
               <p className="text-xs text-[#65706a]">
-                आपल्या सोयीनुसार क्लासची वेळ निवडा
+                Select your convenient classroom timing
               </p>
             </div>
           </div>
@@ -527,20 +621,20 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
             {[
               {
                 id: "Morning",
-                title: "सकाळची बॅच (Morning)",
+                title: "Morning Batch",
                 time: "08:00 AM - 10:00 AM",
                 icon: "🌅",
               },
               {
                 id: "Evening",
-                title: "संध्याकाळची बॅच (Evening)",
+                title: "Evening Batch",
                 time: "06:00 PM - 08:00 PM",
                 icon: "🌆",
               },
               {
                 id: "Weekend",
-                title: "वीकेंड बॅच (Weekend)",
-                time: "शनि-रवि 10:00 AM - 02:00 PM",
+                title: "Weekend Batch",
+                time: "Sat-Sun 10:00 AM - 02:00 PM",
                 icon: "⚡",
               },
             ].map((b) => {
@@ -569,105 +663,212 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
         <div className="rounded-3xl border border-[#e2e5dc] bg-white p-6 sm:p-8 shadow-sm">
           <div className="flex items-center gap-2.5 pb-4 border-b border-[#eef0e8]">
             <div className="w-8 h-8 rounded-lg bg-[#b5623b]/10 text-[#b5623b] flex items-center justify-center font-bold text-sm">
-              ४
+              4
             </div>
             <div>
               <h3 className="font-serif text-lg font-bold text-[#24312d]">
-                आवश्यक कागदपत्रे अपलोड (Document Uploads)
+                Mandatory Document Uploads & Proofs
               </h3>
               <p className="text-xs text-[#65706a]">
-                फोटो, ओळखपत्र व गुणपत्रिका (JPG/PNG/PDF - Max 5MB)
+                Identity Proof, Education Proof, Photo, and Caste Certificate (if category student)
               </p>
             </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Conditional Notice if Reserved Category */}
+          {form.category !== "General" && (
+            <div className="mt-4 flex items-start gap-2.5 rounded-2xl bg-amber-50/80 border border-amber-200/80 p-3.5 text-xs text-amber-900">
+              <AlertCircle size={16} className="text-amber-700 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold">Caste Certificate Required:</span> Since you selected{" "}
+                <span className="font-semibold underline">{form.category}</span> category, uploading your government-issued Caste / Category Certificate is strictly mandatory to avail institutional fee subsidy and reserved quota.
+              </div>
+            </div>
+          )}
+
+          <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* 1. Photo */}
-            <div className="rounded-2xl border border-dashed border-[#d5d9cf] bg-[#fbfaf7] p-4 text-center">
-              <Camera size={24} className="mx-auto text-[#b5623b] mb-1.5" />
-              <p className="text-xs font-bold text-[#24312d]">पासपोर्ट फोटो (Photo)</p>
-              <p className="text-[11px] text-[#65706a] mb-3">अलीकडचा पासपोर्ट आकार फोटो</p>
-
-              {form.photoUrl ? (
-                <div className="relative mx-auto w-20 h-20 rounded-xl overflow-hidden border border-[#b5623b] mb-2 shadow-sm">
-                  <img
-                    src={form.photoUrl}
-                    alt="Uploaded"
-                    className="w-full h-full object-cover"
-                  />
-                  <span className="absolute bottom-0 inset-x-0 bg-emerald-600 text-white text-[9px] py-0.5 font-bold">
-                    अपलोड झाले
+            <div className="rounded-2xl border border-dashed border-[#d5d9cf] bg-[#fbfaf7] p-4 text-center flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5">
+                    * Required
                   </span>
+                  <Camera size={16} className="text-[#b5623b]" />
                 </div>
-              ) : null}
+                <p className="text-xs font-bold text-[#24312d]">1. Passport Photo</p>
+                <p className="text-[11px] text-[#65706a] mb-3">Recent clear student face photo</p>
 
-              <label className="inline-flex cursor-pointer items-center justify-center rounded-xl bg-white border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 shadow-sm transition">
-                <span>{form.photoUrl ? "बदला" : "फोटो निवडा"}</span>
+                {form.photoUrl ? (
+                  <div className="relative mx-auto w-20 h-20 rounded-xl overflow-hidden border border-[#b5623b] mb-2 shadow-sm">
+                    <img
+                      src={form.photoUrl}
+                      alt="Uploaded"
+                      className="w-full h-full object-cover"
+                    />
+                    <span className="absolute bottom-0 inset-x-0 bg-emerald-600 text-white text-[9px] py-0.5 font-bold">
+                      Uploaded
+                    </span>
+                  </div>
+                ) : (
+                  <div className="w-16 h-16 mx-auto rounded-xl bg-gray-100 border border-dashed border-gray-300 flex items-center justify-center text-gray-400 mb-2">
+                    <Camera size={20} />
+                  </div>
+                )}
+              </div>
+
+              <label className="mt-2 inline-flex cursor-pointer items-center justify-center rounded-xl bg-white border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 shadow-sm transition">
+                <span>{form.photoUrl ? "Change Photo" : "Upload Photo"}</span>
                 <input
                   type="file"
                   accept="image/*"
                   className="hidden"
-                  onChange={(e) => handleFileUpload(e, "photoUrl", "फोटो")}
+                  onChange={(e) => handleFileUpload(e, "photoUrl", "Photo")}
                 />
               </label>
             </div>
 
-            {/* 2. Aadhaar / ID */}
-            <div className="rounded-2xl border border-dashed border-[#d5d9cf] bg-[#fbfaf7] p-4 text-center">
-              <ShieldCheck size={24} className="mx-auto text-[#b5623b] mb-1.5" />
-              <p className="text-xs font-bold text-[#24312d]">ओळखपत्र (Identity Proof)</p>
-              <p className="text-[11px] text-[#65706a] mb-3">आधार कार्ड / मतदान ओळखपत्र</p>
-
-              {form.idProofUrl ? (
-                <div className="relative mx-auto w-20 h-20 rounded-xl overflow-hidden border border-[#b5623b] mb-2 shadow-sm">
-                  <img
-                    src={form.idProofUrl}
-                    alt="ID Proof"
-                    className="w-full h-full object-cover"
-                  />
-                  <span className="absolute bottom-0 inset-x-0 bg-emerald-600 text-white text-[9px] py-0.5 font-bold">
-                    अपलोड झाले
+            {/* 2. Aadhaar / Identity Proof */}
+            <div className="rounded-2xl border border-dashed border-[#d5d9cf] bg-[#fbfaf7] p-4 text-center flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5">
+                    * Required
                   </span>
+                  <ShieldCheck size={16} className="text-[#b5623b]" />
                 </div>
-              ) : null}
+                <p className="text-xs font-bold text-[#24312d]">2. Identity Proof</p>
+                <p className="text-[11px] text-[#65706a] mb-3">Aadhaar / Voter / PAN / Passport</p>
 
-              <label className="inline-flex cursor-pointer items-center justify-center rounded-xl bg-white border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 shadow-sm transition">
-                <span>{form.idProofUrl ? "बदला" : "ओळखपत्र निवडा"}</span>
+                {form.idProofUrl ? (
+                  <div className="relative mx-auto w-20 h-20 rounded-xl overflow-hidden border border-[#b5623b] mb-2 shadow-sm">
+                    <img
+                      src={form.idProofUrl}
+                      alt="ID Proof"
+                      className="w-full h-full object-cover"
+                    />
+                    <span className="absolute bottom-0 inset-x-0 bg-emerald-600 text-white text-[9px] py-0.5 font-bold">
+                      Uploaded
+                    </span>
+                  </div>
+                ) : (
+                  <div className="w-16 h-16 mx-auto rounded-xl bg-gray-100 border border-dashed border-gray-300 flex items-center justify-center text-gray-400 mb-2">
+                    <ShieldCheck size={20} />
+                  </div>
+                )}
+              </div>
+
+              <label className="mt-2 inline-flex cursor-pointer items-center justify-center rounded-xl bg-white border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 shadow-sm transition">
+                <span>{form.idProofUrl ? "Change ID" : "Upload ID Proof"}</span>
                 <input
                   type="file"
                   accept="image/*,application/pdf"
                   className="hidden"
-                  onChange={(e) => handleFileUpload(e, "idProofUrl", "ओळखपत्र")}
+                  onChange={(e) => handleFileUpload(e, "idProofUrl", "Identity Proof")}
                 />
               </label>
             </div>
 
-            {/* 3. Marksheet */}
-            <div className="rounded-2xl border border-dashed border-[#d5d9cf] bg-[#fbfaf7] p-4 text-center">
-              <FileCheck2 size={24} className="mx-auto text-[#b5623b] mb-1.5" />
-              <p className="text-xs font-bold text-[#24312d]">गुणपत्रिका (Marksheet)</p>
-              <p className="text-[11px] text-[#65706a] mb-3">१० वी / १२ वी किंवा पदवी</p>
-
-              {form.marksheetUrl ? (
-                <div className="relative mx-auto w-20 h-20 rounded-xl overflow-hidden border border-[#b5623b] mb-2 shadow-sm">
-                  <img
-                    src={form.marksheetUrl}
-                    alt="Marksheet"
-                    className="w-full h-full object-cover"
-                  />
-                  <span className="absolute bottom-0 inset-x-0 bg-emerald-600 text-white text-[9px] py-0.5 font-bold">
-                    अपलोड झाले
+            {/* 3. Education Proof / Marksheet */}
+            <div className="rounded-2xl border border-dashed border-[#d5d9cf] bg-[#fbfaf7] p-4 text-center flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5">
+                    * Required
                   </span>
+                  <FileCheck2 size={16} className="text-[#b5623b]" />
                 </div>
-              ) : null}
+                <p className="text-xs font-bold text-[#24312d]">3. Education Proof</p>
+                <p className="text-[11px] text-[#65706a] mb-3">10th / 12th / Degree / College ID</p>
 
-              <label className="inline-flex cursor-pointer items-center justify-center rounded-xl bg-white border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 shadow-sm transition">
-                <span>{form.marksheetUrl ? "बदला" : "गुणपत्रिका निवडा"}</span>
+                {form.marksheetUrl ? (
+                  <div className="relative mx-auto w-20 h-20 rounded-xl overflow-hidden border border-[#b5623b] mb-2 shadow-sm">
+                    <img
+                      src={form.marksheetUrl}
+                      alt="Education Proof"
+                      className="w-full h-full object-cover"
+                    />
+                    <span className="absolute bottom-0 inset-x-0 bg-emerald-600 text-white text-[9px] py-0.5 font-bold">
+                      Uploaded
+                    </span>
+                  </div>
+                ) : (
+                  <div className="w-16 h-16 mx-auto rounded-xl bg-gray-100 border border-dashed border-gray-300 flex items-center justify-center text-gray-400 mb-2">
+                    <FileCheck2 size={20} />
+                  </div>
+                )}
+              </div>
+
+              <label className="mt-2 inline-flex cursor-pointer items-center justify-center rounded-xl bg-white border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 shadow-sm transition">
+                <span>{form.marksheetUrl ? "Change Proof" : "Upload Edu Proof"}</span>
                 <input
                   type="file"
                   accept="image/*,application/pdf"
                   className="hidden"
-                  onChange={(e) => handleFileUpload(e, "marksheetUrl", "गुणपत्रिका")}
+                  onChange={(e) => handleFileUpload(e, "marksheetUrl", "Education Proof")}
+                />
+              </label>
+            </div>
+
+            {/* 4. Caste Certificate (Conditional) */}
+            <div
+              className={`rounded-2xl border border-dashed p-4 text-center flex flex-col justify-between transition ${
+                form.category !== "General"
+                  ? form.casteCertUrl
+                    ? "border-emerald-300 bg-emerald-50/30"
+                    : "border-amber-400 bg-amber-50/40"
+                  : "border-[#d5d9cf] bg-[#fbfaf7]"
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  {form.category !== "General" ? (
+                    <span className="rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold px-2 py-0.5">
+                      * Mandatory ({form.category})
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-gray-100 text-gray-600 text-[10px] font-semibold px-2 py-0.5">
+                      Exempt (General)
+                    </span>
+                  )}
+                  <Award size={16} className={form.category !== "General" ? "text-amber-700" : "text-[#65706a]"} />
+                </div>
+                <p className="text-xs font-bold text-[#24312d]">4. Caste Certificate</p>
+                <p className="text-[11px] text-[#65706a] mb-3">
+                  {form.category !== "General" ? "Govt authorized certificate" : "Optional for Open category"}
+                </p>
+
+                {form.casteCertUrl ? (
+                  <div className="relative mx-auto w-20 h-20 rounded-xl overflow-hidden border border-emerald-500 mb-2 shadow-sm">
+                    <img
+                      src={form.casteCertUrl}
+                      alt="Caste Certificate"
+                      className="w-full h-full object-cover"
+                    />
+                    <span className="absolute bottom-0 inset-x-0 bg-emerald-600 text-white text-[9px] py-0.5 font-bold">
+                      Uploaded
+                    </span>
+                  </div>
+                ) : (
+                  <div
+                    className={`w-16 h-16 mx-auto rounded-xl border border-dashed flex items-center justify-center mb-2 ${
+                      form.category !== "General"
+                        ? "bg-amber-100/60 border-amber-300 text-amber-700"
+                        : "bg-gray-100 border-gray-300 text-gray-400"
+                    }`}
+                  >
+                    <Award size={20} />
+                  </div>
+                )}
+              </div>
+
+              <label className="mt-2 inline-flex cursor-pointer items-center justify-center rounded-xl bg-white border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 shadow-sm transition">
+                <span>{form.casteCertUrl ? "Change Certificate" : "Upload Certificate"}</span>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  className="hidden"
+                  onChange={(e) => handleFileUpload(e, "casteCertUrl", "Caste Certificate")}
                 />
               </label>
             </div>
@@ -684,7 +885,7 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
               className="mt-1 h-5 w-5 rounded border-gray-300 text-[#b5623b] focus:ring-[#b5623b]"
             />
             <span className="text-xs sm:text-sm text-[#4d5752] leading-relaxed">
-              मी याद्वारे घोषित करतो/करते की या अर्जात भरलेली सर्व माहिती सत्य व बिनचूक आहे. मी परिवर्तन मिशन फाउंडेशनच्या सर्व शैक्षणिक नियमांचे, शिस्तीचे आणि उपस्थिती निकषांचे पालन करण्यास बांधील आहे.
+              I hereby declare that all the information provided in this admission form is true and correct. I agree to comply with all educational policies, attendance requirements and codes of conduct of Parivattan Mission Foundation.
             </span>
           </label>
 
@@ -695,14 +896,14 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition"
             >
               <ArrowLeft size={16} />
-              मागे जा (Back to Courses)
+              Back to Courses
             </button>
 
             <button
               type="submit"
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-[#b5623b] px-8 py-3.5 text-sm sm:text-base font-bold text-white shadow-lg hover:bg-[#974a27] transition"
             >
-              प्रवेश अर्ज सादर करा व शुल्क भरा (Proceed to Payment)
+              Proceed to Payment & Confirm Admission
               <ArrowRight size={18} />
             </button>
           </div>

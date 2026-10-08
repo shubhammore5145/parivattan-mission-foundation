@@ -103,17 +103,19 @@ export default function CourseCard({ course, onEnroll, onOpenDetails }: CourseCa
         </div>
 
         {/* Batch & Timing Details with Live Intake Remaining */}
-        <div className="mt-4 rounded-2xl bg-[#fbfaf7] border border-[#e2e5dc] p-3.5 space-y-2.5 text-xs">
+        <div className="mt-4 rounded-2xl bg-[#fbfaf7] border border-[#e2e5dc] p-3.5 space-y-3 text-xs">
           {activeLevel.batches.map(batch => {
             const seats = getBatchSeatsInfo(batch.id);
+            const fillPct = Math.min(100, Math.round((seats.enrolled / seats.totalSeats) * 100));
+
             return (
-              <div key={batch.id} className="border-b border-[#eef0e8] last:border-b-0 pb-2.5 last:pb-0">
+              <div key={batch.id} className="border-b border-[#eef0e8] last:border-b-0 pb-3 last:pb-0">
                 <div className="flex items-center justify-between font-bold text-[#24312d]">
                   <span className="flex items-center gap-1.5">
                     <Calendar size={13} className="text-[#b5623b]" />
                     {batch.name}
                   </span>
-                  <span className="text-[#b5623b] font-mono">{batch.time}</span>
+                  <span className="text-[#b5623b] font-mono font-bold">{batch.time}</span>
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center justify-between gap-1 text-[#65706a]">
                   <span>Days: <strong className="text-[#24312d]">{batch.days}</strong></span>
@@ -129,16 +131,29 @@ export default function CourseCard({ course, onEnroll, onOpenDetails }: CourseCa
                     )}
                   </div>
                 </div>
+                {/* Visual Seat Progress Bar */}
+                <div className="mt-1.5 w-full bg-[#e2e5dc] rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      seats.isFull
+                        ? "bg-red-500"
+                        : seats.remainingSeats <= 5
+                        ? "bg-amber-500"
+                        : "bg-emerald-500"
+                    }`}
+                    style={{ width: `${fillPct}%` }}
+                  />
+                </div>
               </div>
             );
           })}
         </div>
 
-        {/* Fee & Deposit Split (Requirement 8) */}
+        {/* Fee & Deposit Split */}
         <div className="mt-4 rounded-2xl bg-white border border-[#e2e5dc] p-4 shadow-2xs">
           <div className="grid grid-cols-2 gap-2 text-left">
             <div>
-              <p className="text-[11px] uppercase tracking-wider font-semibold text-[#65706a]">Course Fee</p>
+              <p className="text-[11px] uppercase tracking-wider font-semibold text-[#65706a]">Tuition Fee</p>
               <p className="mt-0.5 text-2xl font-bold font-serif text-[#24312d]">
                 ₹{activeLevel.courseFee.toLocaleString("en-IN")}
               </p>
@@ -150,7 +165,7 @@ export default function CourseCard({ course, onEnroll, onOpenDetails }: CourseCa
                   <p className="mt-0.5 text-2xl font-bold font-serif text-[#b5623b]">
                     ₹{activeLevel.securityDeposit.toLocaleString("en-IN")}
                   </p>
-                  <p className="text-[10px] text-emerald-700 font-medium">Refundable*</p>
+                  <p className="text-[10px] text-emerald-700 font-bold">100% Refundable*</p>
                 </div>
               ) : (
                 <p className="mt-1 text-sm font-semibold text-[#65706a]">Not Applicable</p>
@@ -173,24 +188,32 @@ export default function CourseCard({ course, onEnroll, onOpenDetails }: CourseCa
           type="button"
           disabled={allBatchesFull}
           onClick={() => onEnroll ? onEnroll(course, activeLevel) : null}
-          className={`flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold text-white shadow-sm transition ${
+          className={`flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold text-white shadow-sm transition cursor-pointer ${
             allBatchesFull
               ? "bg-gray-400 cursor-not-allowed opacity-75"
-              : "bg-[#b5623b] hover:bg-[#954b2c] hover:shadow-md"
+              : "bg-[#b5623b] hover:bg-[#954b2c] hover:shadow-md active:scale-98"
           }`}
         >
-          <span>{allBatchesFull ? "Admissions Closed (Full)" : "Enroll Now"}</span>
+          <span>{allBatchesFull ? "Admissions Closed (Full)" : "Enroll in Course"}</span>
           {!allBatchesFull && <ArrowRight size={15} />}
         </button>
 
         <button
           type="button"
           onClick={() => onOpenDetails ? onOpenDetails(course, activeLevel) : null}
-          className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#d9ddd4] bg-white px-3.5 py-3 text-xs sm:text-sm font-bold text-[#24312d] transition hover:bg-[#fbfaf7] hover:border-[#b5623b]"
+          className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#d9ddd4] bg-white px-3.5 py-3 text-xs sm:text-sm font-bold text-[#24312d] transition hover:bg-[#fbfaf7] hover:border-[#b5623b] cursor-pointer"
         >
           <Info size={15} />
-          <span>Details</span>
+          <span>Syllabus & Details</span>
         </button>
+
+        <Link
+          to={`/courses/${course.id}`}
+          className="inline-flex items-center justify-center rounded-xl border border-[#e2e5dc] bg-[#fbfaf7] px-3 py-3 text-xs font-semibold text-[#65706a] hover:text-[#24312d] hover:border-[#b5623b] transition"
+          title="View Full Course Page"
+        >
+          Full Page →
+        </Link>
       </div>
     </div>
   );

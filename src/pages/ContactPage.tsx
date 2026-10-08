@@ -14,6 +14,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
+  Linkedin,
+  Facebook,
+  Instagram,
+  Twitter,
+  Youtube,
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -280,7 +285,7 @@ export default function ContactPage() {
                     Parivattan Mission Foundation
                   </h2>
                   <p className="text-stone-600 text-sm md:text-base leading-relaxed mb-6 font-sans">
-                    Near Shivaji Chowk, Barshi Road, Dharashiv (Osmanabad), Maharashtra, India – 413501
+                    RS Complex, S7, Tuljapur Naldurg Road, Devsinga (Tul), Tuljapur, Dharashiv (Osmanabad), Maharashtra, India – 413601
                   </p>
                 </div>
 
@@ -288,7 +293,7 @@ export default function ContactPage() {
                 <div className="w-full h-[340px] md:h-[400px] rounded-3xl overflow-hidden border border-stone-200 shadow-md">
                   <iframe
                     title="Parivattan Mission Foundation Location Map"
-                    src="https://maps.google.com/maps?q=Dharashiv%2C%20Maharashtra%20413501&t=&z=14&ie=UTF8&iwloc=&output=embed"
+                    src="https://maps.google.com/maps?q=Tuljapur%2C%20Maharashtra%20413601&t=&z=14&ie=UTF8&iwloc=&output=embed"
                     width="100%"
                     height="100%"
                     style={{ border: 0 }}
@@ -382,6 +387,33 @@ export default function ContactPage() {
                           <strong>Office Hours:</strong> Mon – Sat: 9:00 AM – 6:30 PM (IST)
                         </span>
                       </p>
+                    </div>
+
+                    {/* Social Media Links */}
+                    <div className="pt-2">
+                      <p className="text-xs font-semibold text-[#f2c5a8] uppercase tracking-wider mb-2.5">
+                        Connect On Social Media:
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { icon: Linkedin, href: "https://www.linkedin.com/in/parivattan-mission-foundation-55b054376?utm_source=share_via&utm_content=profile&utm_medium=member_android", label: "LinkedIn" },
+                          { icon: Facebook, href: "https://www.facebook.com/share/1GrmV9sNzE/", label: "Facebook" },
+                          { icon: Instagram, href: "https://www.instagram.com/parivattan_mission_foundation", label: "Instagram" },
+                          { icon: Twitter, href: "https://x.com/ParivattanMF", label: "Twitter" },
+                          { icon: Youtube, href: "https://youtube.com/@parivattanmissionfoundation?si=2DO8HxNu_AgDC5l9", label: "YouTube" },
+                        ].map((social) => (
+                          <a
+                            key={social.label}
+                            href={social.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={social.label}
+                            className="w-9 h-9 rounded-xl bg-white/10 hover:bg-[#b5623b] border border-white/10 flex items-center justify-center transition-all duration-300 text-stone-300 hover:text-white hover:scale-105"
+                          >
+                            <social.icon size={16} />
+                          </a>
+                        ))}
+                      </div>
                     </div>
                   </div>
 

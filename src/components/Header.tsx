@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, Menu, X } from 'lucide-react';
+import { ChevronDown, Menu, X, GraduationCap } from 'lucide-react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 
 const Header = () => {
@@ -104,12 +104,12 @@ const Header = () => {
           >
             Admissions
           </Link>
-          <a 
-            href="/admissions#courses"
+          <Link 
+            to="/courses"
             className={`nav-item whitespace-nowrap text-sm font-medium transition-colors cursor-pointer ${isScrolled ? 'text-[#24312d] hover:text-[#b5623b]' : 'text-white hover:text-[#f2c5a8]'}`}
           >
             Courses
-          </a>
+          </Link>
           <div className="group relative">
             <button type="button" className={`flex items-center gap-1 whitespace-nowrap nav-item text-sm font-medium ${isScrolled ? 'text-[#24312d] hover:text-[#b5623b]' : 'text-white hover:text-[#f2c5a8]'}`}>
               Our Initiatives <ChevronDown size={15} className="transition-transform group-hover:rotate-180" />
@@ -119,7 +119,9 @@ const Header = () => {
               <a href="/initiatives" onClick={() => setMobileMenuOpen(false)} className="block rounded-xl px-4 py-3 text-sm font-semibold text-[#24312d] hover:bg-[#eef0e8] hover:text-[#b5623b]">All initiatives</a>
               <a href="/initiatives#overseas" onClick={() => setMobileMenuOpen(false)} className="block rounded-xl px-4 py-3 text-sm text-[#65706a] hover:bg-[#eef0e8] hover:text-[#b5623b]">Parivattan Overseas Schools</a>
               <a href="/initiatives#languages" onClick={() => setMobileMenuOpen(false)} className="block rounded-xl px-4 py-3 text-sm text-[#65706a] hover:bg-[#eef0e8] hover:text-[#b5623b]">Parivattan Foreign Language School</a>
+              <Link to="/courses" onClick={() => setMobileMenuOpen(false)} className="block rounded-xl px-4 py-2 text-xs font-semibold text-[#b5623b] hover:bg-[#eef0e8]">Upcoming: Russian, Chinese & Spanish (Coming Soon)</Link>
               <a href="/initiatives#technology" onClick={() => setMobileMenuOpen(false)} className="block rounded-xl px-4 py-3 text-sm text-[#65706a] hover:bg-[#eef0e8] hover:text-[#b5623b]">Parivattan Technology School</a>
+              <Link to="/team" onClick={() => setMobileMenuOpen(false)} className="block rounded-xl px-4 py-3 text-sm font-semibold text-[#24312d] hover:bg-[#eef0e8] hover:text-[#b5623b]">Meet Our Team</Link>
               <Link to="/rules" onClick={() => setMobileMenuOpen(false)} className="block rounded-xl px-4 py-3 text-sm text-[#65706a] hover:bg-[#eef0e8] hover:text-[#b5623b]">Rules & Regulations</Link>
             </div>
           </div>
@@ -137,6 +139,14 @@ const Header = () => {
             className={`nav-item whitespace-nowrap text-sm font-medium transition-colors cursor-pointer ${isScrolled ? 'text-[#24312d] hover:text-[#b5623b]' : 'text-white hover:text-[#f2c5a8]'}`}
           >
             Contact
+          </Link>
+          <Link 
+            to="/student"
+            className={`nav-item whitespace-nowrap text-sm font-semibold transition-colors cursor-pointer flex items-center gap-1 px-2 py-1 rounded-lg ${isScrolled ? 'text-[#24312d] hover:text-[#b5623b]' : 'text-white hover:text-[#f2c5a8]'}`}
+            title="Student Portal - Register and verify PRN"
+          >
+            <GraduationCap size={16} className="text-[#b5623b]" />
+            <span>Student Portal</span>
           </Link>
           <Link 
             to="/admissions#register" 
@@ -197,6 +207,17 @@ const Header = () => {
               <span className="text-xs bg-[#b5623b] text-white px-2 py-0.5 rounded-full">New</span>
             </Link>
             <Link
+              to="/student"
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-lg sm:text-xl py-3 px-4 text-[#24312d] bg-[#b5623b]/10 border border-[#b5623b]/30 rounded-xl font-bold flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2">
+                <GraduationCap size={20} className="text-[#b5623b]" />
+                <span>Student Portal (PRN)</span>
+              </div>
+              <span className="text-xs bg-[#b5623b] text-white px-2 py-0.5 rounded-full font-medium">Get PRN</span>
+            </Link>
+            <Link
               to="/register"
               onClick={() => setMobileMenuOpen(false)}
               className="text-lg sm:text-xl py-3 px-4 text-slate-700 hover:text-[#b5623b] hover:bg-amber-50 rounded-xl font-medium"
@@ -217,11 +238,19 @@ const Header = () => {
             >
               About
             </a>
+            <Link
+              to="/team"
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-lg sm:text-xl py-3 px-4 text-slate-700 hover:text-[#b5623b] hover:bg-amber-50 rounded-xl transition-all font-medium"
+            >
+              Our Team
+            </Link>
             <div className="rounded-xl bg-[#eef0e8] px-4 py-3">
               <p className="mb-2 text-lg font-semibold text-[#24312d]">Our Initiatives</p>
               <a href="/initiatives" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-[#b5623b]">All initiatives</a>
               <a href="/initiatives#overseas" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-[#65706a]">Parivattan Overseas Schools</a>
               <a href="/initiatives#languages" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-[#65706a]">Parivattan Foreign Language School</a>
+              <Link to="/courses" onClick={() => setMobileMenuOpen(false)} className="block py-1.5 text-xs font-semibold text-[#b5623b]">Upcoming: Russian, Chinese & Spanish</Link>
               <a href="/initiatives#technology" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-[#65706a]">Parivattan Technology School</a>
             </div>
             <a href="/story" onClick={() => setMobileMenuOpen(false)} className="text-lg sm:text-xl py-3 px-4 text-slate-700 hover:text-[#b5623b] rounded-xl transition-all font-medium">Our story</a>

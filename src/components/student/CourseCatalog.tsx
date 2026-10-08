@@ -41,7 +41,6 @@ export const CourseCatalog: React.FC<CourseCatalogProps> = ({
     const matchesSearch =
       !q ||
       course.title.toLowerCase().includes(q) ||
-      course.marathiTitle.toLowerCase().includes(q) ||
       course.school.toLowerCase().includes(q) ||
       course.code.toLowerCase().includes(q) ||
       course.highlights.some((h) => h.toLowerCase().includes(q));
@@ -71,13 +70,13 @@ export const CourseCatalog: React.FC<CourseCatalogProps> = ({
           <div>
             <div className="inline-flex items-center gap-1.5 rounded-full bg-[#b5623b]/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#b5623b]">
               <Sparkles size={13} />
-              स्टेप २ : अभ्यासक्रम निवड (Step 2: Course Selection)
+              Step 2: Course Selection
             </div>
             <h2 className="mt-2 text-2xl sm:text-3xl font-serif font-bold text-[#24312d]">
-              आपल्या आवडीचा अभ्यासक्रम निवडा
+              Select Your Preferred Course
             </h2>
             <p className="mt-1 text-xs sm:text-sm text-[#65706a]">
-              तंत्रज्ञान, विदेशी भाषा, स्पर्धा परीक्षा व कौशल्य विकासामधील मान्यताप्राप्त अभ्यासक्रम.
+              Certified and industry-aligned programs in foreign languages, technology, and career skills.
             </p>
           </div>
 
@@ -88,7 +87,7 @@ export const CourseCatalog: React.FC<CourseCatalogProps> = ({
             </div>
             <input
               type="text"
-              placeholder="कोर्स, भाषा किंवा विषय शोधा..."
+              placeholder="Search course, language or subject..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full rounded-2xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 pl-10 pr-3.5 text-sm text-[#24312d] placeholder:text-gray-400 focus:border-[#b5623b] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#b5623b]/20 transition"
@@ -110,7 +109,6 @@ export const CourseCatalog: React.FC<CourseCatalogProps> = ({
               }`}
             >
               <span>{cat.label}</span>
-              <span className="ml-1 text-[11px] opacity-75 font-normal">({cat.marathi})</span>
             </button>
           ))}
         </div>
@@ -149,9 +147,6 @@ export const CourseCatalog: React.FC<CourseCatalogProps> = ({
                   <h3 className="mt-1 font-serif text-lg font-bold text-[#24312d] leading-snug">
                     {course.title}
                   </h3>
-                  <p className="mt-0.5 text-xs text-[#65706a] font-medium">
-                    {course.marathiTitle}
-                  </p>
                 </div>
 
                 {/* Course Metadata pills */}
@@ -159,22 +154,22 @@ export const CourseCatalog: React.FC<CourseCatalogProps> = ({
                   <div className="grid grid-cols-2 gap-2 text-[11px] text-[#4d5752]">
                     <div className="flex items-center gap-1.5 bg-[#fbfaf7] p-2 rounded-xl border border-[#eceee7]">
                       <Clock size={13} className="text-[#b5623b] shrink-0" />
-                      <span><strong>कालावधी:</strong> {course.duration}</span>
+                      <span><strong>Duration:</strong> {course.duration}</span>
                     </div>
                     <div className="flex items-center gap-1.5 bg-[#fbfaf7] p-2 rounded-xl border border-[#eceee7]">
                       <MapPin size={13} className="text-[#b5623b] shrink-0" />
-                      <span className="truncate"><strong>मोड:</strong> {course.mode}</span>
+                      <span className="truncate"><strong>Mode:</strong> {course.mode}</span>
                     </div>
                     <div className="flex items-center gap-1.5 bg-[#fbfaf7] p-2 rounded-xl border border-[#eceee7] col-span-2">
                       <Calendar size={13} className="text-[#b5623b] shrink-0" />
-                      <span><strong>बॅच प्रारंभ:</strong> {course.batchStart}</span>
+                      <span><strong>Batch Starts:</strong> {course.batchStart}</span>
                     </div>
                   </div>
 
                   {/* Highlights */}
                   <div>
                     <p className="text-[11px] font-bold uppercase tracking-wider text-[#24312d] mb-2">
-                      वैशिष्ट्ये व फायदे:
+                      Key Highlights:
                     </p>
                     <ul className="space-y-1.5 text-xs text-[#525f59]">
                       {course.highlights.slice(0, 3).map((h, i) => (
@@ -193,7 +188,7 @@ export const CourseCatalog: React.FC<CourseCatalogProps> = ({
                     className="inline-flex items-center gap-1 text-xs font-semibold text-[#b5623b] hover:underline"
                   >
                     <BookOpen size={13} />
-                    संपूर्ण सिलॅबस पहा (View Syllabus)
+                    View Course Syllabus
                   </button>
                 </div>
               </div>
@@ -203,7 +198,7 @@ export const CourseCatalog: React.FC<CourseCatalogProps> = ({
                 <div className="flex items-end justify-between mb-3">
                   <div>
                     <div className="text-[11px] text-[#65706a]">
-                      प्रवेश नोंदणी शुल्क (Admission Fee)
+                      Admission Enrollment Fee
                     </div>
                     <div className="flex items-baseline gap-2">
                       <span className="text-xl sm:text-2xl font-bold text-[#24312d]">
@@ -216,10 +211,10 @@ export const CourseCatalog: React.FC<CourseCatalogProps> = ({
                   </div>
                   <div className="text-right">
                     <span className="rounded-lg bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                      स्कॉलरशिप मंजूर
+                      Scholarship Applied
                     </span>
                     <p className="text-[10px] text-[#65706a] mt-0.5">
-                      उर्वरित जागा: {course.seatsAvailable}
+                      Seats Left: {course.seatsAvailable}
                     </p>
                   </div>
                 </div>
@@ -236,11 +231,11 @@ export const CourseCatalog: React.FC<CourseCatalogProps> = ({
                   {isSelected ? (
                     <>
                       <CheckCircle2 size={16} />
-                      हा कोर्स निवडला आहे (पुढे जा)
+                      Course Selected (Proceed)
                     </>
                   ) : (
                     <>
-                      हा अभ्यासक्रम निवडा (Select Course)
+                      Select This Course
                       <ArrowRight size={15} />
                     </>
                   )}
@@ -254,8 +249,8 @@ export const CourseCatalog: React.FC<CourseCatalogProps> = ({
       {filteredCourses.length === 0 && (
         <div className="rounded-3xl border border-dashed border-[#d5d9cf] bg-white p-12 text-center">
           <Info size={36} className="mx-auto text-[#65706a] mb-2" />
-          <h4 className="font-serif text-lg font-bold text-[#24312d]">कोणताही अभ्यासक्रम सापडला नाही</h4>
-          <p className="text-sm text-[#65706a] mt-1">कृपया फिल्टर बदला किंवा दुसरा शब्द शोधून पहा.</p>
+          <h4 className="font-serif text-lg font-bold text-[#24312d]">No Courses Found</h4>
+          <p className="text-sm text-[#65706a] mt-1">Please try modifying your search filter or query.</p>
           <button
             type="button"
             onClick={() => {
@@ -264,7 +259,7 @@ export const CourseCatalog: React.FC<CourseCatalogProps> = ({
             }}
             className="mt-4 rounded-xl bg-[#24312d] px-4 py-2 text-xs font-bold text-white hover:bg-[#b5623b]"
           >
-            सर्व अभ्यासक्रम दाखवा
+            Show All Courses
           </button>
         </div>
       )}
@@ -295,7 +290,7 @@ export const CourseCatalog: React.FC<CourseCatalogProps> = ({
             <div className="mt-5 space-y-4">
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wider text-[#b5623b]">
-                  अभ्यासक्रम रचना (Course Syllabus Modules)
+                  Course Syllabus Modules
                 </h4>
                 <div className="mt-3 space-y-2.5">
                   {syllabusModalCourse.syllabus.map((mod, i) => (
@@ -314,7 +309,7 @@ export const CourseCatalog: React.FC<CourseCatalogProps> = ({
 
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wider text-[#b5623b]">
-                  करिअर व रोजगाराच्या संधी (Career Prospects)
+                  Career Prospects & Opportunities
                 </h4>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {syllabusModalCourse.careerProspects.map((cp, i) => (
@@ -335,7 +330,7 @@ export const CourseCatalog: React.FC<CourseCatalogProps> = ({
                 onClick={() => setSyllabusModalCourse(null)}
                 className="rounded-xl border border-gray-300 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
               >
-                बंद करा
+                Close
               </button>
               <button
                 type="button"
@@ -345,7 +340,7 @@ export const CourseCatalog: React.FC<CourseCatalogProps> = ({
                 }}
                 className="rounded-xl bg-[#b5623b] px-5 py-2 text-xs font-bold text-white hover:bg-[#974a27] shadow"
               >
-                हा कोर्स निवडा व नोंदणी करा
+                Select Course & Register
               </button>
             </div>
           </div>

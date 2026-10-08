@@ -139,9 +139,7 @@ const Services: React.FC = () => {
 
   // No payment handler, just a placeholder
   const handleDonate = (service: Service, amount: number = 1000) => {
-    setDonatingService(service.id);
-    alert(`Thank you for your interest in donating ₹${amount} to ${service.name}! (Demo only)`);
-    setDonatingService(null);
+    window.location.href = `/donate?amount=${amount}&cause=${encodeURIComponent(service.name)}`;
   };
 
 

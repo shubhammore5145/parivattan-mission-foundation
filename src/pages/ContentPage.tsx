@@ -4,17 +4,12 @@ import { Link, useLocation } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import OurWork from "@/components/OurWork";
+import OurTeamSection from "@/components/team/OurTeamSection";
 
 const initiatives = [
   { title: "Parivattan Overseas Schools", text: "Supportive programs that help learners prepare for IELTS, TOEFL and PTE with confidence.", tags: ["IELTS", "TOEFL", "PTE"] },
   { title: "Parivattan Foreign Language School", text: "Foreign language learning for a more connected and opportunity-rich future.", tags: ["Japanese", "German", "English", "French", "Chinese", "Korean"] },
   { title: "Parivattan Technology School", text: "Practical technology education designed to move young people into meaningful work.", tags: ["Data Science", "Python", "Full Stack Development"] },
-];
-
-const team = [
-  ["Kishor Jadhav", "Founder & Director", "/img/silder1.jpg"],
-  ["Anita Pawar", "Programs Lead", "/img/silder2.jpg"],
-  ["Rohit More", "Community Partnerships", "/img/silder3.jpg"],
 ];
 
 const timeline = [
@@ -27,11 +22,11 @@ const timeline = [
   ["2026", "We are building a larger, more inclusive learning ecosystem for the years ahead."],
 ];
 
-const gallery = ["/img/hero.jpg", "/img/silder1.jpg", "/img/silder2.jpg", "/img/silder3.jpg", "/img/silder4.jpg", "/img/japanese.jpeg"];
+const gallery = ["/img/hero.jpg", "/img/silder1.jpg", "/img/purpose.jpg", "/img/silder3.jpg", "/img/silder4.jpg", "/img/japanese.jpeg"];
 
 export default function ContentPage() {
   const path = useLocation().pathname;
-  const isAbout = path === "/about";
+  const isAbout = path === "/about" || path === "/team" || path === "/our-team";
   const isInitiatives = path === "/initiatives";
   const isGallery = path === "/gallery";
   const isBlogs = path === "/blogs";
@@ -55,8 +50,8 @@ export default function ContentPage() {
   return <div className="min-h-screen bg-[#fbfaf7] text-[#24312d]"><Header /><main className="pt-28">
     {isInitiatives && <PageIntro eyebrow="Learning that travels" title="Our initiatives" copy="Three learning schools, one shared aim: make education practical, accessible and connected to a person’s next possibility." />}
     {isAbout && <>
-      <PageIntro eyebrow="About Parivattan" title="People-powered change starts with listening." copy="We work alongside communities to make education, skills and dignity easier to reach." />
-      <section className="page-section"><SectionHeading eyebrow="The people behind the work" title="A small team with a wide view." /><div className="grid gap-5 md:grid-cols-3">{team.map(([name, role, image]) => <article className="overflow-hidden rounded-3xl bg-white shadow-sm" key={name}><img src={image} alt={name} className="h-72 w-full object-cover" /><div className="p-6"><h3 className="text-2xl font-serif">{name}</h3><p className="mt-2 text-[#b5623b]">{role}</p></div></article>)}</div></section>
+      <PageIntro eyebrow="About Parivattan Mission Foundation" title="People-powered change starts with listening & action." copy="We work alongside communities to make education, international languages, technology skills, and human dignity accessible to every learner." />
+      <OurTeamSection />
     </>}
     {isInitiatives && <section className="page-section !pt-4 !pb-16 md:!pt-6"><div className="grid items-stretch gap-5 md:grid-cols-2 lg:grid-cols-3">{initiatives.map((item, index) => <article id={["overseas", "languages", "technology"][index]} className="min-h-[360px] scroll-mt-28 rounded-3xl bg-white p-7 shadow-[0_14px_35px_-28px_rgba(36,49,45,0.7)] ring-1 ring-[#e7e5de] transition-transform duration-300 hover:-translate-y-1" key={item.title}><span className="text-sm font-semibold text-[#b5623b]">0{index + 1}</span><h2 className="mt-10 text-3xl font-serif leading-tight">{item.title}</h2><p className="mt-4 text-[#65706a]">{item.text}</p><div className="mt-7 flex flex-wrap gap-2">{item.tags.map(tag => <span className="rounded-full bg-[#eef0e8] px-3 py-1 text-sm" key={tag}>{tag}</span>)}</div></article>)}</div></section>}
     {path === "/campaigns" && <><PageIntro eyebrow="Active campaigns" title="Small actions, lasting ripples." copy="Join the live efforts helping learners find the confidence, tools and support to keep moving forward." /><section className="page-section"><div className="grid gap-6 md:grid-cols-2"><Campaign title="Sponsor a learning kit" detail="Help put books, internet access and mentoring within reach for a learner." amount="₹1,500" /><Campaign title="Sponsor a month of classes" detail="Keep our community-led classrooms open and welcoming." amount="₹3,000" /></div></section></>}

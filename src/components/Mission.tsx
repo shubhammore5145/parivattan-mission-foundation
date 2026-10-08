@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
 
 const sliderImages = [
-  "/img/silder2.jpg",
-  // "/img/silder1.jpg",
+  "/img/purpose.jpg",
   "/img/silder3.jpg",
   "/img/silder4.jpg",
 ];
@@ -56,8 +55,7 @@ const Mission = () => {
         <div className="text-center mb-16">
           <h2 className="section-title animate-on-scroll">Mission & Vision</h2>
           <p className="section-subtitle animate-on-scroll mt-6">
-            We are dedicated to transforming students lives and communities
-            through Education, faith, and service.
+            We are dedicated to transforming students' futures through Quality Education, Global Languages, and Practical Technology Skills.
           </p>
         </div>
 
@@ -80,9 +78,10 @@ const Mission = () => {
           {/* Text Content */}
           <div className="animate-on-scroll">
             <div className="flex items-center mb-6">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mr-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-[#b5623b] to-amber-600 rounded-xl flex items-center justify-center mr-4 shadow-md">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
                 </svg>
               </div>
               <h3 className="text-3xl font-serif font-semibold text-slate-800">
@@ -90,22 +89,16 @@ const Mission = () => {
               </h3>
             </div>
             <p className="text-slate-600 mb-6 leading-relaxed text-lg">
-              At Parivattan Mission Foundation, our mission is to empower
-              marginalized communities by providing quality education, promoting
-              environmental sustainability, ensuring accessible healthcare, and
-              advocating for women's rights and leadership.
+              At Parivattan Mission Foundation, our mission is to empower students and aspiring youth by providing quality education, accredited foreign language training, practical technology education, and career development programs that unlock global pathways.
             </p>
             <p className="text-slate-600 mb-8 leading-relaxed text-lg">
-              Our vision is to build a just and sustainable society where every
-              individual has access to quality education, a healthy environment,
-              and equal opportunities. We aim to empower communities to thrive
-              with dignity and self-reliance.
+              Our vision is to build an inclusive and future-ready learning ecosystem where every student has access to modern educational opportunities, international language proficiencies, and digital skills to achieve academic excellence and sustainable career success.
             </p>
             <div className="flex flex-wrap gap-3">
-              <span className="px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-sm font-medium border border-blue-100">Education</span>
-              <span className="px-4 py-2 bg-cyan-50 text-cyan-700 rounded-full text-sm font-medium border border-cyan-100">Healthcare</span>
-              <span className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-full text-sm font-medium border border-emerald-100">Environment</span>
-              <span className="px-4 py-2 bg-purple-50 text-purple-700 rounded-full text-sm font-medium border border-purple-100">Women Empowerment</span>
+              <span className="px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-sm font-medium border border-blue-100">Quality Education</span>
+              <span className="px-4 py-2 bg-amber-50 text-amber-800 rounded-full text-sm font-medium border border-amber-200">Foreign Languages</span>
+              <span className="px-4 py-2 bg-emerald-50 text-emerald-800 rounded-full text-sm font-medium border border-emerald-200">Technology & Coding</span>
+              <span className="px-4 py-2 bg-purple-50 text-purple-700 rounded-full text-sm font-medium border border-purple-100">Career Mentorship</span>
             </div>
           </div>
         </div>

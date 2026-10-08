@@ -1,19 +1,11 @@
 import React from "react";
 import {
   CheckCircle2,
-  Download,
   Printer,
   GraduationCap,
-  Sparkles,
-  Building2,
-  Calendar,
-  Clock,
-  ShieldCheck,
-  User,
   ArrowRight,
   Share2,
 } from "lucide-react";
-import { toast } from "sonner";
 import { StudentAdmissionRecord } from "@/types/student";
 
 interface AdmissionReceiptViewProps {
@@ -33,7 +25,7 @@ export const AdmissionReceiptView: React.FC<AdmissionReceiptViewProps> = ({
 
   const handleShare = () => {
     const text = encodeURIComponent(
-      `🎉 माझे परिवर्तन मिशन फाउंडेशन मध्ये '${admission.courseTitle}' या अभ्यासक्रमासाठी प्रवेश निश्चित झाला आहे! Application No: ${admission.applicationNo}`
+      `🎉 My admission at Parivattan Mission Foundation for '${admission.courseTitle}' has been confirmed! PRN: ${admission.prn}, App No: ${admission.applicationNo}`
     );
     window.open(`https://wa.me/?text=${text}`, "_blank");
   };
@@ -46,10 +38,10 @@ export const AdmissionReceiptView: React.FC<AdmissionReceiptViewProps> = ({
           <CheckCircle2 size={36} />
         </div>
         <h2 className="text-2xl sm:text-3xl font-serif font-bold">
-          अभिनंदन! आपला प्रवेश यशस्वीपणे निश्चित झाला आहे.
+          Congratulations! Your Admission is Confirmed.
         </h2>
         <p className="mt-1 text-xs sm:text-sm text-white/90">
-          Admission Confirmed · Parivattan Mission Foundation Academic Year 2026-27
+          Official Enrollment Confirmation · Academic Session 2026-27 · Parivattan Mission Foundation
         </p>
 
         <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
@@ -59,7 +51,7 @@ export const AdmissionReceiptView: React.FC<AdmissionReceiptViewProps> = ({
             className="rounded-xl bg-white text-emerald-800 px-4 py-2 text-xs sm:text-sm font-bold shadow hover:bg-emerald-50 transition flex items-center gap-1.5"
           >
             <Printer size={15} />
-            पावती प्रिंट करा / PDF सेव्ह करा (Print Receipt)
+            Print Receipt / Save as PDF
           </button>
           <button
             type="button"
@@ -67,7 +59,7 @@ export const AdmissionReceiptView: React.FC<AdmissionReceiptViewProps> = ({
             className="rounded-xl bg-emerald-800/60 hover:bg-emerald-800 text-white px-4 py-2 text-xs sm:text-sm font-bold transition flex items-center gap-1.5 border border-white/20"
           >
             <Share2 size={15} />
-            व्हॉट्सॲपवर शेअर करा
+            Share on WhatsApp
           </button>
         </div>
       </div>
@@ -95,7 +87,7 @@ export const AdmissionReceiptView: React.FC<AdmissionReceiptViewProps> = ({
                 Parivattan Mission Foundation
               </h1>
               <p className="text-xs font-semibold text-[#b5623b]">
-                परिवर्तन मिशन फाउंडेशन · उच्च व कौशल्य शिक्षण विभाग
+                Department of Higher & Skill Education
               </p>
               <p className="text-[10px] text-[#65706a]">
                 Centralized Admission Portal (CAP) · Reg. Public Trust & 80G Certified
@@ -103,22 +95,22 @@ export const AdmissionReceiptView: React.FC<AdmissionReceiptViewProps> = ({
             </div>
             <div className="text-right shrink-0 hidden sm:block">
               <span className="inline-block rounded-xl border border-emerald-600 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800 uppercase tracking-wider">
-                ✓ Admitted
+                ✓ Enrolled
               </span>
             </div>
           </div>
 
           <div className="mt-4 rounded-xl bg-[#fbfaf7] py-2 px-4 border border-[#e2e5dc] flex flex-wrap items-center justify-between gap-2 text-xs">
             <div>
-              <span className="text-[#65706a]">अर्ज क्रमांक (App No): </span>
+              <span className="text-[#65706a]">Application No: </span>
               <strong className="font-mono text-[#24312d]">{admission.applicationNo}</strong>
             </div>
             <div>
-              <span className="text-[#65706a]">विद्यार्थी PRN: </span>
+              <span className="text-[#65706a]">Student PRN: </span>
               <strong className="font-mono text-[#b5623b]">{admission.prn}</strong>
             </div>
             <div>
-              <span className="text-[#65706a]">दिनांक: </span>
+              <span className="text-[#65706a]">Date: </span>
               <strong>{new Date(admission.paymentDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</strong>
             </div>
           </div>
@@ -129,35 +121,35 @@ export const AdmissionReceiptView: React.FC<AdmissionReceiptViewProps> = ({
           {/* Candidate Info */}
           <div className="space-y-3 text-xs">
             <h3 className="font-serif text-sm font-bold text-[#b5623b] uppercase tracking-wider">
-              १. विद्यार्थ्याचा वैयक्तिक तपशील (Candidate Details)
+              1. Candidate Details
             </h3>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 bg-[#fbfaf7] p-3.5 rounded-2xl border border-[#eef0e8]">
               <div>
-                <span className="text-[#65706a] block">विद्यार्थ्याचे पूर्ण नाव:</span>
+                <span className="text-[#65706a] block">Full Name:</span>
                 <strong className="text-sm text-[#24312d]">{admission.studentName}</strong>
               </div>
               <div>
-                <span className="text-[#65706a] block">पालकांचे नाव:</span>
-                <strong className="text-[#24312d]">{admission.fatherName || "पालक नोंदणीकृत"}</strong>
+                <span className="text-[#65706a] block">Father's / Guardian's Name:</span>
+                <strong className="text-[#24312d]">{admission.fatherName || "Registered Guardian"}</strong>
               </div>
               <div>
-                <span className="text-[#65706a] block">मोबाईल नंबर:</span>
+                <span className="text-[#65706a] block">Contact Mobile:</span>
                 <strong className="text-[#24312d]">{admission.studentPhone}</strong>
               </div>
               <div>
-                <span className="text-[#65706a] block">ई-मेल:</span>
+                <span className="text-[#65706a] block">Email Address:</span>
                 <strong className="text-[#24312d] truncate block">{admission.studentEmail}</strong>
               </div>
               <div>
-                <span className="text-[#65706a] block">जन्मतारीख व लिंग:</span>
+                <span className="text-[#65706a] block">Date of Birth & Gender:</span>
                 <strong className="text-[#24312d]">{admission.dob} ({admission.gender})</strong>
               </div>
               <div>
-                <span className="text-[#65706a] block">प्रवर्ग (Category):</span>
+                <span className="text-[#65706a] block">Category:</span>
                 <strong className="text-[#24312d]">{admission.category}</strong>
               </div>
               <div className="col-span-2">
-                <span className="text-[#65706a] block">पत्ता:</span>
+                <span className="text-[#65706a] block">Address:</span>
                 <span className="text-[#24312d]">{admission.address}, {admission.city}, {admission.district} - {admission.pincode}</span>
               </div>
             </div>
@@ -179,7 +171,7 @@ export const AdmissionReceiptView: React.FC<AdmissionReceiptViewProps> = ({
         {/* 2. Course & Batch Info */}
         <div className="mt-6 space-y-3 text-xs">
           <h3 className="font-serif text-sm font-bold text-[#b5623b] uppercase tracking-wider">
-            २. प्रवेश घेतलेला अभ्यासक्रम (Enrolled Course Details)
+            2. Enrolled Course Details
           </h3>
           <div className="bg-[#fbfaf7] p-4 rounded-2xl border border-[#eef0e8] space-y-2">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
@@ -196,15 +188,15 @@ export const AdmissionReceiptView: React.FC<AdmissionReceiptViewProps> = ({
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 border-t border-[#e2e5dc] text-[11px]">
               <div>
-                <span className="text-[#65706a] block">बॅच वेळ:</span>
+                <span className="text-[#65706a] block">Batch Timings:</span>
                 <strong className="text-[#24312d]">{admission.batchPreference}</strong>
               </div>
               <div>
-                <span className="text-[#65706a] block">शिकण्याचा मोड:</span>
+                <span className="text-[#65706a] block">Learning Mode:</span>
                 <strong className="text-[#24312d]">{admission.learningMode}</strong>
               </div>
               <div>
-                <span className="text-[#65706a] block">पात्रता:</span>
+                <span className="text-[#65706a] block">Qualification:</span>
                 <strong className="text-[#24312d]">{admission.qualification}</strong>
               </div>
             </div>
@@ -214,27 +206,27 @@ export const AdmissionReceiptView: React.FC<AdmissionReceiptViewProps> = ({
         {/* 3. Fee & Transaction Record */}
         <div className="mt-6 space-y-3 text-xs">
           <h3 className="font-serif text-sm font-bold text-[#b5623b] uppercase tracking-wider">
-            ३. प्रवेश शुल्क भरणा पावती (Payment & Fee Receipt)
+            3. Payment & Official Fee Receipt
           </h3>
           <div className="overflow-x-auto rounded-2xl border border-[#eef0e8]">
             <table className="w-full text-left text-xs">
               <thead className="bg-[#f1f3ed] text-[#24312d]">
                 <tr>
-                  <th className="p-2.5">तपशील (Description)</th>
-                  <th className="p-2.5">ट्रॅन्झॅक्शन आयडी (Ref)</th>
-                  <th className="p-2.5">स्थिती (Status)</th>
-                  <th className="p-2.5 text-right">भरलेली रक्कम (Paid)</th>
+                  <th className="p-2.5">Description</th>
+                  <th className="p-2.5">Transaction ID (Ref)</th>
+                  <th className="p-2.5">Status</th>
+                  <th className="p-2.5 text-right">Amount Paid</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#eef0e8] bg-white">
                 <tr>
                   <td className="p-2.5 font-medium">
-                    Admission Registration & Kit Fee - {admission.courseTitle}
+                    Course Admission & Learning Kit - {admission.courseTitle}
                   </td>
                   <td className="p-2.5 font-mono text-[#65706a]">{admission.paymentId}</td>
                   <td className="p-2.5">
                     <span className="rounded bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-bold">
-                      यशस्वी (PAID)
+                      VERIFIED (PAID)
                     </span>
                   </td>
                   <td className="p-2.5 text-right font-serif font-bold text-sm text-[#24312d]">
@@ -257,19 +249,19 @@ export const AdmissionReceiptView: React.FC<AdmissionReceiptViewProps> = ({
               />
             </div>
             <div className="text-[10px] text-[#65706a]">
-              <p className="font-bold text-[#24312d]">डिजिटल पडताळणी कोड (QR Verified)</p>
-              <p>हा अधिकृत कॉम्प्युटर जनरेटेड प्रवेश दाखला आहे.</p>
-              <p>हेल्पलाइन: +91 98220 54145 · parivattan.org</p>
+              <p className="font-bold text-[#24312d]">Digital Verification QR Code</p>
+              <p>Official computer-generated admission certificate.</p>
+              <p>Helpline: +91 7820831901 · parivattan.org</p>
             </div>
           </div>
 
           <div className="text-center sm:text-right">
             <div className="font-serif italic font-bold text-sm text-[#24312d]">
-              Kishor Jadhav
+              Kishor Bhagat
             </div>
             <div className="w-32 border-b border-gray-400 mx-auto sm:ml-auto my-1" />
             <div className="text-[10px] font-bold uppercase text-[#65706a]">
-              संचालक / Director
+              Founder & Executive Director
             </div>
             <div className="text-[9px] text-[#65706a]">
               Parivattan Mission Foundation
@@ -285,7 +277,7 @@ export const AdmissionReceiptView: React.FC<AdmissionReceiptViewProps> = ({
           onClick={onNewAdmission}
           className="w-full sm:w-auto rounded-2xl border border-gray-300 bg-white px-5 py-3 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 transition"
         >
-          + दुसरा अभ्यासक्रम निवडा (Apply for Another Course)
+          + Enroll in Another Course
         </button>
 
         <button
@@ -293,7 +285,7 @@ export const AdmissionReceiptView: React.FC<AdmissionReceiptViewProps> = ({
           onClick={onGoToDashboard}
           className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-[#24312d] hover:bg-[#b5623b] px-6 py-3.5 text-xs sm:text-sm font-bold text-white shadow-lg transition"
         >
-          विद्यार्थी डॅशबोर्डवर जा (Go to Student Portal)
+          Go to Student Dashboard
           <ArrowRight size={16} />
         </button>
       </div>

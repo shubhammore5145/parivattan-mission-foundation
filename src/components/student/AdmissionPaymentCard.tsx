@@ -37,13 +37,10 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
   onBack,
   onSuccess,
 }) => {
-  const [method, setMethod] = useState<"razorpay" | "upi_qr" | "sandbox">("razorpay");
+  const [method, setMethod] = useState<"razorpay" | "sandbox">("razorpay");
   const [processing, setProcessing] = useState(false);
-  const [upiRefId, setUpiRefId] = useState("");
-  const [copiedUpi, setCopiedUpi] = useState(false);
 
   const amountToPay = course.finalPayable;
-  const upiId = "parivattanmission@sbi";
 
   const triggerConfetti = () => {
     try {
@@ -55,13 +52,6 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
     } catch (e) {
       // safe ignore
     }
-  };
-
-  const handleCopyUpi = () => {
-    navigator.clipboard.writeText(upiId);
-    setCopiedUpi(true);
-    toast.success("UPI ID कॉपी झाली!");
-    setTimeout(() => setCopiedUpi(false), 2000);
   };
 
   const completeEnrollment = async (
@@ -100,6 +90,8 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
         identityProofUrl: formData.idProofUrl,
         marksheetUrl: formData.marksheetUrl,
         casteCertUrl: formData.casteCertUrl,
+        currentAddress: formData.currentAddress || formData.address,
+        permanentAddress: formData.permanentAddress || formData.address,
         amount: amountToPay,
         paymentId,
         paymentMethod,
@@ -108,17 +100,17 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
       });
 
       triggerConfetti();
-      toast.success("अभिनंदन! प्रवेश यशस्वीपणे निश्चित झाला आहे.");
+      toast.success("Congratulations! Your admission has been confirmed.");
       onSuccess(record);
-    } catch (error) {
-      console.error("Admission error:", error);
-      toast.error("प्रवेश नोंदवताना अडचण आली. कृपया पुन्हा प्रयत्न करा.");
+    } catch (err) {
+      console.warn("Admission registration note:", err);
+      toast.error("Error recording admission. Please try again.");
     } finally {
       setProcessing(false);
     }
   };
 
-  // 1. Razorpay Payment Trigger
+  // 1. Razorpay Gateway Checkout
   const handleRazorpayPayment = async () => {
     setProcessing(true);
     try {
@@ -126,7 +118,7 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
       const keyId = getRazorpayKeyId() || "rzp_test_RjfaxVUjNZr3xh";
 
       if (!window.Razorpay) {
-        throw new Error("Razorpay SDK not loaded");
+        throw new Error("Razorpay SDK unavailable, switching to instant test mode.");
       }
 
       const options = {
@@ -134,24 +126,26 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
         amount: amountToPay * 100, // paise
         currency: "INR",
         name: "Parivattan Mission Foundation",
-        description: `Admission Fee: ${course.title} (${course.code})`,
+        description: `Admission: ${course.title} (${course.code})`,
         image: "/img/parivattanE.png",
         prefill: {
           name: formData.fullName || student.name,
           email: formData.email || student.email,
-          contact: (formData.phone || student.phone).replace(/\D/g, ""),
+          contact: formData.phone || student.phone,
         },
         theme: {
           color: "#b5623b",
         },
         handler: async (response: any) => {
-          const payId = response.razorpay_payment_id || `RZP_${Date.now()}`;
-          await completeEnrollment(payId, "razorpay");
+          await completeEnrollment(
+            response.razorpay_payment_id || `PAY_${Date.now()}`,
+            "razorpay"
+          );
         },
         modal: {
           ondismiss: () => {
             setProcessing(false);
-            toast.info("पेमेंट रद्द केले गेले.");
+            toast.info("Payment window was closed.");
           },
         },
       };
@@ -165,16 +159,7 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
     }
   };
 
-  // 2. UPI Verification
-  const handleUpiSubmit = async () => {
-    if (!upiRefId.trim() || upiRefId.trim().length < 6) {
-      toast.error("कृपया किमान ६ ते १२ अंकी UPI रेफरन्स / UTR क्रमांक प्रविष्ट करा.");
-      return;
-    }
-    await completeEnrollment(`UPI_${upiRefId.trim()}`, "upi_qr");
-  };
-
-  // 3. Fast Sandbox
+  // Fast Sandbox
   const handleSandboxPayment = async () => {
     const fakeId = `PMF_TEST_PAY_${Date.now().toString().slice(-6)}`;
     await completeEnrollment(fakeId, "test_sandbox");
@@ -188,13 +173,13 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
           <div>
             <div className="inline-flex items-center gap-1.5 rounded-full bg-[#b5623b]/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#b5623b]">
               <Sparkles size={13} />
-              स्टेप ४ : शुल्क भरणा व प्रवेश निश्चिती (Step 4: Payment)
+              Step 4: Admission Fee Payment
             </div>
             <h2 className="mt-2 text-2xl sm:text-3xl font-serif font-bold text-[#24312d]">
-              प्रवेश शुल्क भरणा (Admission Fee Payment)
+              Course Admission Fee Payment
             </h2>
             <p className="mt-1 text-xs sm:text-sm text-[#65706a]">
-              आपल्या प्रवेश अर्जाची पडताळणी झाली असून अंतिम प्रवेशासाठी शुल्क भरा.
+              Your admission application is ready. Complete payment to secure your seat.
             </p>
           </div>
 
@@ -204,7 +189,7 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
             className="self-start sm:self-center inline-flex items-center gap-1.5 rounded-xl border border-gray-300 px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition"
           >
             <ArrowLeft size={14} />
-            अर्जात बदल करा (Edit Form)
+            Edit Form
           </button>
         </div>
       </div>
@@ -213,11 +198,11 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
         {/* Left: Payment Method Selection */}
         <div className="rounded-3xl border border-[#e2e5dc] bg-white p-6 sm:p-8 shadow-sm">
           <h3 className="font-serif text-lg font-bold text-[#24312d] mb-4">
-            पेमेंट पद्धत निवडा (Choose Payment Mode)
+            Select Payment Method
           </h3>
 
-          {/* Payment Method Tabs */}
-          <div className="grid grid-cols-3 gap-2.5 mb-6">
+          {/* Payment Method Tabs (Online Gateway and Sandbox) */}
+          <div className="grid grid-cols-2 gap-2.5 mb-6">
             <button
               type="button"
               onClick={() => setMethod("razorpay")}
@@ -228,22 +213,8 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
               }`}
             >
               <CreditCard size={22} className={`mx-auto mb-1 ${method === "razorpay" ? "text-[#b5623b]" : "text-gray-500"}`} />
-              <div className="text-xs font-bold text-[#24312d]">ऑनलाइन गेटवे</div>
-              <div className="text-[10px] text-[#65706a]">Razorpay / Cards</div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setMethod("upi_qr")}
-              className={`rounded-2xl p-3 text-center border transition ${
-                method === "upi_qr"
-                  ? "border-[#b5623b] bg-[#b5623b]/5 ring-2 ring-[#b5623b]"
-                  : "border-[#e2e5dc] bg-[#fbfaf7] hover:border-gray-300"
-              }`}
-            >
-              <QrCode size={22} className={`mx-auto mb-1 ${method === "upi_qr" ? "text-[#b5623b]" : "text-gray-500"}`} />
-              <div className="text-xs font-bold text-[#24312d]">UPI / QR कोड</div>
-              <div className="text-[10px] text-[#65706a]">GPay / PhonePe</div>
+              <div className="text-xs font-bold text-[#24312d]">Online Gateway</div>
+              <div className="text-[10px] text-[#65706a]">Razorpay / UPI / Cards</div>
             </button>
 
             <button
@@ -256,7 +227,7 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
               }`}
             >
               <Zap size={22} className="mx-auto mb-1 text-amber-600" />
-              <div className="text-xs font-bold text-amber-900">चाचणी मोड</div>
+              <div className="text-xs font-bold text-amber-900">Sandbox Mode</div>
               <div className="text-[10px] text-amber-700">Instant Test</div>
             </button>
           </div>
@@ -270,16 +241,16 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
                     💳
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-[#24312d]">सुरक्षित ऑनलाइन पेमेंट गेटवे</h4>
+                    <h4 className="text-sm font-bold text-[#24312d]">Secure Online Payment Gateway</h4>
                     <p className="text-xs text-[#65706a]">
-                      डेबिट कार्ड, क्रेडिट कार्ड, नेटबँकिंग व यूपीआय द्वारे थेट भरणा
+                      Pay directly via UPI (GPay, PhonePe, Paytm), Debit/Credit Card, or Netbanking
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-[#eef0e8] flex items-center gap-2 text-[11px] text-[#65706a]">
                   <ShieldCheck size={16} className="text-emerald-600 shrink-0" />
-                  <span>२५६-बिट एनक्रिप्टेड आणि रिझर्व्ह बँक ऑफ इंडिया नियमांनुसार सुरक्षित</span>
+                  <span>256-bit encrypted and RBI compliant secure gateway</span>
                 </div>
               </div>
 
@@ -290,77 +261,11 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
                 className="w-full rounded-2xl bg-[#b5623b] py-4 text-sm sm:text-base font-bold text-white shadow-lg hover:bg-[#974a27] transition flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 {processing ? (
-                  <>पेमेंट तपासले जात आहे...</>
+                  <>Verifying payment...</>
                 ) : (
                   <>
                     <Lock size={16} />
-                    ₹{amountToPay.toLocaleString("en-IN")} शुल्क भरा आणि प्रवेश पक्का करा
-                  </>
-                )}
-              </button>
-            </div>
-          )}
-
-          {/* Mode 2: UPI QR Code */}
-          {method === "upi_qr" && (
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-[#e2e5dc] bg-[#fbfaf7] p-5 text-center">
-                <p className="text-xs font-bold uppercase tracking-wider text-[#b5623b] mb-1">
-                  परिवर्तन मिशन फाउंडेशन अधिकृत QR कोड
-                </p>
-                <p className="text-[11px] text-[#65706a] mb-3">
-                  कोणत्याही UPI ॲपवरून स्कॅन करून ₹{amountToPay} पाठवा
-                </p>
-
-                {/* QR Code Container */}
-                <div className="mx-auto w-48 h-48 bg-white p-3 rounded-2xl border border-gray-200 shadow-md flex flex-col items-center justify-center">
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=upi://pay?pa=${upiId}&pn=Parivattan%20Mission%20Foundation&am=${amountToPay}&cu=INR`}
-                    alt="UPI QR Code"
-                    className="w-40 h-40 object-contain rounded-lg"
-                  />
-                </div>
-
-                <div className="mt-3 flex items-center justify-center gap-2">
-                  <span className="text-xs font-mono font-bold text-[#24312d] bg-white px-3 py-1 rounded-lg border">
-                    {upiId}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleCopyUpi}
-                    className="inline-flex items-center gap-1 rounded-lg bg-[#24312d] text-white px-2.5 py-1 text-xs font-semibold hover:bg-[#b5623b]"
-                  >
-                    {copiedUpi ? <Check size={13} /> : <Copy size={13} />}
-                    {copiedUpi ? "कॉपी झाले" : "कॉपी करा"}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-[#24312d] mb-1">
-                  पेमेंट झाल्यानंतर १२-अंकी UTR / UPI Ref नंबर प्रविष्ट करा *
-                </label>
-                <input
-                  type="text"
-                  placeholder="उदा. 4289XXXXXXXX किंवा UPI ट्रॅन्झॅक्शन आयडी"
-                  value={upiRefId}
-                  onChange={(e) => setUpiRefId(e.target.value)}
-                  className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 px-3.5 text-sm text-[#24312d] focus:border-[#b5623b] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#b5623b]/20 transition"
-                />
-              </div>
-
-              <button
-                type="button"
-                disabled={processing}
-                onClick={handleUpiSubmit}
-                className="w-full rounded-2xl bg-emerald-600 py-3.5 text-sm font-bold text-white shadow-lg hover:bg-emerald-700 transition flex items-center justify-center gap-2 disabled:opacity-60"
-              >
-                {processing ? (
-                  <>पडताळणी होत आहे...</>
-                ) : (
-                  <>
-                    <CheckCircle2 size={16} />
-                    UTR क्रमांक सबमिट करा व प्रवेश निश्चित करा
+                    Pay ₹{amountToPay.toLocaleString("en-IN")} & Confirm Admission
                   </>
                 )}
               </button>
@@ -374,10 +279,10 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
                 <Zap size={24} className="text-amber-600 shrink-0 mt-0.5" />
                 <div>
                   <h4 className="text-sm font-bold text-amber-900">
-                    त्वरित डेमो मंजुरी (Instant Sandbox Mode)
+                    Instant Sandbox Mode
                   </h4>
                   <p className="text-xs text-amber-800/90 mt-1 leading-relaxed">
-                    मूल्यांकन व चाचणीसाठी कोणतीही प्रत्यक्ष रक्कम न भरता १-क्लिकमध्ये प्रवेश प्रक्रिया पूर्ण करा व अधिकृत प्रवेश पावती तपासा.
+                    Test the complete student admission flow in 1-click without real payment and generate an official admission receipt.
                   </p>
                 </div>
               </div>
@@ -389,10 +294,10 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
                 className="w-full rounded-xl bg-amber-600 hover:bg-amber-700 py-3.5 text-sm font-bold text-white shadow-md transition flex items-center justify-center gap-2"
               >
                 {processing ? (
-                  <>नोंदणी पूर्ण होत आहे...</>
+                  <>Completing admission...</>
                 ) : (
                   <>
-                    ⚡ डेमो पेमेंट निश्चित करा (Simulate Approval)
+                    ⚡ Confirm Sandbox Admission (Test)
                   </>
                 )}
               </button>
@@ -405,32 +310,32 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
           {/* Candidate & Course Summary */}
           <div className="rounded-3xl border border-[#e2e5dc] bg-white p-6 shadow-sm">
             <h4 className="font-serif text-base font-bold text-[#24312d] pb-3 border-b border-[#eef0e8]">
-              प्रवेश सारांश (Admission Summary)
+              Admission Summary
             </h4>
 
             <div className="mt-4 space-y-3 text-xs">
               <div className="flex justify-between">
-                <span className="text-[#65706a]">विद्यार्थी नाव:</span>
+                <span className="text-[#65706a]">Student Name:</span>
                 <span className="font-bold text-[#24312d]">{formData.fullName || student.name}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#65706a]">विद्यार्थी PRN:</span>
+                <span className="text-[#65706a]">Student PRN:</span>
                 <span className="font-mono font-bold text-[#b5623b]">{student.prn}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#65706a]">निवडलेला कोर्स:</span>
+                <span className="text-[#65706a]">Enrolled Course:</span>
                 <span className="font-bold text-[#24312d] text-right">{course.title}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#65706a]">कोर्स कोड:</span>
+                <span className="text-[#65706a]">Course Code:</span>
                 <span className="font-mono text-[#24312d]">{course.code}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#65706a]">विभाग / शाळा:</span>
+                <span className="text-[#65706a]">Department / School:</span>
                 <span className="text-[#24312d]">{course.school}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#65706a]">बॅच वेळ:</span>
+                <span className="text-[#65706a]">Batch Time:</span>
                 <span className="text-[#24312d]">{formData.batchPreference}</span>
               </div>
             </div>
@@ -439,29 +344,29 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
           {/* Fee Breakdown */}
           <div className="rounded-3xl border border-[#e2e5dc] bg-white p-6 shadow-sm">
             <h4 className="font-serif text-base font-bold text-[#24312d] pb-3 border-b border-[#eef0e8]">
-              शुल्क तपशील (Fee Breakdown)
+              Fee Breakdown
             </h4>
 
             <div className="mt-4 space-y-2.5 text-xs">
               <div className="flex justify-between text-[#65706a]">
-                <span>नियमित कोर्स शुल्क (Standard Fee):</span>
+                <span>Standard Course Fee:</span>
                 <span>₹{course.totalFee.toLocaleString("en-IN")}</span>
               </div>
               <div className="flex justify-between text-emerald-700 font-medium">
-                <span>परिवर्तन फाउंडेशन स्कॉलरशिप सवलत:</span>
+                <span>Parivattan Foundation Scholarship:</span>
                 <span>- ₹{(course.totalFee - course.finalPayable).toLocaleString("en-IN")}</span>
               </div>
               <div className="flex justify-between text-[#65706a]">
-                <span>डिजिटल स्टडी किट व LMS ॲक्सेस:</span>
-                <span className="text-emerald-700 font-semibold">मोफत (Free)</span>
+                <span>Digital Study Kit & LMS Access:</span>
+                <span className="text-emerald-700 font-semibold">Free</span>
               </div>
               <div className="flex justify-between text-[#65706a]">
-                <span>परीक्षा व प्रमाणपत्र शुल्क:</span>
-                <span className="text-emerald-700 font-semibold">समाविष्ट (Included)</span>
+                <span>Examination & Certificate Fee:</span>
+                <span className="text-emerald-700 font-semibold">Included</span>
               </div>
 
               <div className="pt-3 border-t border-[#eef0e8] flex justify-between items-baseline">
-                <span className="text-sm font-bold text-[#24312d]">अंतिम देय शुल्क (Payable):</span>
+                <span className="text-sm font-bold text-[#24312d]">Total Payable Fee:</span>
                 <span className="text-2xl font-serif font-bold text-[#b5623b]">
                   ₹{amountToPay.toLocaleString("en-IN")}
                 </span>
@@ -471,10 +376,10 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
             <div className="mt-5 rounded-xl bg-[#fbfaf7] p-3 text-[11px] text-[#65706a] border border-[#e2e5dc]">
               <p className="flex items-center gap-1.5 font-semibold text-[#24312d]">
                 <ShieldCheck size={14} className="text-[#b5623b]" />
-                १००% पारदर्शक व पावतीसह
+                100% Transparent with Official Receipt
               </p>
               <p className="mt-1">
-                शुल्क भरल्यानंतर त्वरित अधिकृत प्रवेश पावती (Admission Receipt) व डिजिटल ओळखपत्र प्राप्त होईल.
+                Upon fee confirmation, an official admission receipt and digital student ID card will be issued immediately.
               </p>
             </div>
           </div>

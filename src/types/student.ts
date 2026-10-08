@@ -63,6 +63,8 @@ export interface StudentAdmissionRecord {
   fatherName: string;
   motherName: string;
   address: string;
+  currentAddress?: string;
+  permanentAddress?: string;
   city: string;
   district: string;
   pincode: string;

@@ -18,6 +18,7 @@ import RegistrationPage from "./pages/RegistrationPage";
 import RulesPage from "./pages/RulesPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import ContactPage from "./pages/ContactPage";
+import StudentPortalPage from "./pages/StudentPortalPage";
 
 const App = () => (
   <TooltipProvider>
@@ -36,9 +37,13 @@ const App = () => (
           <Route path="/rules-and-regulations" element={<RulesPage />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-          <Route path="/student/*" element={<Navigate to="/admissions" replace />} />
-          <Route path="/student" element={<Navigate to="/admissions" replace />} />
+          <Route path="/student" element={<StudentPortalPage />} />
+          <Route path="/student/*" element={<StudentPortalPage />} />
+          <Route path="/student-portal" element={<StudentPortalPage />} />
+          <Route path="/student-section" element={<StudentPortalPage />} />
           <Route path="/about" element={<ContentPage />} />
+          <Route path="/team" element={<ContentPage />} />
+          <Route path="/our-team" element={<ContentPage />} />
           <Route path="/initiatives" element={<ContentPage />} />
           <Route path="/campaigns" element={<ContentPage />} />
           <Route path="/story" element={<ContentPage />} />

@@ -298,7 +298,7 @@ export default function BatchScheduleSection({ onEnrollBatch }: BatchScheduleSec
                   <dl className="mt-4 grid grid-cols-2 gap-3 text-xs">
                     <div>
                       <dt className="text-[#65706a] uppercase text-[10px] tracking-wider font-semibold">Days</dt>
-                      <dd className="font-semibold text-[#24312d]">Friday & Saturday</dd>
+                      <dd className="font-semibold text-[#24312d]">Monday, Wednesday & Friday</dd>
                     </div>
                     <div>
                       <dt className="text-[#65706a] uppercase text-[10px] tracking-wider font-semibold">Time</dt>
@@ -317,7 +317,7 @@ export default function BatchScheduleSection({ onEnrollBatch }: BatchScheduleSec
 
                 <button
                   type="button"
-                  onClick={() => onEnrollBatch && onEnrollBatch("German", "A1", "Friday & Saturday (7:00 PM – 8:30 PM)")}
+                  onClick={() => onEnrollBatch && onEnrollBatch("German", "A1", "Monday, Wednesday & Friday (7:00 PM – 8:30 PM)")}
                   className="mt-6 w-full rounded-xl bg-[#24312d] py-3 text-xs font-bold text-white hover:bg-[#b5623b] transition flex items-center justify-center gap-1.5"
                 >
                   <span>Enroll in German A1</span>
@@ -342,7 +342,7 @@ export default function BatchScheduleSection({ onEnrollBatch }: BatchScheduleSec
                   <dl className="mt-4 grid grid-cols-2 gap-3 text-xs">
                     <div>
                       <dt className="text-[#65706a] uppercase text-[10px] tracking-wider font-semibold">Days</dt>
-                      <dd className="font-semibold text-[#24312d]">Friday & Saturday</dd>
+                      <dd className="font-semibold text-[#24312d]">Tuesday, Thursday & Saturday</dd>
                     </div>
                     <div>
                       <dt className="text-[#65706a] uppercase text-[10px] tracking-wider font-semibold">Time</dt>
@@ -361,7 +361,7 @@ export default function BatchScheduleSection({ onEnrollBatch }: BatchScheduleSec
 
                 <button
                   type="button"
-                  onClick={() => onEnrollBatch && onEnrollBatch("German", "A2", "Friday & Saturday (7:00 PM – 8:30 PM)")}
+                  onClick={() => onEnrollBatch && onEnrollBatch("German", "A2", "Tuesday, Thursday & Saturday (7:00 PM – 8:30 PM)")}
                   className="mt-6 w-full rounded-xl bg-[#24312d] py-3 text-xs font-bold text-white hover:bg-[#b5623b] transition flex items-center justify-center gap-1.5"
                 >
                   <span>Enroll in German A2</span>

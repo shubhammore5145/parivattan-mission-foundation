@@ -3,6 +3,7 @@ import {
   Facebook,
   Twitter,
   Instagram,
+  Linkedin,
   Mail,
   Phone,
   MapPin,
@@ -258,6 +259,7 @@ const Footer = () => {
               </h5>
               <div className="flex space-x-3">
                 {[
+                  { icon: Linkedin, href: 'https://www.linkedin.com/in/parivattan-mission-foundation-55b054376?utm_source=share_via&utm_content=profile&utm_medium=member_android', label: 'LinkedIn' },
                   { icon: Facebook, href: 'https://www.facebook.com/share/1GrmV9sNzE/', label: 'Facebook' },
                   { icon: Instagram, href: 'https://www.instagram.com/parivattan_mission_foundation', label: 'Instagram' },
                   { icon: Twitter, href: 'https://x.com/ParivattanMF', label: 'Twitter' },
@@ -287,8 +289,10 @@ const Footer = () => {
               {[
                 { label: 'Home', href: '/' },
                 { label: 'About Us', href: '/about' },
+                { label: 'Our Team', href: '/team' },
                 { label: 'Courses', href: '/courses' },
                 { label: 'Admissions', href: '/admissions' },
+                { label: 'Student Portal (PRN Check)', href: '/student' },
                 { label: 'Rules & Regulations', href: '/rules' },
                 { label: 'Privacy Policy', href: '/privacy-policy' },
                 { label: 'Donate', href: '/donate' },
@@ -374,8 +378,9 @@ const Footer = () => {
                   <MapPin size={16} />
                 </div>
                 <p className="text-slate-300 leading-relaxed text-xs">
-                  Near Shivaji Chowk, Barshi Road, Dharashiv (Osmanabad)<br />
-                  Maharashtra, India 413501
+                  RS Complex, S7, Tuljapur Naldurg Road,<br />
+                  Devsinga (Tul), Tuljapur, Dharashiv (Osmanabad),<br />
+                  Maharashtra, India – 413601
                 </p>
               </div>
 

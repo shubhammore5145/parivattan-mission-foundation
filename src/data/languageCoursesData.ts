@@ -71,10 +71,10 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
         levelShort: "N5 Level",
         duration: "6 Months",
         durationBadge: "6-Month Course",
-        courseFee: 2000,
-        securityDeposit: 2000,
-        hasSecurityDeposit: true,
-        refundCondition: "The security deposit is refundable according to the applicable course conditions.",
+        courseFee: 100,
+        securityDeposit: 0,
+        hasSecurityDeposit: false,
+        refundCondition: "Nominal subsidized fee of flat ₹100.",
         intakeSummary: "30 Students per batch",
         description: "Entry-level foundation covering Hiragana, Katakana, basic Kanji (approx. 100), daily conversational phrases, and JLPT N5 exam preparation.",
         objectives: [
@@ -115,10 +115,10 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
         levelShort: "N4 Level",
         duration: "6 Months",
         durationBadge: "6-Month Course",
-        courseFee: 4000,
-        securityDeposit: 2000,
-        hasSecurityDeposit: true,
-        refundCondition: "Security deposit is refundable after successfully passing the required examination.",
+        courseFee: 100,
+        securityDeposit: 0,
+        hasSecurityDeposit: false,
+        refundCondition: "Nominal subsidized fee of flat ₹100.",
         intakeSummary: "25 Students",
         description: "Intermediate Japanese for everyday situations, compound sentence forms, ~300 Kanji, and JLPT N4 exam clearance.",
         objectives: [
@@ -148,10 +148,10 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
         levelShort: "N3 Level",
         duration: "7 Months",
         durationBadge: "7-Month Course",
-        courseFee: 8000,
-        securityDeposit: 2000,
-        hasSecurityDeposit: true,
-        refundCondition: "Security deposit is refundable after successfully passing both required examinations.",
+        courseFee: 100,
+        securityDeposit: 0,
+        hasSecurityDeposit: false,
+        refundCondition: "Nominal subsidized fee of flat ₹100.",
         intakeSummary: "Limited Batch Size",
         description: "Bridge between basic and advanced Japanese, unlocking corporate and technical opportunities with JLPT N3 mastery.",
         objectives: [
@@ -185,7 +185,7 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
     shortDesc: "Comprehensive German training for students, engineers, and healthcare professionals aiming for Germany.",
     levelsSummary: "A1, A2",
     durationSummary: "3 to 4.5 Months",
-    image: "/img/silder2.jpg",
+    image: "/img/purpose.jpg",
     colorScheme: {
       primary: "#2563eb",
       light: "#eff6ff",
@@ -200,11 +200,11 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
         levelShort: "A1 Level",
         duration: "3 Months",
         durationBadge: "3-Month Course",
-        courseFee: 4000,
+        courseFee: 100,
         securityDeposit: 0,
         hasSecurityDeposit: false,
-        refundCondition: "No security deposit applicable. Course fee is non-refundable upon registration.",
-        intakeSummary: "Weekend Batch",
+        refundCondition: "Nominal subsidized fee of flat ₹100.",
+        intakeSummary: "Regular Batch",
         description: "Beginner level German focusing on phonetics, essential grammar, basic introductions, and Goethe-Zertifikat A1 format.",
         objectives: [
           "Understand and use familiar everyday expressions and basic phrases",
@@ -215,9 +215,9 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
         ],
         batches: [
           {
-            id: "de-a1-weekend",
+            id: "de-a1-mwf",
             name: "A1 Batch",
-            days: "Friday & Saturday",
+            days: "Monday, Wednesday & Friday",
             time: "7:00 PM – 8:30 PM",
             duration: "3 Months",
             intakeLabel: "Limited Seats",
@@ -232,11 +232,11 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
         levelShort: "A2 Level",
         duration: "3–4.5 Months",
         durationBadge: "3–4.5 Months",
-        courseFee: 6000,
+        courseFee: 100,
         securityDeposit: 0,
         hasSecurityDeposit: false,
-        refundCondition: "No security deposit applicable. Course fee is non-refundable upon registration.",
-        intakeSummary: "Weekend Batch",
+        refundCondition: "Nominal subsidized fee of flat ₹100.",
+        intakeSummary: "Regular Batch",
         description: "Elementary German proficiency enabling communication in simple, routine tasks and direct exchange of information.",
         objectives: [
           "Understand sentences and frequently used expressions related to immediate relevance",
@@ -247,9 +247,9 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
         ],
         batches: [
           {
-            id: "de-a2-weekend",
+            id: "de-a2-tts",
             name: "A2 Batch",
-            days: "Friday & Saturday",
+            days: "Tuesday, Thursday & Saturday",
             time: "7:00 PM – 8:30 PM",
             duration: "3–4.5 Months",
             intakeLabel: "Limited Seats",
@@ -284,10 +284,10 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
         levelShort: "Basic English",
         duration: "3 Months",
         durationBadge: "3-Month Course",
-        courseFee: 2000,
+        courseFee: 100,
         securityDeposit: 0,
         hasSecurityDeposit: false,
-        refundCondition: "No security deposit applicable. Course fee is non-refundable upon registration.",
+        refundCondition: "Nominal subsidized fee of flat ₹100.",
         intakeSummary: "Daily Weekday Batch",
         description: "Essential English communication course for beginners and students seeking spoken fluency, correct grammar, and everyday ease.",
         objectives: [
@@ -336,10 +336,10 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
         levelShort: "A1 Level",
         duration: "3 Months",
         durationBadge: "3-Month Course",
-        courseFee: 3000,
+        courseFee: 100,
         securityDeposit: 0,
         hasSecurityDeposit: false,
-        refundCondition: "No security deposit applicable. Course fee is non-refundable upon registration.",
+        refundCondition: "Nominal subsidized fee of flat ₹100.",
         intakeSummary: "Daily Weekday Batch",
         description: "Introductory French language training aligned with DELF A1, covering essential dialogue, phonetics, and basic cultural communication.",
         objectives: [
@@ -422,30 +422,80 @@ export const COURSE_FAQS = [
   }
 ];
 
-// Live Batch Seats Capacity & Enrolled Tracker
+// Live Batch Seats Capacity & Real-Time Enrolled Tracker
+// Real admissions start at 0 enrolled. Slots update dynamically as students enroll.
 export const BATCH_SEATS_CONFIG: Record<string, { totalSeats: number; initialEnrolled: number }> = {
-  "jp-n5-morning": { totalSeats: 30, initialEnrolled: 26 }, // 4 seats remaining
-  "jp-n5-evening": { totalSeats: 30, initialEnrolled: 27 }, // 3 seats remaining
-  "jp-n4-evening": { totalSeats: 25, initialEnrolled: 23 }, // 2 seats remaining
-  "jp-n3-regular": { totalSeats: 20, initialEnrolled: 18 }, // 2 seats remaining
-  "de-a1-weekend": { totalSeats: 25, initialEnrolled: 21 }, // 4 seats remaining
-  "de-a2-weekend": { totalSeats: 25, initialEnrolled: 22 }, // 3 seats remaining
-  "en-basic-evening": { totalSeats: 30, initialEnrolled: 26 }, // 4 seats remaining
-  "fr-a1-evening": { totalSeats: 25, initialEnrolled: 22 }, // 3 seats remaining
+  "jp-n5-morning": { totalSeats: 30, initialEnrolled: 0 },
+  "jp-n5-evening": { totalSeats: 30, initialEnrolled: 0 },
+  "jp-n4-evening": { totalSeats: 25, initialEnrolled: 0 },
+  "jp-n3-regular": { totalSeats: 20, initialEnrolled: 0 },
+  "de-a1-weekend": { totalSeats: 25, initialEnrolled: 0 },
+  "de-a2-weekend": { totalSeats: 25, initialEnrolled: 0 },
+  "en-basic-evening": { totalSeats: 30, initialEnrolled: 0 },
+  "fr-a1-evening": { totalSeats: 25, initialEnrolled: 0 },
 };
 
-export const getBatchSeatsInfo = (batchId: string): { totalSeats: number; enrolled: number; remainingSeats: number; isFull: boolean } => {
-  const config = BATCH_SEATS_CONFIG[batchId] || { totalSeats: 30, initialEnrolled: 24 };
+export interface BatchSeatsStatus {
+  batchId: string;
+  courseId: string;
+  courseName: string;
+  flag: string;
+  levelName: string;
+  batchName: string;
+  days: string;
+  time: string;
+  totalSeats: number;
+  enrolled: number;
+  remainingSeats: number;
+  isFull: boolean;
+  isManuallyFull?: boolean;
+}
+
+export const getBatchSeatsInfo = (
+  batchId: string
+): { totalSeats: number; enrolled: number; remainingSeats: number; isFull: boolean; isManuallyFull?: boolean } => {
+  const config = BATCH_SEATS_CONFIG[batchId] || { totalSeats: 30, initialEnrolled: 0 };
+  
   try {
-    const stored = JSON.parse(localStorage.getItem("parivattan_batch_intake_map") || "{}");
-    const additional = stored[batchId] || 0;
-    const enrolled = config.initialEnrolled + additional;
-    const remainingSeats = Math.max(0, config.totalSeats - enrolled);
+    // 1. Check admin custom overrides
+    const overrides = JSON.parse(localStorage.getItem("parivattan_admin_batch_overrides") || "{}");
+    const batchOverride = overrides[batchId] || {};
+    const totalSeats = typeof batchOverride.totalSeats === "number" && batchOverride.totalSeats > 0
+      ? batchOverride.totalSeats
+      : config.totalSeats;
+    const isManuallyFull = Boolean(batchOverride.isManuallyFull);
+
+    // 2. Count actual registered admissions for this batch
+    let registeredCount = 0;
+    try {
+      const storedMap = JSON.parse(localStorage.getItem("parivattan_batch_intake_map") || "{}");
+      registeredCount = Number(storedMap[batchId]) || 0;
+      
+      // Also cross-check stored admissions if intake map was cleared
+      const admissions = JSON.parse(localStorage.getItem("parivattan_admissions") || "[]");
+      if (Array.isArray(admissions) && admissions.length > 0) {
+        const admissionsMatchingBatch = admissions.filter((a: any) => {
+          const prog = (a.program || "").toLowerCase();
+          const msg = (a.message || "").toLowerCase();
+          const bId = batchId.toLowerCase();
+          return prog.includes(bId) || msg.includes(bId) || (a.batch && a.batch.toLowerCase().includes(bId));
+        }).length;
+        registeredCount = Math.max(registeredCount, admissionsMatchingBatch);
+      }
+    } catch {
+      // ignore
+    }
+
+    const enrolled = config.initialEnrolled + registeredCount;
+    const remainingSeats = isManuallyFull ? 0 : Math.max(0, totalSeats - enrolled);
+    const isFull = isManuallyFull || remainingSeats <= 0;
+
     return {
-      totalSeats: config.totalSeats,
+      totalSeats,
       enrolled,
       remainingSeats,
-      isFull: remainingSeats <= 0,
+      isFull,
+      isManuallyFull,
     };
   } catch (e) {
     const remainingSeats = Math.max(0, config.totalSeats - config.initialEnrolled);
@@ -461,10 +511,180 @@ export const getBatchSeatsInfo = (batchId: string): { totalSeats: number; enroll
 export const incrementBatchEnrollment = (batchId: string): void => {
   try {
     const stored = JSON.parse(localStorage.getItem("parivattan_batch_intake_map") || "{}");
-    stored[batchId] = (stored[batchId] || 0) + 1;
+    stored[batchId] = (Number(stored[batchId]) || 0) + 1;
     localStorage.setItem("parivattan_batch_intake_map", JSON.stringify(stored));
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("batch-seats-updated"));
+    }
   } catch (e) {
     console.warn("Could not save batch intake count", e);
   }
 };
+
+// Admin Capacity Management Functions
+export const updateBatchSeatCapacity = (batchId: string, newTotalSeats: number): void => {
+  try {
+    const overrides = JSON.parse(localStorage.getItem("parivattan_admin_batch_overrides") || "{}");
+    overrides[batchId] = {
+      ...overrides[batchId],
+      totalSeats: Math.max(1, newTotalSeats),
+    };
+    localStorage.setItem("parivattan_admin_batch_overrides", JSON.stringify(overrides));
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("batch-seats-updated"));
+    }
+  } catch (e) {
+    console.warn("Could not update batch seat capacity", e);
+  }
+};
+
+export const toggleBatchManualFull = (batchId: string): boolean => {
+  try {
+    const overrides = JSON.parse(localStorage.getItem("parivattan_admin_batch_overrides") || "{}");
+    const current = Boolean(overrides[batchId]?.isManuallyFull);
+    overrides[batchId] = {
+      ...overrides[batchId],
+      isManuallyFull: !current,
+    };
+    localStorage.setItem("parivattan_admin_batch_overrides", JSON.stringify(overrides));
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("batch-seats-updated"));
+    }
+    return !current;
+  } catch (e) {
+    console.warn("Could not toggle batch full status", e);
+    return false;
+  }
+};
+
+export const resetBatchEnrollment = (batchId: string): void => {
+  try {
+    const stored = JSON.parse(localStorage.getItem("parivattan_batch_intake_map") || "{}");
+    stored[batchId] = 0;
+    localStorage.setItem("parivattan_batch_intake_map", JSON.stringify(stored));
+
+    const overrides = JSON.parse(localStorage.getItem("parivattan_admin_batch_overrides") || "{}");
+    if (overrides[batchId]) {
+      delete overrides[batchId].isManuallyFull;
+      localStorage.setItem("parivattan_admin_batch_overrides", JSON.stringify(overrides));
+    }
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("batch-seats-updated"));
+    }
+  } catch (e) {
+    console.warn("Could not reset batch enrollment", e);
+  }
+};
+
+export const getAllBatchesSeatsList = (): BatchSeatsStatus[] => {
+  const list: BatchSeatsStatus[] = [];
+  LANGUAGE_COURSES.forEach((course) => {
+    course.levels.forEach((lvl) => {
+      lvl.batches.forEach((b) => {
+        const info = getBatchSeatsInfo(b.id);
+        list.push({
+          batchId: b.id,
+          courseId: course.id,
+          courseName: course.name,
+          flag: course.flag,
+          levelName: lvl.level,
+          batchName: b.name,
+          days: b.days,
+          time: b.time,
+          totalSeats: info.totalSeats,
+          enrolled: info.enrolled,
+          remainingSeats: info.remainingSeats,
+          isFull: info.isFull,
+          isManuallyFull: info.isManuallyFull,
+        });
+      });
+    });
+  });
+  return list;
+};
+
+export interface UpcomingCourse {
+  id: string;
+  name: string;
+  nativeName: string;
+  flag: string;
+  country: string;
+  tagline: string;
+  description: string;
+  targetExam: string;
+  expectedDuration: string;
+  statusBadge: string;
+  highlights: string[];
+  themeColor: string;
+  themeGlow: string;
+  badgeBg: string;
+  badgeText: string;
+}
+
+export const UPCOMING_COURSES: UpcomingCourse[] = [
+  {
+    id: "russian",
+    name: "Russian Language",
+    nativeName: "Русский язык",
+    flag: "🇷🇺",
+    country: "Russia & Central Asia",
+    tagline: "TORFL Certification Pathway & Cyrillic Script Mastery",
+    description: "Comprehensive foundational and intermediate curriculum covering the Cyrillic alphabet, essential grammar cases, conversational phonetics, and preparation for official TORFL (Test of Russian as a Foreign Language) examinations.",
+    targetExam: "TORFL / TRKI Level A1–B1",
+    expectedDuration: "4 to 6 Months",
+    statusBadge: "Coming Soon",
+    highlights: [
+      "Master Cyrillic script & accurate phonetics",
+      "Gateway to premier medical, tech & engineering universities",
+      "Essential conversational fluency & situational dialogues",
+    ],
+    themeColor: "#dc2626",
+    themeGlow: "rgba(220, 38, 38, 0.12)",
+    badgeBg: "#fee2e2",
+    badgeText: "#991b1b",
+  },
+  {
+    id: "chinese",
+    name: "Chinese Language (Mandarin)",
+    nativeName: "中文 • 普通话",
+    flag: "🇨🇳",
+    country: "Greater China & Global Trade",
+    tagline: "Standard HSK Certification & Global Commerce Fluency",
+    description: "Interactive Mandarin training structured around Pinyin romanization, 4 tonal variations, essential Hanzi stroke writing, everyday spoken communication, and HSK Level 1 to 3 examination syllabus.",
+    targetExam: "HSK Level 1–3 Standardized Testing",
+    expectedDuration: "5 to 6 Months",
+    statusBadge: "Coming Soon",
+    highlights: [
+      "Tone mastery with accurate Pinyin phonetics",
+      "Core 300+ high-frequency Hanzi characters",
+      "High-demand skill for international trade & technology",
+    ],
+    themeColor: "#ea580c",
+    themeGlow: "rgba(234, 88, 12, 0.12)",
+    badgeBg: "#ffedd5",
+    badgeText: "#9a3412",
+  },
+  {
+    id: "spanish",
+    name: "Spanish Language",
+    nativeName: "Español • Castellano",
+    flag: "🇪🇸",
+    country: "Spain & Latin America (20+ Nations)",
+    tagline: "Official DELE Framework & World Language Fluency",
+    description: "Modern communicative Spanish course aligned with the Instituto Cervantes DELE curriculum. Learn grammar, verb conjugations, and native listening comprehension with immersive cultural contexts.",
+    targetExam: "DELE / SIELE Diplomas in Spanish",
+    expectedDuration: "3 to 4.5 Months",
+    statusBadge: "Coming Soon",
+    highlights: [
+      "World's 2nd most spoken native language (500M+ speakers)",
+      "Structured DELE A1 & A2 exam curriculum",
+      "Fast conversational learning curve & global mobility",
+    ],
+    themeColor: "#b45309",
+    themeGlow: "rgba(180, 83, 9, 0.12)",
+    badgeBg: "#fef3c7",
+    badgeText: "#92400e",
+  },
+];
 
