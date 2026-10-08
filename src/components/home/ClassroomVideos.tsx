@@ -19,7 +19,7 @@ const CLASSROOM_VIDEOS: ClassroomVideo[] = [
     marathiTitle: "दिवस १: भाषा परिचय व संवाद कार्यशाळा",
     description:
       "Interactive onboarding session introducing foreign language fundamentals, cultural etiquette, phonetics, and student ice-breakers.",
-    videoSrc: "/img/slides/SPY Day 1.mp4",
+    videoSrc: "/img/slides/day-1-classroom.mp4",
     highlights: ["Foundational Phonetics", "Cultural Etiquette", "Interactive Group Activities"],
   },
   {
@@ -29,7 +29,7 @@ const CLASSROOM_VIDEOS: ClassroomVideo[] = [
     marathiTitle: "दिवस २: परस्परसंवादी गट चर्चा व भाषा सराव",
     description:
       "Intensive communicative classroom exercises, dialogue simulation (Kaiwa), vocabulary drills, and practical listening practice.",
-    videoSrc: "/img/slides/DAY2 V3.mp4",
+    videoSrc: "/img/slides/day-2-classroom.mp4",
     highlights: ["Conversational Drills", "Real-Life Roleplay", "Listening Comprehension"],
   },
   {
@@ -39,7 +39,7 @@ const CLASSROOM_VIDEOS: ClassroomVideo[] = [
     marathiTitle: "दिवस ३: प्रात्यक्षिक ज्ञान व जागतिक संधी",
     description:
       "Student presentations, advanced communicative mastery, global study & work visa pathways, and certificate prep.",
-    videoSrc: "/img/slides/DAY 3 V8-9.mp4",
+    videoSrc: "/img/slides/day-3-classroom.mp4",
     highlights: ["Student Presentations", "Visa & Career Guidance", "Skill Certification"],
   },
 ];
