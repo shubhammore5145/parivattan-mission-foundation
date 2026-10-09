@@ -1,246 +1,276 @@
-import React, { useState, useRef } from "react";
-import { Play, Pause, Volume2, VolumeX, Maximize2, Sparkles, Video, Calendar, GraduationCap, CheckCircle2 } from "lucide-react";
+import React, { useState } from "react";
+import { Play, Sparkles, Youtube, ExternalLink, Video, CheckCircle2, ChevronRight } from "lucide-react";
 
-interface ClassroomVideo {
+export interface YouTubeShortItem {
   id: string;
-  dayBadge: string;
+  badge: string;
   title: string;
   marathiTitle: string;
   description: string;
-  videoSrc: string;
-  highlights: string[];
+  url: string;
 }
 
-const CLASSROOM_VIDEOS: ClassroomVideo[] = [
+export const YOUTUBE_SHORTS: YouTubeShortItem[] = [
   {
-    id: "day-1",
-    dayBadge: "Day 1 Workshop",
-    title: "Orientation & Language Foundation",
-    marathiTitle: "दिवस १: भाषा परिचय व संवाद कार्यशाळा",
-    description:
-      "Interactive onboarding session introducing foreign language fundamentals, cultural etiquette, phonetics, and student ice-breakers.",
-    videoSrc: "/img/slides/day-1-classroom.mp4",
-    highlights: ["Foundational Phonetics", "Cultural Etiquette", "Interactive Group Activities"],
+    id: "_EEthfJ3nqM",
+    badge: "Session 01",
+    title: "Classroom Energy & Language Fundamentals",
+    marathiTitle: "प्रत्यक्ष वर्गानुभव व विद्यार्थी संवाद",
+    description: "Real glimpses from our classroom sessions showing students enthusiastically learning language phonetics and foundation skills.",
+    url: "https://youtube.com/shorts/_EEthfJ3nqM",
   },
   {
-    id: "day-2",
-    dayBadge: "Day 2 Practice",
-    title: "Interactive Speaking & Group Drills",
-    marathiTitle: "दिवस २: परस्परसंवादी गट चर्चा व भाषा सराव",
-    description:
-      "Intensive communicative classroom exercises, dialogue simulation (Kaiwa), vocabulary drills, and practical listening practice.",
-    videoSrc: "/img/slides/day-2-classroom.mp4",
-    highlights: ["Conversational Drills", "Real-Life Roleplay", "Listening Comprehension"],
+    id: "aoG4lvsm5Lw",
+    badge: "Session 02",
+    title: "Foreign Language Speaking & Confidence",
+    marathiTitle: "परकीय भाषा संभाषण व आत्मविश्वास सराव",
+    description: "Students building spoken fluency through live interactive dialogue, group conversation, and practical speaking drills.",
+    url: "https://youtube.com/shorts/aoG4lvsm5Lw",
   },
   {
-    id: "day-3",
-    dayBadge: "Day 3 Showcase",
-    title: "Practical Projects & Global Careers",
-    marathiTitle: "दिवस ३: प्रात्यक्षिक ज्ञान व जागतिक संधी",
-    description:
-      "Student presentations, advanced communicative mastery, global study & work visa pathways, and certificate prep.",
-    videoSrc: "/img/slides/day-3-classroom.mp4",
-    highlights: ["Student Presentations", "Visa & Career Guidance", "Skill Certification"],
+    id: "2qEHNtsCrR4",
+    badge: "Session 03",
+    title: "Interactive Workshop & Peer Learning",
+    marathiTitle: "परस्परसंवादी शिक्षण व युवा सहभाग",
+    description: "Dynamic classroom engagement where first-generation learners practice together in a supportive community environment.",
+    url: "https://youtube.com/shorts/2qEHNtsCrR4",
+  },
+  {
+    id: "L5l16Lq6sYY",
+    badge: "Session 04",
+    title: "Global Careers & JLPT / Language Guidance",
+    marathiTitle: "जागतिक करिअर संधी व परदेशी मार्गदर्शन",
+    description: "Guidance on international higher education, certification tests (JLPT / Goethe), and verified overseas career mobility.",
+    url: "https://youtube.com/shorts/L5l16Lq6sYY",
+  },
+  {
+    id: "G6pjOW4Njnk",
+    badge: "Session 05",
+    title: "Parivattan Movement & Student Stories",
+    marathiTitle: "परिवर्तन चळवळ व विद्यार्थ्यांचा प्रेरणादायी प्रवास",
+    description: "Inspiring student journey and grassroots impact of Parivattan Mission Foundation across Maharashtra.",
+    url: "https://youtube.com/shorts/G6pjOW4Njnk",
   },
 ];
 
-export default function ClassroomVideos() {
-  const [activeVideoId, setActiveVideoId] = useState<string>(CLASSROOM_VIDEOS[0].id);
-  const activeVideo = CLASSROOM_VIDEOS.find((v) => v.id === activeVideoId) || CLASSROOM_VIDEOS[0];
-  const mainVideoRef = useRef<HTMLVideoElement>(null);
+interface ClassroomVideosProps {
+  idPrefix?: string;
+  className?: string;
+}
+
+export default function ClassroomVideos({ idPrefix = "home", className = "" }: ClassroomVideosProps) {
+  const [activeVideoId, setActiveVideoId] = useState<string>(YOUTUBE_SHORTS[0].id);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const activeVideo = YOUTUBE_SHORTS.find((v) => v.id === activeVideoId) || YOUTUBE_SHORTS[0];
 
-  const handleTogglePlay = () => {
-    if (!mainVideoRef.current) return;
-    if (mainVideoRef.current.paused) {
-      mainVideoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
-    } else {
-      mainVideoRef.current.pause();
-      setIsPlaying(false);
-    }
-  };
-
-  const handleToggleMute = () => {
-    if (!mainVideoRef.current) return;
-    mainVideoRef.current.muted = !mainVideoRef.current.muted;
-    setIsMuted(mainVideoRef.current.muted);
-  };
-
-  const handleSelectVideo = (video: ClassroomVideo) => {
-    setActiveVideoId(video.id);
-    setIsPlaying(false);
-    if (mainVideoRef.current) {
-      mainVideoRef.current.load();
-    }
+  const handleSelectVideo = (videoId: string) => {
+    setActiveVideoId(videoId);
+    setIsPlaying(true);
   };
 
   return (
-    <section id="classroom-experience" className="page-section bg-[#14201b] text-white py-20 sm:py-28 relative overflow-hidden">
-      {/* Background Decorative Gradient */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1d2f28] via-[#14201b] to-[#0c1411] opacity-90" />
-      <div className="absolute top-0 right-0 w-96 h-96 bg-[#b5623b]/10 rounded-full blur-3xl pointer-events-none" />
+    <section id={`${idPrefix}-classroom-videos`} className={`py-16 md:py-24 bg-[#14201b] text-white relative overflow-hidden ${className}`}>
+      {/* Decorative Background Elements */}
+      <div 
+        className="absolute inset-0 opacity-[0.04] pointer-events-none"
+        style={{
+          backgroundImage: "radial-gradient(#ffffff 1px, transparent 1px)",
+          backgroundSize: "24px 24px"
+        }}
+      />
+      <div className="absolute top-0 right-0 w-96 h-96 bg-[#b5623b]/15 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="container mx-auto px-4 max-w-7xl relative z-10">
+      <div className="container relative z-10 mx-auto px-4 sm:px-6 max-w-7xl">
         {/* Section Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12 sm:mb-16">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-amber-400/15 border border-amber-300/30 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-amber-300 mb-3 backdrop-blur-sm">
-              <Video size={14} className="text-amber-300" />
-              <span>प्रत्यक्ष वर्गानुभव · Classroom Experience</span>
-            </div>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold tracking-tight text-white leading-tight">
-              See Our Students In Action
-            </h2>
-            <p className="mt-3 text-sm sm:text-base text-[#cfd9d3] max-w-2xl font-light leading-relaxed">
-              Real glimpses from our foreign language workshops and interactive training sessions. Watch students build confidence, master conversational fluency, and unlock global careers.
-            </p>
+        <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-16">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-red-600/20 text-red-300 text-xs sm:text-sm font-semibold tracking-wide uppercase mb-4 border border-red-500/30">
+            <Youtube className="w-4 h-4 text-red-400" />
+            <span>YouTube Shorts · प्रत्यक्ष वर्गानुभव</span>
           </div>
-
-          <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md p-1.5 rounded-2xl border border-white/10 shrink-0">
-            {CLASSROOM_VIDEOS.map((v) => (
-              <button
-                key={v.id}
-                type="button"
-                onClick={() => handleSelectVideo(v)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                  activeVideoId === v.id
-                    ? "bg-[#b5623b] text-white shadow-md"
-                    : "text-[#a2b2aa] hover:text-white hover:bg-white/10"
-                }`}
-              >
-                <Calendar size={13} />
-                <span>{v.dayBadge}</span>
-              </button>
-            ))}
-          </div>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold text-white tracking-tight">
+            Watch Our Students In Action
+          </h2>
+          <p className="mt-4 text-sm sm:text-base text-slate-300 leading-relaxed font-light">
+            Real classroom moments, student confidence, foreign language immersion, and inspirational stories 
+            straight from Parivattan learning circles.
+          </p>
         </div>
 
-        {/* Featured Video Player & Playlist Grid */}
-        <div className="grid lg:grid-cols-12 gap-8 items-start">
-          {/* Main Cinema Player (7 cols) */}
-          <div className="lg:col-span-7 bg-[#0b120f] border border-white/15 rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between">
-            <div className="relative aspect-video bg-black flex items-center justify-center group">
-              <video
-                ref={mainVideoRef}
-                src={activeVideo.videoSrc}
-                preload="metadata"
-                playsInline
-                controls
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
-                className="w-full h-full object-contain"
-              />
+        {/* Simple & Clean Video Layout: Active Player + Playlist Grid */}
+        <div className="grid gap-8 lg:grid-cols-12 items-start max-w-6xl mx-auto">
+          {/* Main Active Video Player (7 Columns) */}
+          <div className="lg:col-span-7 flex flex-col items-center">
+            <div className="w-full max-w-md sm:max-w-lg lg:max-w-none rounded-3xl overflow-hidden bg-black/60 border border-white/10 shadow-2xl p-2 sm:p-3 ring-1 ring-white/10">
+              {/* Responsive 9:16 Shorts Player / Click-To-Play Thumbnail */}
+              <div className="relative w-full aspect-[9/16] max-h-[580px] rounded-2xl overflow-hidden bg-black flex items-center justify-center">
+                {isPlaying ? (
+                  <iframe
+                    key={activeVideo.id}
+                    src={`https://www.youtube.com/embed/${activeVideo.id}?autoplay=1&rel=0&modestbranding=1`}
+                    title={activeVideo.title}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    className="w-full h-full border-0"
+                  />
+                ) : (
+                  <div 
+                    onClick={() => setIsPlaying(true)}
+                    className="relative w-full h-full cursor-pointer group flex items-center justify-center"
+                    title="Click to play video"
+                  >
+                    <img
+                      src={`https://img.youtube.com/vi/${activeVideo.id}/hqdefault.jpg`}
+                      alt={activeVideo.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 opacity-90 group-hover:opacity-100"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/35" />
 
-              {/* Floating Quick Play/Pause Center Overlay when paused */}
-              {!isPlaying && (
-                <button
-                  type="button"
-                  onClick={handleTogglePlay}
-                  className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[2px] transition group-hover:bg-black/25 cursor-pointer"
-                  aria-label="Play Video"
-                >
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[#b5623b] hover:bg-[#954b2c] text-white flex items-center justify-center shadow-2xl transition transform group-hover:scale-110">
-                    <Play size={28} className="translate-x-0.5 text-white" />
+                    {/* Big YouTube Play Button */}
+                    <div className="relative z-10 flex flex-col items-center gap-3">
+                      <div className="w-20 h-20 rounded-full bg-red-600 group-hover:bg-red-500 text-white flex items-center justify-center shadow-2xl transition-all duration-300 group-hover:scale-110 ring-8 ring-red-600/30">
+                        <Play className="w-9 h-9 fill-current ml-1" />
+                      </div>
+                      <span className="px-4 py-1.5 rounded-full bg-black/80 backdrop-blur-md text-white text-xs sm:text-sm font-semibold border border-white/20 shadow-lg">
+                        Click to Play Short
+                      </span>
+                    </div>
+
+                    {/* YouTube Badge in Corner */}
+                    <div className="absolute top-4 left-4 z-10 flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-600/90 text-white text-xs font-semibold shadow-md">
+                      <Youtube className="w-3.5 h-3.5" />
+                      <span>YouTube Short</span>
+                    </div>
                   </div>
-                </button>
-              )}
-            </div>
-
-            {/* Video Details Bar */}
-            <div className="p-6 sm:p-8 bg-[#0e1713] border-t border-white/10 space-y-4">
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/20 text-amber-300 px-3 py-1 text-xs font-bold border border-amber-400/30">
-                  <Sparkles size={12} /> {activeVideo.dayBadge}
-                </span>
-                <span className="text-xs text-[#95a59c] font-medium font-serif italic">
-                  Parivattan Language Training Sessions
-                </span>
+                )}
               </div>
 
-              <div>
-                <h3 className="text-xl sm:text-2xl font-serif font-bold text-white">
+              {/* Active Video Info Bar */}
+              <div className="p-4 sm:p-5 text-left space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-600/20 text-red-300 border border-red-500/30">
+                    <Sparkles className="w-3.5 h-3.5 text-red-400" />
+                    <span>{activeVideo.badge}</span>
+                  </span>
+                  <a
+                    href={activeVideo.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-slate-300 hover:text-white transition-colors"
+                  >
+                    <span>Open on YouTube</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+                <h3 className="text-lg sm:text-xl font-bold font-serif text-white">
                   {activeVideo.title}
                 </h3>
-                <p className="text-xs sm:text-sm text-amber-300 font-medium mt-0.5">
+                <p className="text-xs sm:text-sm text-amber-300/90 font-medium">
                   {activeVideo.marathiTitle}
                 </p>
-                <p className="text-xs sm:text-sm text-[#cbd6cf] mt-2.5 leading-relaxed font-light">
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed pt-1">
                   {activeVideo.description}
                 </p>
               </div>
-
-              <div className="pt-2 flex flex-wrap gap-2">
-                {activeVideo.highlights.map((h, i) => (
-                  <span
-                    key={i}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-white/5 border border-white/10 px-3 py-1 text-[11px] text-[#e0e8e3]"
-                  >
-                    <CheckCircle2 size={12} className="text-emerald-400" />
-                    <span>{h}</span>
-                  </span>
-                ))}
-              </div>
             </div>
           </div>
 
-          {/* Playlist & All 3 Videos Cards (5 cols) */}
-          <div className="lg:col-span-5 space-y-4">
-            <div className="text-xs font-bold uppercase tracking-wider text-amber-300/90 mb-2 flex items-center gap-2">
-              <GraduationCap size={15} /> All Workshop Modules
+          {/* Playlist & Quick Selection List (5 Columns) */}
+          <div className="lg:col-span-5 flex flex-col gap-3.5">
+            <div className="flex items-center justify-between px-2 mb-1">
+              <span className="text-xs font-bold tracking-wider text-slate-300 uppercase flex items-center gap-2">
+                <Video className="w-4 h-4 text-red-400" />
+                All 5 YouTube Shorts
+              </span>
+              <span className="text-xs font-mono text-slate-400">
+                Tap to watch
+              </span>
             </div>
 
-            {CLASSROOM_VIDEOS.map((video) => {
-              const isSelected = video.id === activeVideoId;
+            {YOUTUBE_SHORTS.map((video, index) => {
+              const isActive = video.id === activeVideoId;
+              const thumbUrl = `https://img.youtube.com/vi/${video.id}/hqdefault.jpg`;
+
               return (
-                <div
+                <button
                   key={video.id}
-                  onClick={() => handleSelectVideo(video)}
-                  className={`rounded-2xl p-5 border transition-all cursor-pointer flex flex-col gap-3 ${
-                    isSelected
-                      ? "bg-[#182721] border-[#b5623b] shadow-xl ring-1 ring-[#b5623b]/50"
-                      : "bg-[#0f1915]/80 border-white/10 hover:border-white/25 hover:bg-[#14201b]"
+                  onClick={() => handleSelectVideo(video.id)}
+                  type="button"
+                  className={`w-full text-left p-3.5 rounded-2xl transition-all duration-300 flex items-center gap-4 cursor-pointer border ${
+                    isActive
+                      ? "bg-gradient-to-r from-red-950/60 to-[#24312d] border-red-500/50 shadow-lg ring-1 ring-red-500/40 translate-x-1"
+                      : "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20"
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2.5">
-                      <div
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                          isSelected ? "bg-[#b5623b] text-white" : "bg-white/10 text-[#a2b2aa]"
-                        }`}
-                      >
-                        <Play size={15} className={isSelected ? "text-white" : "text-[#d1ded6]"} />
-                      </div>
-                      <div>
-                        <span className="text-[11px] font-bold text-amber-300 uppercase tracking-wider block">
-                          {video.dayBadge}
-                        </span>
-                        <h4 className="font-serif font-bold text-sm sm:text-base text-white leading-tight">
-                          {video.title}
-                        </h4>
+                  {/* Video Thumbnail */}
+                  <div className="relative w-20 sm:w-24 aspect-[4/3] rounded-xl overflow-hidden bg-black shrink-0 border border-white/15">
+                    <img
+                      src={thumbUrl}
+                      alt={video.title}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center shadow-md ${
+                        isActive ? "bg-red-600 text-white" : "bg-white/80 text-black"
+                      }`}>
+                        <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
                       </div>
                     </div>
-
-                    {isSelected && (
-                      <span className="rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[10px] font-bold px-2 py-0.5 shrink-0">
-                        Playing Now
-                      </span>
-                    )}
-                  </div>
-
-                  <p className="text-xs text-[#a2b2aa] line-clamp-2 leading-relaxed font-light">
-                    {video.description}
-                  </p>
-
-                  <div className="flex items-center justify-between text-[11px] text-[#86968d] pt-1 border-t border-white/5">
-                    <span className="italic text-amber-200/80">{video.marathiTitle}</span>
-                    <span className="font-semibold text-white/80 hover:text-amber-300 flex items-center gap-1">
-                      {isSelected ? "Active View" : "Watch Video →"}
+                    <span className="absolute bottom-1 right-1 px-1 py-0.2 rounded text-[9px] font-mono font-bold bg-black/80 text-white">
+                      Short
                     </span>
                   </div>
-                </div>
+
+                  {/* Video Text */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        isActive ? "bg-red-500/30 text-red-200" : "bg-white/10 text-slate-300"
+                      }`}>
+                        #{index + 1}
+                      </span>
+                      <span className="text-[11px] font-semibold text-slate-400 truncate">
+                        {video.badge}
+                      </span>
+                    </div>
+                    <h4 className={`text-sm font-semibold truncate ${
+                      isActive ? "text-white" : "text-slate-200"
+                    }`}>
+                      {video.title}
+                    </h4>
+                    <p className="text-xs text-amber-300/80 truncate mt-0.5">
+                      {video.marathiTitle}
+                    </p>
+                  </div>
+
+                  <ChevronRight className={`w-4 h-4 shrink-0 transition-transform ${
+                    isActive ? "text-red-400 translate-x-0.5" : "text-slate-500"
+                  }`} />
+                </button>
               );
             })}
+
+            {/* External channel link banner */}
+            <div className="mt-2 p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-red-600 text-white flex items-center justify-center shrink-0 shadow-md">
+                  <Youtube className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-white">Subscribe on YouTube</p>
+                  <p className="text-[11px] text-slate-400">Watch daily learning shorts & updates</p>
+                </div>
+              </div>
+              <a
+                href="https://www.youtube.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition-colors shrink-0 flex items-center gap-1"
+              >
+                <span>Visit YouTube</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
           </div>
         </div>
       </div>

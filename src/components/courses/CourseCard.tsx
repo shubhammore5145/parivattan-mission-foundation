@@ -173,8 +173,15 @@ export default function CourseCard({ course, onEnroll, onOpenDetails }: CourseCa
             </div>
           </div>
 
+          <div className="mt-2.5 pt-2 border-t border-[#f1f3ed] flex items-center justify-between text-[11px] text-[#65706a]">
+            <span>+ ₹{(activeLevel.platformFee ?? 100)} platform fee</span>
+            <span className="font-bold text-[#24312d]">
+              Total: ₹{(activeLevel.courseFee + activeLevel.securityDeposit + (activeLevel.platformFee ?? 100)).toLocaleString("en-IN")}
+            </span>
+          </div>
+
           {activeLevel.hasSecurityDeposit && (
-            <div className="mt-2.5 pt-2 border-t border-[#f1f3ed] flex items-start gap-1.5 text-[11px] text-[#65706a]">
+            <div className="mt-2 pt-2 border-t border-[#f1f3ed] flex items-start gap-1.5 text-[11px] text-[#65706a]">
               <Shield size={13} className="text-emerald-600 shrink-0 mt-0.5" />
               <span className="italic leading-snug">{activeLevel.refundCondition}</span>
             </div>

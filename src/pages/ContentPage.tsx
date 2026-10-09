@@ -5,6 +5,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import OurWork from "@/components/OurWork";
 import OurTeamSection from "@/components/team/OurTeamSection";
+import ClassroomVideos from "@/components/home/ClassroomVideos";
 
 const initiatives = [
   { title: "Parivattan Overseas Schools", text: "Supportive programs that help learners prepare for IELTS, TOEFL and PTE with confidence.", tags: ["IELTS", "TOEFL", "PTE"] },
@@ -51,7 +52,41 @@ export default function ContentPage() {
     {isInitiatives && <PageIntro eyebrow="Learning that travels" title="Our initiatives" copy="Three learning schools, one shared aim: make education practical, accessible and connected to a person’s next possibility." />}
     {isAbout && <>
       <PageIntro eyebrow="About Parivattan Mission Foundation" title="People-powered change starts with listening & action." copy="We work alongside communities to make education, international languages, technology skills, and human dignity accessible to every learner." />
-      <OurTeamSection />
+      
+      {/* Foundation Pillars & Trust Overview */}
+      <section className="page-section !pt-0 !pb-10">
+        <div className="grid gap-6 md:grid-cols-3">
+          <div className="rounded-3xl border border-[#e2e5dc] bg-white p-7 shadow-xs">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#b5623b]">Our Purpose</span>
+            <h3 className="mt-2 text-2xl font-serif text-[#24312d]">Democratizing Education</h3>
+            <p className="mt-3 text-sm text-[#65706a] leading-relaxed">
+              Equipping rural youth in Maharashtra with high-demand global skills: certified Japanese, German, practical software programming, and international university pathways.
+            </p>
+          </div>
+          <div className="rounded-3xl border border-[#e2e5dc] bg-white p-7 shadow-xs">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#b5623b]">Trust & Governance</span>
+            <h3 className="mt-2 text-2xl font-serif text-[#24312d]">Section 8 Non-Profit</h3>
+            <p className="mt-3 text-sm text-[#65706a] leading-relaxed">
+              Officially incorporated under the Ministry of Corporate Affairs (Reg. #158298) and certified under 80G and 12A with transparent, community-governed accountability.
+            </p>
+          </div>
+          <div className="rounded-3xl border border-[#e2e5dc] bg-white p-7 shadow-xs">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#b5623b]">Our Approach</span>
+            <h3 className="mt-2 text-2xl font-serif text-[#24312d]">Grassroots Impact</h3>
+            <p className="mt-3 text-sm text-[#65706a] leading-relaxed">
+              Subsidized nominal fees, village study centers, live native mentorship, and refundable security deposits ensuring no dedicated student is left behind.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Classroom Videos Showcase */}
+      <ClassroomVideos idPrefix="about" />
+
+      {/* Dedicated Our Team Section */}
+      <div id="team">
+        <OurTeamSection />
+      </div>
     </>}
     {isInitiatives && <section className="page-section !pt-4 !pb-16 md:!pt-6"><div className="grid items-stretch gap-5 md:grid-cols-2 lg:grid-cols-3">{initiatives.map((item, index) => <article id={["overseas", "languages", "technology"][index]} className="min-h-[360px] scroll-mt-28 rounded-3xl bg-white p-7 shadow-[0_14px_35px_-28px_rgba(36,49,45,0.7)] ring-1 ring-[#e7e5de] transition-transform duration-300 hover:-translate-y-1" key={item.title}><span className="text-sm font-semibold text-[#b5623b]">0{index + 1}</span><h2 className="mt-10 text-3xl font-serif leading-tight">{item.title}</h2><p className="mt-4 text-[#65706a]">{item.text}</p><div className="mt-7 flex flex-wrap gap-2">{item.tags.map(tag => <span className="rounded-full bg-[#eef0e8] px-3 py-1 text-sm" key={tag}>{tag}</span>)}</div></article>)}</div></section>}
     {path === "/campaigns" && <><PageIntro eyebrow="Active campaigns" title="Small actions, lasting ripples." copy="Join the live efforts helping learners find the confidence, tools and support to keep moving forward." /><section className="page-section"><div className="grid gap-6 md:grid-cols-2"><Campaign title="Sponsor a learning kit" detail="Help put books, internet access and mentoring within reach for a learner." amount="₹1,500" /><Campaign title="Sponsor a month of classes" detail="Keep our community-led classrooms open and welcoming." amount="₹3,000" /></div></section></>}

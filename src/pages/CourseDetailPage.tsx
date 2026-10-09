@@ -167,9 +167,16 @@ export default function CourseDetailPage() {
                 </div>
 
                 <div className="border-t border-[#e2e5dc] pt-3">
+                  <span className="text-xs font-semibold text-[#65706a]">Platform Handling Fee</span>
+                  <p className="text-lg font-serif font-bold text-[#24312d]">
+                    ₹{(level.platformFee ?? 100).toLocaleString("en-IN")}
+                  </p>
+                </div>
+
+                <div className="border-t border-[#e2e5dc] pt-3">
                   <span className="text-xs uppercase font-bold text-[#24312d]">Total Payable</span>
                   <p className="text-2xl font-serif font-bold text-[#24312d]">
-                    ₹{(level.courseFee + level.securityDeposit).toLocaleString("en-IN")}
+                    ₹{(level.courseFee + level.securityDeposit + (level.platformFee ?? 100)).toLocaleString("en-IN")}
                   </p>
                 </div>
 

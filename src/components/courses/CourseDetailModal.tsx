@@ -154,10 +154,16 @@ export default function CourseDetailModal({
                 <span className="text-xs font-semibold text-[#65706a]">₹0 (Not Applicable)</span>
               )}
             </div>
+            <div className="flex justify-between items-center border-t border-[#f1f3ed] pt-2">
+              <span className="text-[#65706a]">Platform Handling Fee</span>
+              <span className="text-sm font-bold font-serif text-[#24312d]">
+                ₹{(level.platformFee ?? 100).toLocaleString("en-IN")}
+              </span>
+            </div>
             <div className="flex justify-between items-center border-t border-[#e2e5dc] pt-2 font-bold text-sm">
               <span className="text-[#24312d] uppercase text-xs tracking-wider">Total Payable at Registration</span>
               <span className="text-xl font-serif text-[#24312d]">
-                ₹{(level.courseFee + level.securityDeposit).toLocaleString("en-IN")}
+                ₹{(level.courseFee + level.securityDeposit + (level.platformFee ?? 100)).toLocaleString("en-IN")}
               </span>
             </div>
           </div>

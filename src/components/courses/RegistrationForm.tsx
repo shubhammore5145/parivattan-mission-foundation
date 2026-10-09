@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { createAdmission } from "@/lib/supabase-admin";
+import { sendCourseAdmissionEmail } from "@/lib/courseEmailService";
 
 interface RegistrationFormProps {
   initialLanguage?: string;
@@ -108,7 +109,8 @@ export default function RegistrationForm({
   // Fee calculation
   const courseFee = activeLevel.courseFee;
   const securityDeposit = activeLevel.securityDeposit;
-  const totalAmount = courseFee + securityDeposit;
+  const platformFee = activeLevel.platformFee ?? 100;
+  const totalAmount = courseFee + securityDeposit + platformFee;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -165,6 +167,7 @@ export default function RegistrationForm({
       address: address.trim(),
       courseFee,
       securityDeposit,
+      platformFee,
       totalAmount,
       refundCondition: activeLevel.refundCondition,
       registeredAt: new Date().toISOString(),
@@ -195,8 +198,20 @@ export default function RegistrationForm({
         JSON.stringify([payload, ...existing])
       );
 
+      // Automatically send course admission confirmation email to the student
+      sendCourseAdmissionEmail({
+        studentName: payload.fullName,
+        studentEmail: payload.emailAddress,
+        courseName: `${payload.language} (${payload.level}) - ${payload.batch}`,
+        phone: payload.mobileNumber,
+        batch: payload.batch,
+        timing: payload.preferredTiming,
+        totalAmount: payload.totalAmount,
+        registrationId: payload.id,
+      });
+
       setSubmittedData(payload);
-      toast.success("Course Registration submitted successfully!");
+      toast.success("Course Registration submitted successfully! Confirmation email sent.");
       if (onSuccess) onSuccess(payload);
     } catch (err) {
       console.error("Registration error:", err);
@@ -297,6 +312,12 @@ export default function RegistrationForm({
                   {submittedData.securityDeposit > 0
                     ? `₹${submittedData.securityDeposit.toLocaleString("en-IN")} (Refundable)`
                     : "₹0 (Not Applicable)"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#65706a]">Platform Handling Fee</span>
+                <span className="font-bold text-[#24312d]">
+                  ₹{(submittedData.platformFee ?? 100).toLocaleString("en-IN")}
                 </span>
               </div>
               <div className="flex justify-between border-t border-[#f1f3ed] pt-2 font-bold text-sm">
@@ -613,6 +634,13 @@ export default function RegistrationForm({
                   ) : (
                     <span className="text-[#65706a]">₹0 (Not Applicable)</span>
                   )}
+                </div>
+
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[#65706a]">Platform Handling Fee</span>
+                  <span className="font-bold text-[#24312d]">
+                    ₹{platformFee.toLocaleString("en-IN")}
+                  </span>
                 </div>
 
                 <div className="border-t border-[#e2e5dc] pt-2.5 flex items-center justify-between font-bold text-sm">

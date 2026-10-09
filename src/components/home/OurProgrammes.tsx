@@ -2,11 +2,9 @@ import React from "react";
 import { Link } from "react-router-dom";
 import {
   BookOpen,
-  HeartPulse,
   Award,
   Briefcase,
   Sprout,
-  HeartHandshake,
   Sparkles,
   ArrowRight,
   ChevronRight,
@@ -29,7 +27,7 @@ const PROGRAMMES: Programme[] = [
   {
     id: "education",
     title: "EDUCATION",
-    description: "Education, nutrition and holistic development of children.",
+    description: "Quality education, foundational literacy, and international language fluency.",
     initiatives: [
       "Parivattan Foreign Language School",
       "Sau Library Campaign",
@@ -43,25 +41,9 @@ const PROGRAMMES: Programme[] = [
     link: "/initiatives#languages",
   },
   {
-    id: "healthcare",
-    title: "HEALTHCARE",
-    description: "Taking healthcare services to doorsteps of hard to reach communities.",
-    initiatives: [
-      "Health For All Outreach",
-      "Free Preventive Health Camps",
-      "Maternal & Child Nutrition",
-    ],
-    icon: HeartPulse,
-    blobColor: "bg-[#ede9fe]",
-    iconColor: "#7c3aed",
-    textColor: "text-[#6d28d9]",
-    tagColor: "bg-purple-50 text-purple-800 border-purple-200",
-    link: "/initiatives",
-  },
-  {
     id: "women-empowerment",
     title: "WOMEN EMPOWERMENT",
-    description: "Empowering adolescent girls & women through community engagement.",
+    description: "Empowering adolescent girls & women through higher education and community leadership.",
     initiatives: [
       "Savitribai Phule Higher Ed Fund",
       "Girls Hostel & Tuition Grants",
@@ -77,7 +59,7 @@ const PROGRAMMES: Programme[] = [
   {
     id: "livelihood",
     title: "LIVELIHOOD",
-    description: "Skill training and placement support for underprivileged youth.",
+    description: "Skill training, practical coding bootcamps, and career placement for youth.",
     initiatives: [
       "Parivattan Coding & Tech School",
       "Bilingual Overseas IT Pathways",
@@ -93,7 +75,7 @@ const PROGRAMMES: Programme[] = [
   {
     id: "grassroots",
     title: "EMPOWERING GRASSROOTS",
-    description: "Helping community-based organizations become locally sustainable.",
+    description: "Helping rural communities and learners build sustainable, independent futures.",
     initiatives: [
       "Village Study Centers",
       "Youth Leadership Mentorship",
@@ -105,22 +87,6 @@ const PROGRAMMES: Programme[] = [
     textColor: "text-[#15803d]",
     tagColor: "bg-emerald-50 text-emerald-800 border-emerald-200",
     link: "/about",
-  },
-  {
-    id: "disaster-response",
-    title: "DISASTER RESPONSE",
-    description: "Reach out and respond to the needs of the disaster-affected people.",
-    initiatives: [
-      "Disaster Aid Rapid Response",
-      "Emergency Ration & Medical Kits",
-      "Post-Crisis Rehabilitation",
-    ],
-    icon: HeartHandshake,
-    blobColor: "bg-[#ffe4e6]",
-    iconColor: "#e11d48",
-    textColor: "text-[#be123c]",
-    tagColor: "bg-rose-50 text-rose-800 border-rose-200",
-    link: "/donate",
   },
 ];
 
@@ -138,74 +104,69 @@ export default function OurProgrammes() {
             OUR PROGRAMMES
           </h2>
 
-          <p className="mt-3.5 text-sm sm:text-base text-[#65706a] max-w-2xl mx-auto leading-relaxed">
-            From grassroots education and health access to livelihood generation and disaster relief, our dedicated programs touch every dimension of human dignity.
+          <p className="mt-4 text-sm sm:text-base text-[#65706a] leading-relaxed">
+            Focused on grassroots impact across quality education, foreign language mastery, women empowerment, and youth livelihoods.
           </p>
         </div>
 
-        {/* 6 Programmes Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+        {/* 4 Programmes Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {PROGRAMMES.map((item) => {
             const Icon = item.icon;
             return (
               <div
                 key={item.id}
-                className="group relative rounded-3xl border border-[#e2e5dc] bg-[#fbfaf7] p-7 sm:p-8 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:bg-white flex flex-col justify-between"
+                className="group relative rounded-3xl border border-[#e2e5dc] bg-[#fbfaf7] p-6 sm:p-7 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:bg-white flex flex-col justify-between"
               >
                 <div>
                   {/* Organic Fluid Shape Container for Icon */}
-                  <div className="flex items-center gap-4 mb-6">
+                  <div className="flex items-center gap-3.5 mb-5">
                     <div
-                      className={`relative flex h-16 w-16 shrink-0 items-center justify-center rounded-[38%_62%_58%_42%_/_48%_52%_48%_52%] ${item.blobColor} transition-transform duration-500 ease-out group-hover:scale-110 shadow-xs`}
+                      className={`relative flex h-14 w-14 shrink-0 items-center justify-center rounded-[38%_62%_58%_42%_/_48%_52%_48%_52%] ${item.blobColor} transition-transform duration-500 ease-out group-hover:scale-110 shadow-xs`}
                     >
-                      <Icon size={28} style={{ color: item.iconColor }} strokeWidth={2.2} />
+                      <Icon size={26} style={{ color: item.iconColor }} strokeWidth={2.2} />
                     </div>
 
                     <div>
                       <h3
-                        className={`text-lg sm:text-xl font-bold tracking-wider uppercase ${item.textColor}`}
+                        className="font-serif text-lg font-bold tracking-wide"
+                        style={{ color: item.iconColor }}
                       >
                         {item.title}
                       </h3>
-                      <span className="text-[11px] font-semibold text-[#87938b]">
+                      <span className="text-[10px] text-[#65706a] uppercase font-bold tracking-wider">
                         Active Grassroots Mission
                       </span>
                     </div>
                   </div>
 
-                  {/* Primary Description from user's screenshot */}
-                  <p className="text-sm sm:text-base text-[#48534e] font-medium leading-relaxed mb-5">
+                  {/* Mission Description */}
+                  <p className="text-xs sm:text-sm text-[#24312d]/80 leading-relaxed font-sans mb-5">
                     {item.description}
                   </p>
 
-                  {/* Specific Key Initiatives Badges */}
-                  <div className="space-y-1.5 pt-2">
-                    {item.initiatives.map((init, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center gap-2 text-xs font-semibold text-[#65706a]"
-                      >
+                  {/* Bulleted Initiatives List */}
+                  <div className="space-y-2 pt-3 border-t border-[#e2e5dc]/60 mb-5">
+                    {item.initiatives.map((init, idx) => (
+                      <div key={idx} className="flex items-center gap-2 text-xs text-[#65706a]">
                         <span
                           className="h-1.5 w-1.5 rounded-full shrink-0"
                           style={{ backgroundColor: item.iconColor }}
                         />
-                        <span>{init}</span>
+                        <span className="font-medium truncate">{init}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Bottom Action Link */}
-                <div className="mt-6 pt-4 border-t border-[#e2e5dc]/70">
+                {/* Bottom Action CTA */}
+                <div className="pt-4 border-t border-[#e2e5dc]">
                   <Link
                     to={item.link}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#24312d] transition-all duration-200 group-hover:text-[#b5623b]"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#24312d] group-hover:text-[#b5623b] transition"
                   >
                     <span>Explore Programme Initiatives</span>
-                    <ArrowRight
-                      size={13}
-                      className="transition-transform duration-300 group-hover:translate-x-1"
-                    />
+                    <ArrowRight size={13} className="transition-transform group-hover:translate-x-1" />
                   </Link>
                 </div>
               </div>
@@ -220,7 +181,7 @@ export default function OurProgrammes() {
               Want to partner or volunteer in our programmes?
             </h4>
             <p className="text-xs sm:text-sm text-stone-300 mt-1 max-w-xl">
-              We welcome doctors, educators, language trainers, and volunteers to support our community learning and healthcare centers.
+              We welcome educators, language trainers, technologists, mentors, and volunteers to support our community learning and development centers.
             </p>
           </div>
 
@@ -231,12 +192,12 @@ export default function OurProgrammes() {
             >
               Get in Touch
             </Link>
-            <a
-              href="#donate"
+            <Link
+              to="/donate"
               className="rounded-full bg-[#e5a37f] text-[#24312d] px-6 py-3 text-xs sm:text-sm font-bold hover:bg-[#f2c5a8] transition shadow-xs"
             >
               Support a Cause
-            </a>
+            </Link>
           </div>
         </div>
       </div>

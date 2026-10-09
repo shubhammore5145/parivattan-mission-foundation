@@ -10,6 +10,8 @@ export interface BatchSchedule {
   badge?: string; // "Morning Batch" | "Evening Batch" | "Regular Batch"
 }
 
+export const PLATFORM_HANDLING_FEE = 100;
+
 export interface CourseLevel {
   id: string; // e.g. "japanese-n5"
   level: string; // "N5", "N4", "N3", "A1", "A2", "Basic English"
@@ -17,6 +19,7 @@ export interface CourseLevel {
   duration: string; // "6 Months", "7 Months", "3 Months", "3–4.5 Months"
   durationBadge: "3-Month Course" | "6-Month Course" | "7-Month Course" | "3–4.5 Months";
   courseFee: number;
+  platformFee: number; // ₹100 platform handling fee
   securityDeposit: number; // 0 if none
   hasSecurityDeposit: boolean;
   refundCondition: string;
@@ -71,10 +74,11 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
         levelShort: "N5 Level",
         duration: "6 Months",
         durationBadge: "6-Month Course",
-        courseFee: 100,
-        securityDeposit: 0,
-        hasSecurityDeposit: false,
-        refundCondition: "Nominal subsidized fee of flat ₹100.",
+        courseFee: 2000,
+        platformFee: 100,
+        securityDeposit: 2000,
+        hasSecurityDeposit: true,
+        refundCondition: "Security deposit of ₹2,000 is 100% refundable according to applicable course conditions upon exam appearance.",
         intakeSummary: "30 Students per batch",
         description: "Entry-level foundation covering Hiragana, Katakana, basic Kanji (approx. 100), daily conversational phrases, and JLPT N5 exam preparation.",
         objectives: [
@@ -115,10 +119,11 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
         levelShort: "N4 Level",
         duration: "6 Months",
         durationBadge: "6-Month Course",
-        courseFee: 100,
-        securityDeposit: 0,
-        hasSecurityDeposit: false,
-        refundCondition: "Nominal subsidized fee of flat ₹100.",
+        courseFee: 4000,
+        platformFee: 100,
+        securityDeposit: 2000,
+        hasSecurityDeposit: true,
+        refundCondition: "Security deposit of ₹2,000 is 100% refundable after successfully passing the required examination.",
         intakeSummary: "25 Students",
         description: "Intermediate Japanese for everyday situations, compound sentence forms, ~300 Kanji, and JLPT N4 exam clearance.",
         objectives: [
@@ -148,10 +153,11 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
         levelShort: "N3 Level",
         duration: "7 Months",
         durationBadge: "7-Month Course",
-        courseFee: 100,
-        securityDeposit: 0,
-        hasSecurityDeposit: false,
-        refundCondition: "Nominal subsidized fee of flat ₹100.",
+        courseFee: 8000,
+        platformFee: 100,
+        securityDeposit: 2000,
+        hasSecurityDeposit: true,
+        refundCondition: "Security deposit of ₹2,000 is 100% refundable after successfully passing both required examinations.",
         intakeSummary: "Limited Batch Size",
         description: "Bridge between basic and advanced Japanese, unlocking corporate and technical opportunities with JLPT N3 mastery.",
         objectives: [
@@ -200,10 +206,11 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
         levelShort: "A1 Level",
         duration: "3 Months",
         durationBadge: "3-Month Course",
-        courseFee: 100,
+        courseFee: 4000,
+        platformFee: 100,
         securityDeposit: 0,
         hasSecurityDeposit: false,
-        refundCondition: "Nominal subsidized fee of flat ₹100.",
+        refundCondition: "No security deposit applicable. Course fee is non-refundable upon registration.",
         intakeSummary: "Regular Batch",
         description: "Beginner level German focusing on phonetics, essential grammar, basic introductions, and Goethe-Zertifikat A1 format.",
         objectives: [
@@ -232,10 +239,11 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
         levelShort: "A2 Level",
         duration: "3–4.5 Months",
         durationBadge: "3–4.5 Months",
-        courseFee: 100,
+        courseFee: 6000,
+        platformFee: 100,
         securityDeposit: 0,
         hasSecurityDeposit: false,
-        refundCondition: "Nominal subsidized fee of flat ₹100.",
+        refundCondition: "No security deposit applicable. Course fee is non-refundable upon registration.",
         intakeSummary: "Regular Batch",
         description: "Elementary German proficiency enabling communication in simple, routine tasks and direct exchange of information.",
         objectives: [
@@ -267,7 +275,7 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
     nativeName: "English",
     tagline: "Build foundational fluency, grammar confidence and professional communication",
     shortDesc: "Intensive 3-month daily weekday program designed to elevate spoken English, vocabulary, and workplace confidence.",
-    levelsSummary: "Basic English",
+    levelsSummary: "A1 Level",
     durationSummary: "3 Months",
     image: "/img/silder3.jpg",
     colorScheme: {
@@ -280,14 +288,15 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
     levels: [
       {
         id: "english-basic",
-        level: "Basic English",
-        levelShort: "Basic English",
+        level: "Basic English (A1)",
+        levelShort: "A1 Level",
         duration: "3 Months",
         durationBadge: "3-Month Course",
-        courseFee: 100,
+        courseFee: 2000,
+        platformFee: 100,
         securityDeposit: 0,
         hasSecurityDeposit: false,
-        refundCondition: "Nominal subsidized fee of flat ₹100.",
+        refundCondition: "No security deposit applicable. Course fee is non-refundable upon registration.",
         intakeSummary: "Daily Weekday Batch",
         description: "Essential English communication course for beginners and students seeking spoken fluency, correct grammar, and everyday ease.",
         objectives: [
@@ -336,10 +345,11 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
         levelShort: "A1 Level",
         duration: "3 Months",
         durationBadge: "3-Month Course",
-        courseFee: 100,
+        courseFee: 3000,
+        platformFee: 100,
         securityDeposit: 0,
         hasSecurityDeposit: false,
-        refundCondition: "Nominal subsidized fee of flat ₹100.",
+        refundCondition: "No security deposit applicable. Course fee is non-refundable upon registration.",
         intakeSummary: "Daily Weekday Batch",
         description: "Introductory French language training aligned with DELF A1, covering essential dialogue, phonetics, and basic cultural communication.",
         objectives: [
@@ -414,7 +424,11 @@ export const COURSE_FAQS = [
   },
   {
     q: "Are German, English, or French course fees subject to a security deposit?",
-    a: "No. German (A1 & A2), English (Basic), and French (A1) only require payment of their respective course fee (₹4,000 / ₹6,000 for German, ₹2,000 for English, and ₹3,000 for French). No security deposit is charged for these courses."
+    a: "No. German (A1 & A2), English (A1), and French (A1) only require payment of their respective course fee (₹4,000 / ₹6,000 for German, ₹2,000 for English, and ₹3,000 for French) along with a nominal ₹100 platform handling fee. No security deposit is charged for these courses."
+  },
+  {
+    q: "What is the ₹100 Platform Handling Fee?",
+    a: "A nominal platform handling fee of flat ₹100 is applied across all course registrations to maintain secure digital student profile records, lifelong PRN tracking, server maintenance, and automated digital certificate generation."
   },
   {
     q: "What is the student intake limit for Japanese batches?",

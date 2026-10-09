@@ -49,6 +49,7 @@ import {
 import { Link, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { createAdmission } from "@/lib/supabase-admin";
+import { sendCourseAdmissionEmail } from "@/lib/courseEmailService";
 import { getRazorpayKeyId, loadRazorpay } from "@/lib/razorpay";
 import {
   generateStudentPRN,
@@ -261,7 +262,8 @@ export default function AdmissionsPage() {
   // Total calculation
   const courseFee = formLevel.courseFee;
   const securityDeposit = formLevel.securityDeposit;
-  const totalAmount = courseFee + securityDeposit;
+  const platformFee = formLevel.platformFee ?? 100;
+  const totalAmount = courseFee + securityDeposit + platformFee;
 
   // File Upload Helper
   const handleFileChange = (
@@ -410,7 +412,7 @@ export default function AdmissionsPage() {
     setIsSubmitting(true);
     try {
       await loadRazorpay();
-      const keyId = getRazorpayKeyId() || "rzp_test_RjfaxVUjNZr3xh";
+      const keyId = getRazorpayKeyId() || "rzp_live_Tlq7NGeKnZ2WlX";
 
       if (!window.Razorpay) {
         throw new Error("Razorpay gateway not available, switching to direct confirmation.");
@@ -487,6 +489,7 @@ export default function AdmissionsPage() {
       duration: formLevel.duration,
       courseFee,
       securityDeposit,
+      platformFee,
       totalAmount,
       refundCondition: formLevel.refundCondition,
       paymentId: paymentRef,
@@ -556,6 +559,18 @@ export default function AdmissionsPage() {
       // Save to local admissions history
       const stored = JSON.parse(localStorage.getItem("parivattan_admissions_records") || "[]");
       localStorage.setItem("parivattan_admissions_records", JSON.stringify([admissionRecord, ...stored]));
+
+      // Automatically send course admission confirmation email via Google Apps Script
+      sendCourseAdmissionEmail({
+        studentName: admissionRecord.fullName,
+        studentEmail: admissionRecord.emailAddress,
+        courseName: `${admissionRecord.language} (${admissionRecord.level}) - ${admissionRecord.batch}`,
+        phone: admissionRecord.mobileNumber,
+        batch: admissionRecord.batch,
+        timing: admissionRecord.preferredTiming,
+        totalAmount: admissionRecord.totalAmount,
+        prn: studentPrn,
+      });
 
       setSubmittedReceipt(admissionRecord);
       toast.success(`Admission confirmed successfully! Student PRN: ${studentPrn}`);
@@ -772,6 +787,12 @@ export default function AdmissionsPage() {
                       {submittedReceipt.securityDeposit > 0
                         ? `₹${submittedReceipt.securityDeposit.toLocaleString("en-IN")} (Refundable*)`
                         : "₹0 (Not Applicable)"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#65706a]">Platform Handling Fee</span>
+                    <span className="font-bold text-[#24312d]">
+                      ₹{(submittedReceipt.platformFee ?? 100).toLocaleString("en-IN")}
                     </span>
                   </div>
                   <div className="flex justify-between border-t border-[#f1f3ed] pt-2 font-bold text-sm">
@@ -1796,6 +1817,10 @@ export default function AdmissionsPage() {
                         ? `₹${securityDeposit.toLocaleString("en-IN")} (Refundable*)`
                         : "₹0 (Not Applicable)"}
                     </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#65706a]">Platform Handling Fee</span>
+                    <span className="font-bold text-[#24312d]">₹{platformFee.toLocaleString("en-IN")}</span>
                   </div>
                   <div className="flex justify-between border-t border-[#e2e5dc] pt-2 font-bold text-sm">
                     <span className="text-[#24312d] uppercase text-xs">Total Amount to Pay</span>

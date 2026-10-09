@@ -21,6 +21,7 @@ import { StudentUser, Course, StudentAdmissionRecord } from "@/types/student";
 import { RegistrationFormData } from "./UniversityRegistrationForm";
 import { saveStudentAdmissionRecord } from "@/lib/student-auth";
 import { getRazorpayKeyId, loadRazorpay } from "@/lib/razorpay";
+import { sendCourseAdmissionEmail } from "@/lib/courseEmailService";
 
 interface AdmissionPaymentCardProps {
   student: StudentUser;
@@ -101,6 +102,18 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
 
       triggerConfetti();
       toast.success("Congratulations! Your admission has been confirmed.");
+
+      // Automatically send course admission confirmation email to the student
+      sendCourseAdmissionEmail({
+        studentName: formData.fullName || student.name,
+        studentEmail: formData.email || student.email,
+        courseName: course.title,
+        phone: formData.phone || student.phone,
+        batch: formData.batchPreference,
+        totalAmount: amountToPay,
+        prn: student.prn,
+      });
+
       onSuccess(record);
     } catch (err) {
       console.warn("Admission registration note:", err);
@@ -115,7 +128,7 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
     setProcessing(true);
     try {
       await loadRazorpay();
-      const keyId = getRazorpayKeyId() || "rzp_test_RjfaxVUjNZr3xh";
+      const keyId = getRazorpayKeyId() || "rzp_live_Tlq7NGeKnZ2WlX";
 
       if (!window.Razorpay) {
         throw new Error("Razorpay SDK unavailable, switching to instant test mode.");

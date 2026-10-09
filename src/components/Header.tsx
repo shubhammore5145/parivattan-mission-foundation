@@ -91,13 +91,12 @@ const Header = () => {
           >
             Home
           </a>
-          <a 
-            href="/#mission" 
-            onClick={(e) => handleNavClick(e, 'mission')}
+          <Link 
+            to="/about" 
             className={`nav-item whitespace-nowrap text-sm font-medium transition-colors cursor-pointer ${isScrolled ? 'text-[#24312d] hover:text-[#b5623b]' : 'text-white hover:text-[#f2c5a8]'}`}
           >
             About
-          </a>
+          </Link>
           <Link 
             to="/admissions"
             className={`nav-item whitespace-nowrap text-sm font-semibold transition-colors cursor-pointer ${isScrolled ? 'text-[#b5623b] hover:text-[#954b2c]' : 'text-[#f2c5a8] hover:text-white'}`}
@@ -121,7 +120,6 @@ const Header = () => {
               <a href="/initiatives#languages" onClick={() => setMobileMenuOpen(false)} className="block rounded-xl px-4 py-3 text-sm text-[#65706a] hover:bg-[#eef0e8] hover:text-[#b5623b]">Parivattan Foreign Language School</a>
               <Link to="/courses" onClick={() => setMobileMenuOpen(false)} className="block rounded-xl px-4 py-2 text-xs font-semibold text-[#b5623b] hover:bg-[#eef0e8]">Upcoming: Russian, Chinese & Spanish (Coming Soon)</Link>
               <a href="/initiatives#technology" onClick={() => setMobileMenuOpen(false)} className="block rounded-xl px-4 py-3 text-sm text-[#65706a] hover:bg-[#eef0e8] hover:text-[#b5623b]">Parivattan Technology School</a>
-              <Link to="/team" onClick={() => setMobileMenuOpen(false)} className="block rounded-xl px-4 py-3 text-sm font-semibold text-[#24312d] hover:bg-[#eef0e8] hover:text-[#b5623b]">Meet Our Team</Link>
               <Link to="/rules" onClick={() => setMobileMenuOpen(false)} className="block rounded-xl px-4 py-3 text-sm text-[#65706a] hover:bg-[#eef0e8] hover:text-[#b5623b]">Rules & Regulations</Link>
             </div>
           </div>
@@ -231,13 +229,13 @@ const Header = () => {
             >
               Rules & Regulations
             </Link>
-            <a
-              href="/#mission"
-              onClick={(e) => handleNavClick(e, 'mission')}
-              className="text-lg sm:text-xl py-3 px-4 text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all font-medium"
+            <Link
+              to="/about"
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-lg sm:text-xl py-3 px-4 text-slate-700 hover:text-[#b5623b] hover:bg-amber-50 rounded-xl transition-all font-medium"
             >
-              About
-            </a>
+              About Us
+            </Link>
             <Link
               to="/team"
               onClick={() => setMobileMenuOpen(false)}
