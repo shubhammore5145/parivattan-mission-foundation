@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import Header from "../components/Header";
 import Hero from "../components/Hero";
+import ApplicationOpenSection from "../components/home/ApplicationOpenSection";
 import OurImpact from "../components/home/OurImpact";
 import Mission from "../components/Mission";
 import OurProgrammes from "../components/home/OurProgrammes";
@@ -56,10 +57,11 @@ const Index = () => {
   }, []);
 
   return (
-    <div className="min-h-screen overflow-hidden bg-[#fbfaf7]">
+    <div className="min-h-screen overflow-hidden bg-white">
       <SiteEntranceLoader />
       <Header />
       <Hero />
+      <ApplicationOpenSection />
       <OurImpact />
       <Mission />
       <OurProgrammes />

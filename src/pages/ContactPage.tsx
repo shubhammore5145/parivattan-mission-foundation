@@ -148,7 +148,7 @@ export default function ContactPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#fbfaf7] text-[#24312d] selection:bg-[#b5623b]/20">
+    <div className="min-h-screen bg-white text-[#24312d] selection:bg-[#b5623b]/20">
       <Header />
 
       <main className="pt-28 md:pt-36">

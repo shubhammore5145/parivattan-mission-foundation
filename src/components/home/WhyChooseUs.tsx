@@ -81,7 +81,7 @@ export default function WhyChooseUs() {
             return (
               <div
                 key={idx}
-                className={`group relative rounded-3xl border border-[#e2e5dc] bg-[#fbfaf7] p-8 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl ${pillar.border} flex flex-col justify-between`}
+                className={`group relative rounded-3xl border border-[#e2e5dc] bg-white p-8 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl ${pillar.border} flex flex-col justify-between`}
               >
                 <div>
                   <div className="flex items-center justify-between gap-4 mb-6">

@@ -1,10 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap');
-
-
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.font-course {
+  font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif !important;
+}
 
 /* @import 'flowbite'; */
 
@@ -12,17 +14,17 @@
 
 @layer base {
   :root {
-    --background: 42 33% 97%;
+    --background: 0 0% 100%;
     --foreground: 154 17% 17%;
 
-    --card: 40 33% 99%;
+    --card: 0 0% 100%;
     --card-foreground: 154 17% 17%;
 
-    --popover: 40 33% 99%;
+    --popover: 0 0% 100%;
     --popover-foreground: 154 17% 17%;
 
     --primary: 17 51% 47%;
-    --primary-foreground: 42 33% 97%;
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 78 19% 91%;
     --secondary-foreground: 154 17% 17%;
@@ -56,8 +58,7 @@
   body {
     @apply bg-background text-foreground overflow-x-hidden;
     font-family: 'DM Sans', sans-serif;
-    background-image: radial-gradient(rgba(36, 49, 45, 0.06) 0.7px, transparent 0.7px);
-    background-size: 18px 18px;
+    background-color: #ffffff;
   }
 
   h1,
@@ -85,6 +86,23 @@
 .eyebrow { @apply text-sm font-bold uppercase tracking-[0.18em] text-[#b5623b]; }
 .field { @apply flex flex-col gap-2 text-sm font-semibold; }
 .field input, .field select, .field textarea { @apply rounded-2xl border border-[#d9ddd4] bg-[#fbfaf7] text-[#24312d] px-4 py-3 font-normal outline-none transition focus:border-[#b5623b] focus:ring-2 focus:ring-[#b5623b]/20; }
+
+.admission-form,
+.admission-form h1,
+.admission-form h2,
+.admission-form h3,
+.admission-form h4,
+.admission-form h5,
+.admission-form h6,
+.admission-form label,
+.admission-form button,
+.admission-form input,
+.admission-form select,
+.admission-form textarea,
+.admission-form span,
+.admission-form p {
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
 
 @layer components {
   .btn-primary {
@@ -168,3 +186,152 @@
     transform: translateY(0);
   }
 }
+
+/* ===================================================
+   Site Entrance Loader Cool Animations & Keyframes
+   =================================================== */
+@keyframes loader-spin-slow {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes loader-spin-reverse {
+  0% { transform: rotate(360deg); }
+  100% { transform: rotate(-360deg); }
+}
+
+@keyframes loader-pulse-glow {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.85;
+  }
+}
+
+@keyframes loader-shimmer-sweep {
+  0% {
+    transform: translateX(-150%) skewX(-20deg);
+  }
+  100% {
+    transform: translateX(300%) skewX(-20deg);
+  }
+}
+
+@keyframes loader-badge-float {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-7px) scale(1.02);
+  }
+}
+
+@keyframes loader-comet-pulse {
+  0%, 100% {
+    box-shadow: 0 0 10px #fbbf24, 0 0 20px #f59e0b, 0 0 30px #b5623b;
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 18px #fbbf24, 0 0 32px #f59e0b, 0 0 48px #b5623b;
+    transform: scale(1.3);
+  }
+}
+
+@keyframes loader-burst-ring {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+
+@keyframes loader-spark-drift {
+  0% {
+    transform: translateY(0) scale(0.5);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.9;
+  }
+  80% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(-120px) scale(1.1);
+    opacity: 0;
+  }
+}
+
+.animate-loader-spin-slow {
+  animation: loader-spin-slow 14s linear infinite;
+}
+
+.animate-loader-spin-reverse {
+  animation: loader-spin-reverse 10s linear infinite;
+}
+
+.animate-loader-pulse-glow {
+  animation: loader-pulse-glow 3.5s ease-in-out infinite;
+}
+
+.animate-loader-badge-float {
+  animation: loader-badge-float 4s ease-in-out infinite;
+}
+
+.animate-loader-comet-pulse {
+  animation: loader-comet-pulse 1.5s ease-in-out infinite;
+}
+
+/* =================================================================
+   DEDICATED PRINT STYLES FOR CLEAN RECEIPTS & ID CARDS
+   ================================================================= */
+@media print {
+  /* Hide all generic website navigation and layout components */
+  header,
+  footer,
+  nav,
+  .no-print,
+  button,
+  .site-entrance-loader,
+  .site-entrance-backdrop,
+  [data-no-print],
+  aside {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    background-image: none !important;
+    color: #24312d !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Reset box shadows and animations */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* Target print sections if printed via native browser Ctrl+P */
+  #printable-student-id-card,
+  #printable-admission-slip,
+  #printable-admission-receipt,
+  #printable-registration-receipt {
+    display: block !important;
+    margin: 0 auto !important;
+    box-shadow: none !important;
+    border: 2px solid #24312d !important;
+    page-break-inside: avoid !important;
+  }
+}

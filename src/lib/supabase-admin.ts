@@ -65,12 +65,31 @@ export interface Admission {
   created_at: string;
 }
 
+export const generateUUID = (): string => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    try {
+      return crypto.randomUUID();
+    } catch {}
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
 export const createAdmission = async (
-  admissionData: Omit<Admission, "id" | "created_at">
+  admissionData: Omit<Admission, "id" | "created_at"> & { id?: string }
 ): Promise<Admission> => {
+  const finalId =
+    admissionData.id &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(admissionData.id)
+      ? admissionData.id
+      : generateUUID();
+
   const newAdmission: Admission = {
-    id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `adm_${Date.now()}`,
     ...admissionData,
+    id: finalId,
     created_at: new Date().toISOString(),
   };
 
@@ -91,6 +110,9 @@ export const createAdmission = async (
       .single();
 
     if (!error && data) return data;
+    if (error) {
+      console.warn("Supabase admissions insert notice:", error.message);
+    }
   } catch (e) {
     console.warn("Supabase admissions insert notice:", e);
   }

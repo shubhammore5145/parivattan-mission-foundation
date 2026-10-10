@@ -11,6 +11,7 @@ import {
   getBatchSeatsInfo,
   incrementBatchEnrollment,
 } from "@/data/languageCoursesData";
+import { CountryFlagIcon } from "@/components/common/CountryFlagIcon";
 import {
   Sparkles,
   Calendar,
@@ -55,9 +56,11 @@ import {
   generateStudentPRN,
   syncAdmissionToStudentPortal,
   findStudentByPrnOrIdentifier,
+  findStudentByPrnOrIdentifierAsync,
   getCurrentStudent,
 } from "@/lib/student-auth";
 import { StudentUser } from "@/types/student";
+import { printElement } from "@/lib/printUtils";
 
 interface FileUploadData {
   file: File | null;
@@ -96,7 +99,7 @@ export default function AdmissionsPage() {
   const [verifiedStudent, setVerifiedStudent] = useState<StudentUser | null>(null);
   const [prnVerifyError, setPrnVerifyError] = useState<string>("");
 
-  const handleVerifyPrn = (queryToVerify?: string) => {
+  const handleVerifyPrn = async (queryToVerify?: string) => {
     const q = (queryToVerify !== undefined ? queryToVerify : prnInput).trim();
     setPrnVerifyError("");
 
@@ -106,7 +109,14 @@ export default function AdmissionsPage() {
       return;
     }
 
-    const result = findStudentByPrnOrIdentifier(q);
+    let result = findStudentByPrnOrIdentifier(q);
+    if (!result || !result.student) {
+      try {
+        result = await findStudentByPrnOrIdentifierAsync(q);
+      } catch (err) {
+        console.warn("Async PRN verification notice:", err);
+      }
+    }
     if (result && result.student) {
       setVerifiedStudent(result.student);
       setIsPrnVerified(true);
@@ -274,8 +284,8 @@ export default function AdmissionsPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error(`${label} size must be less than 5MB.`);
+    if (file.size > 1 * 1024 * 1024) {
+      toast.error(`${label} size must be less than 1MB (कमाल मर्यादा 1 MB आहे).`);
       return;
     }
 
@@ -618,7 +628,7 @@ export default function AdmissionsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fbfaf7] text-[#24312d]">
+    <div className="min-h-screen bg-white text-[#24312d]">
       <Header />
 
       <main className="pt-28 md:pt-34 pb-20">
@@ -635,7 +645,7 @@ export default function AdmissionsPage() {
 
           {submittedReceipt ? (
             /* ================= ADMISSION RECEIPT VIEW ================= */
-            <div className="rounded-3xl border-2 border-emerald-500/30 bg-white p-7 sm:p-10 shadow-xl">
+            <div id="printable-admission-receipt" className="rounded-3xl border-2 border-emerald-500/30 bg-white p-7 sm:p-10 shadow-xl">
               <div className="text-center">
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 shadow-2xs">
                   <FileCheck size={36} />
@@ -811,7 +821,7 @@ export default function AdmissionsPage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-3 no-print">
                 <Link
                   to={`/student?prn=${(submittedReceipt as any).prn || submittedReceipt.id}`}
                   className="rounded-xl bg-[#b5623b] px-5 py-2.5 text-xs font-bold text-white hover:bg-[#974a27] transition flex items-center gap-1.5 shadow"
@@ -821,7 +831,12 @@ export default function AdmissionsPage() {
                 </Link>
                 <button
                   type="button"
-                  onClick={() => window.print()}
+                  onClick={() =>
+                    printElement(
+                      "printable-admission-receipt",
+                      `Admission Receipt - ${submittedReceipt.fullName} (${(submittedReceipt as any).prn || submittedReceipt.id})`
+                    )
+                  }
                   className="rounded-xl bg-[#24312d] px-5 py-2.5 text-xs font-bold text-white hover:bg-[#b5623b] transition flex items-center gap-1.5"
                 >
                   <Download size={14} />
@@ -847,7 +862,7 @@ export default function AdmissionsPage() {
             /* ================= THE ADMISSION FORM ================= */
             <form
               onSubmit={handleAdmissionSubmit}
-              className="rounded-3xl border border-[#e2e5dc] bg-white p-6 sm:p-10 shadow-sm space-y-8"
+              className="rounded-3xl border border-[#e2e5dc] bg-white p-6 sm:p-10 shadow-sm space-y-8 admission-form font-sans"
             >
               {/* Form Title & Intake Status Banner */}
               <div className="border-b border-[#f1f3ed] pb-5">
@@ -867,7 +882,7 @@ export default function AdmissionsPage() {
                   )}
                 </div>
 
-                <h1 className="mt-3 text-2xl sm:text-3xl font-serif font-bold text-[#24312d]">
+                <h1 className="mt-3 text-2xl sm:text-3xl font-sans font-bold text-[#24312d] tracking-tight">
                   Language Course Admission Form
                 </h1>
                 <p className="text-xs sm:text-sm text-[#65706a] mt-1">
@@ -1017,17 +1032,17 @@ export default function AdmissionsPage() {
 
               {/* 2. Course, Level & Batch Selection */}
               <div className="space-y-4">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-[#24312d] flex items-center gap-1.5">
-                  <Globe size={14} className="text-[#b5623b]" />
-                  2. Course, Level & Batch Selection
+                <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[#24312d] flex items-center gap-1.5 font-sans">
+                  <Globe size={15} className="text-[#b5623b]" />
+                  <span>2. Course, Level & Batch Selection</span>
                 </h3>
 
                 {/* Language Selector */}
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-[#24312d] mb-1.5">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-[#24312d] mb-1.5 font-sans">
                     Select Language <span className="text-red-500">*</span>
                   </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     {LANGUAGE_COURSES.map((course) => {
                       const isSelected = formLanguageId === course.id;
                       return (
@@ -1038,14 +1053,14 @@ export default function AdmissionsPage() {
                             setFormLanguageId(course.id);
                             setFormLevelId(course.levels[0].id);
                           }}
-                          className={`flex items-center gap-2 rounded-xl p-2.5 text-left transition border ${
+                          className={`flex items-center gap-2.5 rounded-xl p-2.5 text-left transition border cursor-pointer ${
                             isSelected
-                              ? "border-[#b5623b] bg-white ring-2 ring-[#b5623b]/20 font-bold"
-                              : "border-[#e2e5dc] bg-[#fbfaf7] text-[#65706a] hover:border-[#b5623b]"
+                              ? "border-[#b5623b] bg-white ring-2 ring-[#b5623b]/20 font-bold shadow-xs"
+                              : "border-[#e2e5dc] bg-white text-[#65706a] hover:border-[#b5623b] hover:bg-[#faf9f6]"
                           }`}
                         >
-                          <span className="text-xl">{course.flag}</span>
-                          <span className="text-xs text-[#24312d]">{course.name.replace(" Language", "")}</span>
+                          <CountryFlagIcon courseId={course.id} size="md" />
+                          <span className="text-xs font-course font-black text-[#24312d]">{course.name.replace(" Language", "")}</span>
                         </button>
                       );
                     })}
@@ -1054,7 +1069,7 @@ export default function AdmissionsPage() {
 
                 {/* Level Selector */}
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-[#24312d] mb-1.5">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-[#24312d] mb-1.5 font-sans">
                     Select Level ({formCourse.name}) <span className="text-red-500">*</span>
                   </label>
                   <div className="flex flex-wrap gap-2">
@@ -1065,13 +1080,13 @@ export default function AdmissionsPage() {
                           key={lvl.id}
                           type="button"
                           onClick={() => setFormLevelId(lvl.id)}
-                          className={`rounded-xl px-3.5 py-2 text-xs font-bold transition border ${
+                          className={`rounded-xl px-3.5 py-2 text-xs font-course font-bold transition border cursor-pointer ${
                             isSelected
                               ? "bg-[#24312d] text-white border-[#24312d] shadow-2xs"
-                              : "bg-[#fbfaf7] text-[#65706a] border-[#e2e5dc] hover:border-[#b5623b]"
+                              : "bg-white text-[#65706a] border-[#e2e5dc] hover:border-[#b5623b] hover:bg-[#faf9f6]"
                           }`}
                         >
-                          {lvl.level} ({lvl.duration})
+                          <span className="font-extrabold">{lvl.level}</span> ({lvl.proficiency ? `${lvl.proficiency} - ${lvl.duration}` : lvl.duration})
                         </button>
                       );
                     })}
@@ -1595,7 +1610,7 @@ export default function AdmissionsPage() {
                     <FileCheck size={16} className="text-[#b5623b]" />
                     <span>6. Mandatory Document Proofs (Uploads)</span>
                   </h3>
-                  <span className="text-[11px] text-[#65706a]">Accepted formats: PDF, JPG, PNG (Max 5MB each)</span>
+                  <span className="text-[11px] text-[#65706a]">Accepted formats: PDF, JPG, PNG (Max 1MB each)</span>
                 </div>
 
                 {/* 4-Card Upload Grid */}
@@ -1763,7 +1778,7 @@ export default function AdmissionsPage() {
                         )}
                       </div>
                       <p className="text-[11px] text-[#65706a] mt-1">
-                        Government Caste Certificate (PDF / JPG - Max 5MB).
+                        Government Caste Certificate (PDF / JPG - Max 1MB).
                       </p>
                     </div>
 

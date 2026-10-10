@@ -11,7 +11,7 @@ export default function HomeFaq() {
   };
 
   return (
-    <section className="page-section bg-[#fbfaf7] border-t border-[#e2e5dc] py-20 sm:py-28">
+    <section className="page-section bg-white border-t border-[#e2e5dc] py-20 sm:py-28">
       <div className="container mx-auto px-4 max-w-4xl">
         {/* Section Header */}
         <div className="text-center mb-14">
@@ -44,7 +44,7 @@ export default function HomeFaq() {
                     {faq.q}
                   </span>
                   <span
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#fbfaf7] border border-[#e2e5dc] text-[#24312d] transition-transform duration-300 ${
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-stone-50 border border-[#e2e5dc] text-[#24312d] transition-transform duration-300 ${
                       isOpen ? "rotate-180 bg-[#24312d] text-white" : ""
                     }`}
                   >

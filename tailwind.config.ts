@@ -88,9 +88,10 @@ export default {
         sm: 'calc(var(--radius) - 4px)'
       },
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
-        serif: ['Arvo', 'serif'],
-        display: ['Montserrat', 'sans-serif']
+        sans: ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
+        serif: ['DM Serif Display', 'Arvo', 'serif'],
+        course: ['Outfit', 'Plus Jakarta Sans', 'sans-serif'],
+        display: ['Outfit', 'Montserrat', 'sans-serif']
       },
       keyframes: {
          float: {

@@ -37,7 +37,7 @@ const IMPACT_METRICS: ImpactStat[] = [
     value: "400+",
     unit: "PROJECTS",
     title: "PROJECTS & DRIVES",
-    desc: "Focused on holistic education, foreign language mastery, health access, and women empowerment.",
+    desc: "Focused on holistic education, foreign language mastery, health access, and youth skill building.",
     icon: FolderHeart,
     accentColor: "#b5623b",
     glowColor: "rgba(181, 98, 59, 0.15)",
@@ -57,7 +57,7 @@ const IMPACT_METRICS: ImpactStat[] = [
 
 export default function OurImpact() {
   return (
-    <section id="impact" className="relative bg-[#fbfaf7] border-t border-[#e2e5dc] py-20 sm:py-28 overflow-hidden">
+    <section id="impact" className="relative bg-white border-t border-[#e2e5dc] py-20 sm:py-28 overflow-hidden">
       {/* Ambient background blur lighting */}
       <div
         className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] rounded-full blur-3xl opacity-20"

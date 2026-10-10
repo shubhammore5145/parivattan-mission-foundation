@@ -16,6 +16,7 @@ export interface CourseLevel {
   id: string; // e.g. "japanese-n5"
   level: string; // "N5", "N4", "N3", "A1", "A2", "Basic English"
   levelShort: string;
+  proficiency?: string; // "Basic", "Mid", "Adv"
   duration: string; // "6 Months", "7 Months", "3 Months", "3–4.5 Months"
   durationBadge: "3-Month Course" | "6-Month Course" | "7-Month Course" | "3–4.5 Months";
   courseFee: number;
@@ -72,6 +73,7 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
         id: "japanese-n5",
         level: "N5",
         levelShort: "N5 Level",
+        proficiency: "Basic",
         duration: "6 Months",
         durationBadge: "6-Month Course",
         courseFee: 2000,
@@ -117,6 +119,7 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
         id: "japanese-n4",
         level: "N4",
         levelShort: "N4 Level",
+        proficiency: "Mid",
         duration: "6 Months",
         durationBadge: "6-Month Course",
         courseFee: 4000,
@@ -151,6 +154,7 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
         id: "japanese-n3",
         level: "N3",
         levelShort: "N3 Level",
+        proficiency: "Adv",
         duration: "7 Months",
         durationBadge: "7-Month Course",
         courseFee: 8000,

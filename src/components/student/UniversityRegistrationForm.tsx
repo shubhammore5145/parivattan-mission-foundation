@@ -114,8 +114,8 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error(`${label} file size must be less than 5MB.`);
+    if (file.size > 1 * 1024 * 1024) {
+      toast.error(`${label} file size must be less than 1MB (कमाल मर्यादा 1 MB आहे).`);
       return;
     }
 

@@ -30,7 +30,7 @@ export default function CourseCard({ course, onEnroll, onOpenDetails }: CourseCa
             </span>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#b5623b]">
+                <span className="text-xs font-course font-extrabold uppercase tracking-wider text-[#b5623b]">
                   {course.nativeName}
                 </span>
                 {allBatchesFull ? (
@@ -47,7 +47,7 @@ export default function CourseCard({ course, onEnroll, onOpenDetails }: CourseCa
                   </span>
                 )}
               </div>
-              <h3 className="text-2xl font-serif font-bold text-[#24312d]">
+              <h3 className="text-2xl font-course font-black tracking-tight text-[#24312d]">
                 {course.name}
               </h3>
             </div>

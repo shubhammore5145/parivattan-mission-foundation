@@ -7,6 +7,7 @@ import {
   Share2,
 } from "lucide-react";
 import { StudentAdmissionRecord } from "@/types/student";
+import { printElement } from "@/lib/printUtils";
 
 interface AdmissionReceiptViewProps {
   admission: StudentAdmissionRecord;
@@ -20,7 +21,10 @@ export const AdmissionReceiptView: React.FC<AdmissionReceiptViewProps> = ({
   onNewAdmission,
 }) => {
   const handlePrint = () => {
-    window.print();
+    printElement(
+      "printable-admission-slip",
+      `Admission Slip - ${admission.studentName} (${admission.prn})`
+    );
   };
 
   const handleShare = () => {

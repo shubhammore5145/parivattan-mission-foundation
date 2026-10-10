@@ -1,5 +1,5 @@
 import { StudentUser, StudentAdmissionRecord } from "@/types/student";
-import { createAdmission } from "@/lib/supabase-admin";
+import { createAdmission, supabase, generateUUID } from "@/lib/supabase-admin";
 import {
   auth,
   googleProvider,
@@ -20,6 +20,188 @@ const STUDENT_ADMISSIONS_KEY = "parivattan_student_admissions";
 export const generateStudentPRN = (): string => {
   const random = Math.floor(1000 + Math.random() * 9000);
   return `PMF2026-${random}`;
+};
+
+// Deterministic hash helper for consistent PRN recovery
+const getDeterministicHash = (str: string): number => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+};
+
+/**
+ * Saves a registered student directly to Supabase cloud database
+ * so it is immediately visible in the Admin Dashboard and accessible across all devices.
+ */
+export const saveStudentToCloud = async (student: StudentUser): Promise<void> => {
+  try {
+    const recordId =
+      student.id &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(student.id)
+        ? student.id
+        : generateUUID();
+
+    student.id = recordId;
+
+    const payload = {
+      id: recordId,
+      name: student.name,
+      email: student.email,
+      phone: student.phone,
+      education: "Registered Student User",
+      college_name: "Parivattan Student Portal",
+      address: `${student.city || "Pune"}, ${student.state || "Maharashtra"}`,
+      program: "STUDENT_REGISTRATION",
+      message: JSON.stringify({
+        prn: student.prn,
+        city: student.city || "Pune",
+        state: student.state || "Maharashtra",
+        type: "registered_student",
+        password: student.password,
+        firebaseUid: student.firebaseUid,
+        registeredAt: student.registeredAt,
+      }),
+      status: "completed" as const,
+    };
+
+    const { error } = await supabase.from("admissions").upsert([payload], { onConflict: "id" });
+    if (error) {
+      console.warn("[CloudSave] Supabase upsert fallback insert:", error.message);
+      await supabase.from("admissions").insert([payload]);
+    } else {
+      console.log("[CloudSave] Student successfully synced to Supabase:", student.name, student.prn);
+    }
+  } catch (err) {
+    console.warn("[CloudSave] Could not sync student to Supabase cloud:", err);
+  }
+};
+
+/**
+ * Fetches all registered students and applicants from Supabase cloud database.
+ * Merges with local storage cache so admin always sees all registered students.
+ */
+export const fetchRegisteredStudentsFromCloud = async (): Promise<StudentUser[]> => {
+  const studentsMap = new Map<string, StudentUser>();
+
+  // 1. Seed with local students cache
+  const localList = getAllRegisteredStudents();
+  for (const s of localList) {
+    if (s.email) studentsMap.set(s.email.toLowerCase(), s);
+    if (s.prn) studentsMap.set(s.prn.toLowerCase(), s);
+  }
+
+  // 2. Fetch all admissions from Supabase
+  try {
+    const { data, error } = await supabase
+      .from("admissions")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (!error && Array.isArray(data)) {
+      for (const row of data) {
+        if (!row.email && !row.name) continue;
+
+        let prn = "";
+        let city = "Pune";
+        let state = "Maharashtra";
+        let registeredAt = row.created_at || new Date().toISOString();
+        let password: string | undefined = undefined;
+        let firebaseUid: string | undefined = undefined;
+
+        // Try extracting metadata from JSON message
+        if (row.message && row.message.trim().startsWith("{")) {
+          try {
+            const meta = JSON.parse(row.message);
+            if (meta.prn) prn = meta.prn;
+            if (meta.city) city = meta.city;
+            if (meta.state) state = meta.state;
+            if (meta.password) password = meta.password;
+            if (meta.firebaseUid) firebaseUid = meta.firebaseUid;
+            if (meta.registeredAt) registeredAt = meta.registeredAt;
+          } catch {}
+        }
+
+        // If not in JSON, extract PRN from text like "PRN: PMF2026-1234"
+        if (!prn && row.message) {
+          const prnMatch = row.message.match(/PRN:\s*([A-Za-z0-9-]+)/i);
+          if (prnMatch) prn = prnMatch[1];
+        }
+
+        // Deterministic PRN fallback based on student details
+        if (!prn) {
+          const h = getDeterministicHash(row.email || row.name || row.id);
+          prn = `PMF2026-${String((h % 9000) + 1000)}`;
+        }
+
+        const emailKey = (row.email || "").trim().toLowerCase();
+        const prnKey = prn.toLowerCase();
+
+        const existing = (emailKey && studentsMap.get(emailKey)) || studentsMap.get(prnKey);
+
+        const studentUser: StudentUser = {
+          id: row.id,
+          prn: prn,
+          name: row.name || existing?.name || "Student",
+          email: row.email || existing?.email || "",
+          phone: row.phone || existing?.phone || "",
+          city: city || existing?.city || "Pune",
+          state: state || existing?.state || "Maharashtra",
+          password: password || existing?.password,
+          firebaseUid: firebaseUid || existing?.firebaseUid,
+          registeredAt: registeredAt || existing?.registeredAt || new Date().toISOString(),
+        };
+
+        if (emailKey) studentsMap.set(emailKey, studentUser);
+        studentsMap.set(prnKey, studentUser);
+      }
+    }
+  } catch (err) {
+    console.warn("[CloudFetch] Could not fetch students from Supabase:", err);
+  }
+
+  // Deduplicate and filter out dummy records
+  const uniqueList: StudentUser[] = [];
+  const seenPrns = new Set<string>();
+
+  for (const s of studentsMap.values()) {
+    if (s.id === "std_demo_101" || s.prn === "PMF2026-8842") continue;
+    const cleanPrn = s.prn.toLowerCase();
+    if (!seenPrns.has(cleanPrn)) {
+      seenPrns.add(cleanPrn);
+      uniqueList.push(s);
+    }
+  }
+
+  // Update local storage cache
+  try {
+    localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(uniqueList));
+  } catch (e) {
+    console.warn("Could not update local storage cache:", e);
+  }
+
+  return uniqueList;
+};
+
+/**
+ * Deletes student record from Supabase cloud database
+ */
+export const deleteStudentFromCloud = async (id: string): Promise<void> => {
+  try {
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      await supabase.from("admissions").delete().eq("id", id);
+    } else {
+      const all = getAllRegisteredStudents();
+      const s = all.find((item) => item.id === id);
+      if (s?.email) {
+        await supabase.from("admissions").delete().eq("email", s.email);
+      }
+    }
+  } catch (err) {
+    console.warn("[CloudDelete] Error deleting student from cloud:", err);
+  }
 };
 
 export const getAllRegisteredStudents = (): StudentUser[] => {
@@ -105,8 +287,9 @@ export const registerStudent = async (data: {
 
   // 2. Generate student PRN and prepare profile
   const newPrn = generateStudentPRN();
+  const uuidId = generateUUID();
   const newStudent: StudentUser = {
-    id: firebaseUid ? `std_${firebaseUid}` : `std_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`,
+    id: uuidId,
     firebaseUid: firebaseUid || undefined,
     prn: newPrn,
     name: cleanName,
@@ -127,6 +310,9 @@ export const registerStudent = async (data: {
     console.warn("Error persisting student list:", e);
   }
 
+  // 4. Save to Supabase Cloud so Admin and other devices see it immediately!
+  await saveStudentToCloud(newStudent);
+
   setCurrentStudent(newStudent);
   return newStudent;
 };
@@ -144,7 +330,7 @@ export const loginStudent = async (
   const allStudents = getAllRegisteredStudents();
 
   // Find corresponding student in registered students
-  const existingLocal = allStudents.find(
+  let existingStudent = allStudents.find(
     s =>
       s.email.toLowerCase() === cleanId ||
       (cleanDigits.length >= 7 && s.phone.replace(/\D/g, "") === cleanDigits) ||
@@ -152,36 +338,52 @@ export const loginStudent = async (
       s.prn.toLowerCase().replace(/[^a-z0-9]/g, "") === cleanId.replace(/[^a-z0-9]/g, "")
   );
 
-  const targetEmail = existingLocal?.email || cleanId;
+  // If not found locally, fetch latest registered students from Supabase cloud
+  if (!existingStudent) {
+    try {
+      const cloudStudents = await fetchRegisteredStudentsFromCloud();
+      existingStudent = cloudStudents.find(
+        s =>
+          s.email.toLowerCase() === cleanId ||
+          (cleanDigits.length >= 7 && s.phone.replace(/\D/g, "") === cleanDigits) ||
+          s.prn.toLowerCase() === cleanId ||
+          s.prn.toLowerCase().replace(/[^a-z0-9]/g, "") === cleanId.replace(/[^a-z0-9]/g, "")
+      );
+    } catch (err) {
+      console.warn("Cloud student lookup notice:", err);
+    }
+  }
 
-  // 1. If student exists locally, verify password
-  if (existingLocal) {
-    const expectedPassword = (existingLocal.password && existingLocal.password.trim()) || "student123";
+  const targetEmail = existingStudent?.email || cleanId;
+
+  // 1. If student exists, verify password
+  if (existingStudent) {
+    const expectedPassword = (existingStudent.password && existingStudent.password.trim()) || "student123";
     if (expectedPassword !== password.trim()) {
       throw new Error("Invalid password. Please check your password and try again.");
     }
 
-    // Password matches! Sync session with Firebase Auth in background
+    // Password matches! Sync session with Firebase Auth in background if applicable
     try {
       const userCredential = await signInWithEmailAndPassword(auth, targetEmail, password.trim());
       if (userCredential?.user) {
-        existingLocal.firebaseUid = userCredential.user.uid;
+        existingStudent.firebaseUid = userCredential.user.uid;
       }
     } catch (fbErr: any) {
       console.warn("Firebase Auth notice:", fbErr?.code);
     }
 
-    setCurrentStudent(existingLocal);
-    return existingLocal;
+    setCurrentStudent(existingStudent);
+    return existingStudent;
   }
 
-  // 2. If not found locally, authenticate with Firebase Auth directly
+  // 2. If not found in database, authenticate with Firebase Auth directly
   try {
     const userCredential = await signInWithEmailAndPassword(auth, targetEmail, password.trim());
     const fbUser = userCredential.user;
 
     const student: StudentUser = {
-      id: `std_${fbUser.uid}`,
+      id: generateUUID(),
       firebaseUid: fbUser.uid,
       prn: generateStudentPRN(),
       name: fbUser.displayName || "Student",
@@ -197,6 +399,9 @@ export const loginStudent = async (
     const updated = [student, ...allStudents.filter(s => s.email.toLowerCase() !== student.email.toLowerCase())];
     localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(updated));
     setCurrentStudent(student);
+
+    // Sync to Supabase cloud
+    saveStudentToCloud(student).catch(e => console.warn("Cloud sync error:", e));
 
     return student;
   } catch (err: any) {
@@ -224,7 +429,7 @@ const processFirebaseUserToStudent = (fbUser: any): StudentUser => {
   );
 
   const student: StudentUser = {
-    id: `std_${fbUser.uid}`,
+    id: existingLocal?.id || generateUUID(),
     firebaseUid: fbUser.uid,
     prn: existingLocal?.prn || generateStudentPRN(),
     name: fbUser.displayName || existingLocal?.name || "Student",
@@ -245,6 +450,10 @@ const processFirebaseUserToStudent = (fbUser: any): StudentUser => {
   } catch (e) {
     console.warn("Storage warning:", e);
   }
+
+  // Sync to Supabase cloud in background
+  saveStudentToCloud(student).catch(e => console.warn("Google user cloud save error:", e));
+
   setCurrentStudent(student);
   return student;
 };
@@ -323,7 +532,7 @@ export const sendStudentPasswordReset = async (email: string): Promise<void> => 
 };
 
 
-export const deleteRegisteredStudent = (id: string): void => {
+export const deleteRegisteredStudent = async (id: string): Promise<void> => {
   try {
     const list = getAllRegisteredStudents();
     const updated = list.filter((s) => s.id !== id);
@@ -333,7 +542,14 @@ export const deleteRegisteredStudent = (id: string): void => {
       logoutStudent();
     }
   } catch (e) {
-    console.warn("Could not delete student:", e);
+    console.warn("Could not delete student locally:", e);
+  }
+
+  // Also delete from Supabase cloud database
+  try {
+    await deleteStudentFromCloud(id);
+  } catch (e) {
+    console.warn("Could not delete student from cloud:", e);
   }
 };
 
@@ -445,8 +661,9 @@ export const syncAdmissionToStudentPortal = async (record: {
   const prn = record.existingPrn || student?.prn || generateStudentPRN();
 
   if (!student) {
+    const studentUuid = generateUUID();
     student = {
-      id: `std_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`,
+      id: studentUuid,
       prn,
       name: record.fullName,
       email: record.email,
@@ -458,9 +675,13 @@ export const syncAdmissionToStudentPortal = async (record: {
     };
     const updated = [student, ...allStudents];
     localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(updated));
+    await saveStudentToCloud(student);
   } else if (student.prn !== prn) {
     student.prn = prn;
     localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(allStudents));
+    await saveStudentToCloud(student);
+  } else {
+    await saveStudentToCloud(student);
   }
 
   setCurrentStudent(student);
@@ -662,3 +883,22 @@ export const findStudentByPrnOrIdentifier = (
 
   return { student: matchedStudent, applications: studentApps };
 };
+
+/**
+ * Asynchronous student search that checks local cache first,
+ * and falls back to Supabase cloud database if not found locally.
+ */
+export const findStudentByPrnOrIdentifierAsync = async (
+  rawQuery: string
+): Promise<{ student: StudentUser; applications: StudentAdmissionRecord[] } | null> => {
+  const localMatch = findStudentByPrnOrIdentifier(rawQuery);
+  if (localMatch) return localMatch;
+
+  try {
+    await fetchRegisteredStudentsFromCloud();
+    return findStudentByPrnOrIdentifier(rawQuery);
+  } catch {
+    return null;
+  }
+};
+

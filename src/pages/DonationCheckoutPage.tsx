@@ -15,11 +15,13 @@ import {
   CheckCircle2,
   ChevronRight,
   CreditCard,
-  QrCode,
   Lock,
   ArrowRight,
   Download,
   Share2,
+  User,
+  Percent,
+  FileText,
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -37,6 +39,14 @@ interface UpcomingCause {
 }
 
 const upcomingCauses: UpcomingCause[] = [
+  {
+    id: "general",
+    name: "Rural Youth Education & Coaching",
+    marathi: "शिक्षणातून सामाजिक परिवर्तन निधी",
+    icon: GraduationCap,
+    desc: "Direct support for Japanese & German language coaching, computer literacy and higher education access.",
+    tag: "Education",
+  },
   {
     id: "languages",
     name: "Foreign Language School",
@@ -61,14 +71,6 @@ const upcomingCauses: UpcomingCause[] = [
     desc: "Direct college tuition scholarships and hostel fees assistance for deserving rural girls.",
     tag: "Women Empowerment",
   },
-  {
-    id: "general",
-    name: "Foundational Learning Kits",
-    marathi: "अभ्यास साहित्य व वर्गखोल्या",
-    icon: GraduationCap,
-    desc: "Distributing books, stationery kits, and establishing community learning circles.",
-    tag: "Foundational Education",
-  },
 ];
 
 const PRESET_AMOUNTS = [250, 500, 1000, 2500, 5000];
@@ -85,11 +87,11 @@ interface DonationReceiptData {
 }
 
 export default function DonationCheckoutPage() {
-  const [selectedCause, setSelectedCause] = useState<string>("languages");
+  const [selectedCause, setSelectedCause] = useState<string>("general");
   const [amount, setAmount] = useState<number>(1000);
   const [customAmount, setCustomAmount] = useState<string>("");
   const [isCustom, setIsCustom] = useState<boolean>(false);
-  
+
   const [fullName, setFullName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [phone, setPhone] = useState<string>("");
@@ -97,7 +99,7 @@ export default function DonationCheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [receipt, setReceipt] = useState<DonationReceiptData | null>(null);
 
-  const activeAmount = isCustom ? (parseInt(customAmount) || 0) : amount;
+  const activeAmount = isCustom ? parseInt(customAmount) || 0 : amount;
 
   const handleSelectPreset = (val: number) => {
     setIsCustom(false);
@@ -111,7 +113,8 @@ export default function DonationCheckoutPage() {
     setIsCustom(true);
   };
 
-  const currentCauseObj = upcomingCauses.find((c) => c.id === selectedCause) || upcomingCauses[0];
+  const currentCauseObj =
+    upcomingCauses.find((c) => c.id === selectedCause) || upcomingCauses[0];
 
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -201,7 +204,9 @@ export default function DonationCheckoutPage() {
     } catch (err) {
       setIsSubmitting(false);
       console.error("Checkout launch error:", err);
-      toast.error("Payment gateway could not be loaded. Please check your internet connection.");
+      toast.error(
+        "Payment gateway could not be loaded. Please check your internet connection."
+      );
     }
   };
 
@@ -210,7 +215,7 @@ export default function DonationCheckoutPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#fbfaf7] text-[#24312d] selection:bg-[#b5623b]/20">
+    <div className="min-h-screen bg-white text-[#24312d] selection:bg-[#b5623b]/20">
       <Header />
 
       <main className="pt-28 pb-20">
@@ -224,28 +229,63 @@ export default function DonationCheckoutPage() {
             <span className="text-[#24312d] font-semibold">Online Donation</span>
           </div>
 
-          {/* Hero Banner */}
-          <div className="relative rounded-3xl bg-gradient-to-br from-[#24312d] via-[#2a3a35] to-[#1c2623] p-8 md:p-12 text-white shadow-xl overflow-hidden mb-10">
-            <div className="absolute -top-20 -right-20 w-80 h-80 bg-[#b5623b]/25 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-[#e5a37f]/20 rounded-full blur-3xl pointer-events-none" />
+          {/* Hero Banner (Matching Mockup Exactly) */}
+          <div className="relative rounded-3xl bg-[#f8f6f0] border border-[#e8e4da] p-8 sm:p-10 md:p-12 shadow-sm overflow-hidden mb-10">
+            {/* Soft organic curved wave in background */}
+            <div className="absolute top-0 right-0 w-[500px] h-full bg-gradient-to-l from-[#efeade]/70 to-transparent pointer-events-none" />
 
-            <div className="relative z-10 max-w-3xl">
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-[#f2c5a8] border border-white/15 backdrop-blur-md mb-5">
-                <Sparkles size={14} className="text-amber-300" />
-                <span>Live Razorpay Payment Gateway • अधिकृत देणगी पोर्टल</span>
+            <div className="relative z-10 grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
+              {/* Left Content */}
+              <div className="md:col-span-7">
+                {/* Support Education Badge */}
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-[#e7eee8] px-3.5 py-1.5 text-xs font-semibold text-[#274536] border border-[#d4ded5] mb-5">
+                  <Sparkles size={13} className="text-[#274536]" />
+                  <span>Support Education</span>
+                </div>
+
+                <h1 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold tracking-tight text-[#1b2b25] leading-[1.12]">
+                  Power a Learner's <br />
+                  <span className="text-[#b5623b]">Future Today.</span>
+                </h1>
+
+                {/* Marathi Subheading with Terracotta Left Accent */}
+                <div className="mt-4 border-l-[3px] border-[#b5623b] pl-3.5 py-0.5">
+                  <p className="font-serif text-lg sm:text-xl font-bold text-[#1b2b25]">
+                    शिक्षणातून सामाजिक परिवर्तन घडवा.
+                  </p>
+                </div>
+
+                <p className="mt-3.5 text-xs sm:text-sm text-[#5a6760] leading-relaxed max-w-xl">
+                  Your contribution helps rural youth in Maharashtra get language coaching, coding literacy and university access.
+                </p>
               </div>
 
-              <h1 className="text-3xl md:text-5xl font-serif leading-[1.1] text-white">
-                Power a Learner's Future Today.
-              </h1>
+              {/* Right Side: Script Calligraphy + Books Sprout Artwork */}
+              <div className="md:col-span-5 flex items-center justify-center relative">
+                {/* Script text positioned organically next to books */}
+                <div className="absolute -top-3 left-4 sm:left-6 md:left-2 z-10 select-none pointer-events-none">
+                  <span
+                    className="font-serif italic text-2xl sm:text-3xl text-[#2d4b3c] tracking-wide inline-block -rotate-12"
+                    style={{
+                      fontFamily: "'Caveat', 'Playfair Display', Georgia, cursive, serif",
+                      lineHeight: "1.1",
+                    }}
+                  >
+                    A<br />
+                    Brighter<br />
+                    Tomorrow
+                  </span>
+                </div>
 
-              <p className="mt-3 text-xl font-serif text-[#e5a37f]">
-                शिक्षणातून सामाजिक परिवर्तन — थेट विद्यार्थ्यांसाठी मदतीचा हात!
-              </p>
-
-              <p className="mt-4 text-xs md:text-sm text-stone-200 leading-relaxed max-w-2xl font-sans">
-                Every contribution empowers rural youth in Maharashtra with certified international language coaching (Japanese & German), hands-on coding literacy, and university access. 100% secured by Razorpay (UPI, GPay, PhonePe, Cards, NetBanking).
-              </p>
+                {/* Hero Artwork Image with transparent background */}
+                <div className="relative w-full max-w-[270px] sm:max-w-[310px] ml-auto">
+                  <img
+                    src="/img/donation-hero-books.png"
+                    alt="A Brighter Tomorrow - Educational Books with Seedling Sprout"
+                    className="w-full h-auto object-contain drop-shadow-sm"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -342,73 +382,22 @@ export default function DonationCheckoutPage() {
               </div>
             </div>
           ) : (
-            /* Live Donation Form & Cause Selector */
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
-              {/* Left Column: Donation Form */}
-              <div className="lg:col-span-7 rounded-3xl border border-[#e2e5dc] bg-white p-7 md:p-9 shadow-sm">
-                <div className="flex items-center justify-between border-b border-[#e2e5dc] pb-4 mb-6">
+            /* Live Donation Form & Right Summary Column (Matching Mockup Exactly) */
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12 items-start">
+              {/* Left Column: Form Card */}
+              <div className="lg:col-span-7 rounded-3xl border border-[#e8e4da] bg-white p-7 sm:p-9 shadow-sm">
+                <form onSubmit={handlePayment}>
+                  {/* Select Amount Header */}
                   <div>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#b5623b]">
-                      Step 1 of 2 • रक्कम निवडा
-                    </span>
-                    <h2 className="text-xl md:text-2xl font-serif text-[#24312d]">
-                      Select Contribution Amount
+                    <h2 className="text-2xl font-serif font-bold text-[#1b2b25]">
+                      Select Amount
                     </h2>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-                    <Lock size={12} />
-                    <span>Razorpay Live</span>
-                  </div>
-                </div>
+                    <p className="mt-1 text-xs sm:text-sm text-[#65706a]">
+                      Choose an amount that helps create real change.
+                    </p>
 
-                <form onSubmit={handlePayment} className="space-y-6">
-                  {/* Select Cause */}
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-[#65706a] mb-2">
-                      Choose Cause / उद्देश निवडा
-                    </label>
-                    <div className="grid grid-cols-2 gap-2.5">
-                      {upcomingCauses.map((cause) => {
-                        const Icon = cause.icon;
-                        const isSelected = selectedCause === cause.id;
-                        return (
-                          <button
-                            type="button"
-                            key={cause.id}
-                            onClick={() => setSelectedCause(cause.id)}
-                            className={`flex items-start gap-2.5 p-3 rounded-2xl border text-left transition-all ${
-                              isSelected
-                                ? "border-[#b5623b] bg-[#b5623b]/5 ring-1 ring-[#b5623b]"
-                                : "border-[#e2e5dc] bg-white hover:border-[#b5623b]/50"
-                            }`}
-                          >
-                            <div
-                              className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 ${
-                                isSelected ? "bg-[#b5623b] text-white" : "bg-stone-100 text-[#b5623b]"
-                              }`}
-                            >
-                              <Icon size={16} />
-                            </div>
-                            <div className="min-w-0">
-                              <span className="text-xs font-bold text-[#24312d] block truncate">
-                                {cause.name}
-                              </span>
-                              <span className="text-[10px] text-[#65706a] block truncate">
-                                {cause.marathi}
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Preset Amount Grid */}
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-[#65706a] mb-2">
-                      Select Amount / रक्कम
-                    </label>
-                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                    {/* 5 Preset Buttons */}
+                    <div className="mt-5 grid grid-cols-5 gap-2 sm:gap-2.5">
                       {PRESET_AMOUNTS.map((val) => {
                         const isSelected = !isCustom && amount === val;
                         return (
@@ -416,10 +405,10 @@ export default function DonationCheckoutPage() {
                             type="button"
                             key={val}
                             onClick={() => handleSelectPreset(val)}
-                            className={`py-3 px-2 rounded-xl text-center font-serif text-base font-bold transition-all border ${
+                            className={`py-3 px-1 rounded-xl text-center font-bold text-sm sm:text-base transition-all border ${
                               isSelected
                                 ? "bg-[#b5623b] text-white border-[#b5623b] shadow-sm"
-                                : "bg-[#fbfaf7] text-[#24312d] border-[#e2e5dc] hover:border-[#b5623b]"
+                                : "bg-[#f8f6f1] text-[#1b2b25] border-[#e8e4da] hover:border-[#b5623b]/60 hover:bg-[#f1eee5]"
                             }`}
                           >
                             ₹{val.toLocaleString("en-IN")}
@@ -428,172 +417,241 @@ export default function DonationCheckoutPage() {
                       })}
                     </div>
 
-                    {/* Custom Amount Field */}
+                    {/* Custom Amount Input */}
                     <div className="mt-3">
                       <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-[#65706a]">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-[#8b9690]">
                           ₹
                         </span>
                         <input
                           type="text"
-                          placeholder="Or enter custom amount (उदा. ₹3000)"
+                          placeholder="Or enter custom amount"
                           value={customAmount}
                           onChange={handleCustomChange}
-                          className={`w-full rounded-xl border bg-[#fbfaf7] pl-8 pr-4 py-2.5 text-sm font-medium outline-none transition ${
+                          className={`w-full rounded-xl border bg-[#fbfaf7] pl-9 pr-4 py-3 text-sm font-medium outline-none transition ${
                             isCustom
-                              ? "border-[#b5623b] ring-1 ring-[#b5623b] bg-white font-bold"
-                              : "border-[#e2e5dc] focus:border-[#b5623b]"
+                              ? "border-[#b5623b] ring-1 ring-[#b5623b] bg-white font-bold text-[#1b2b25]"
+                              : "border-[#e8e4da] text-[#1b2b25] placeholder:text-[#8b9690] focus:border-[#b5623b] focus:bg-white"
                           }`}
                         />
                       </div>
                     </div>
                   </div>
 
-                  {/* Donor Information */}
-                  <div className="border-t border-[#e2e5dc] pt-5">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#b5623b] block mb-3">
-                      Step 2 of 2 • देणगीदाराची माहिती (Donor Details)
-                    </span>
+                  {/* Your Details Header */}
+                  <div className="mt-8 pt-6 border-t border-[#f0ece2]">
+                    <h2 className="text-2xl font-serif font-bold text-[#1b2b25]">
+                      Your Details
+                    </h2>
+                    <p className="mt-1 text-xs sm:text-sm text-[#65706a]">
+                      Enter your details to receive the donation receipt.
+                    </p>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                      <div className="sm:col-span-2">
-                        <label className="block text-xs font-semibold text-[#24312d] mb-1">
-                          Full Name / पूर्ण नाव <span className="text-rose-500">*</span>
-                        </label>
+                    <div className="mt-5 space-y-3.5">
+                      {/* Full Name */}
+                      <div className="relative">
+                        <User
+                          size={17}
+                          className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8b9690]"
+                        />
                         <input
                           type="text"
                           required
-                          placeholder="e.g. Rahul Patil"
+                          placeholder="Full Name *"
                           value={fullName}
                           onChange={(e) => setFullName(e.target.value)}
-                          className="w-full rounded-xl border border-[#e2e5dc] bg-[#fbfaf7] px-3.5 py-2.5 text-sm outline-none focus:border-[#b5623b] focus:bg-white"
+                          className="w-full rounded-xl border border-[#e8e4da] bg-[#fbfaf7] pl-11 pr-4 py-3 text-sm text-[#1b2b25] placeholder:text-[#8b9690] outline-none transition focus:border-[#b5623b] focus:bg-white"
                         />
                       </div>
 
-                      <div>
-                        <label className="block text-xs font-semibold text-[#24312d] mb-1">
-                          Mobile Number (10 digits) <span className="text-rose-500">*</span>
-                        </label>
-                        <input
-                          type="tel"
-                          required
-                          maxLength={10}
-                          placeholder="9876543210"
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-                          className="w-full rounded-xl border border-[#e2e5dc] bg-[#fbfaf7] px-3.5 py-2.5 text-sm outline-none focus:border-[#b5623b] focus:bg-white"
-                        />
+                      {/* Phone & Email Row */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        <div className="relative">
+                          <Phone
+                            size={17}
+                            className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8b9690]"
+                          />
+                          <input
+                            type="tel"
+                            required
+                            maxLength={10}
+                            placeholder="Mobile Number (10 digits) *"
+                            value={phone}
+                            onChange={(e) =>
+                              setPhone(e.target.value.replace(/\D/g, ""))
+                            }
+                            className="w-full rounded-xl border border-[#e8e4da] bg-[#fbfaf7] pl-11 pr-4 py-3 text-sm text-[#1b2b25] placeholder:text-[#8b9690] outline-none transition focus:border-[#b5623b] focus:bg-white"
+                          />
+                        </div>
+
+                        <div className="relative">
+                          <Mail
+                            size={17}
+                            className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8b9690]"
+                          />
+                          <input
+                            type="email"
+                            placeholder="Email Address (for receipt)"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="w-full rounded-xl border border-[#e8e4da] bg-[#fbfaf7] pl-11 pr-4 py-3 text-sm text-[#1b2b25] placeholder:text-[#8b9690] outline-none transition focus:border-[#b5623b] focus:bg-white"
+                          />
+                        </div>
                       </div>
 
-                      <div>
-                        <label className="block text-xs font-semibold text-[#24312d] mb-1">
-                          Email Address (for receipt)
-                        </label>
-                        <input
-                          type="email"
-                          placeholder="rahul@example.com"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          className="w-full rounded-xl border border-[#e2e5dc] bg-[#fbfaf7] px-3.5 py-2.5 text-sm outline-none focus:border-[#b5623b] focus:bg-white"
+                      {/* PAN Number */}
+                      <div className="relative">
+                        <CreditCard
+                          size={17}
+                          className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8b9690]"
                         />
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <label className="block text-xs font-semibold text-[#24312d] mb-1">
-                          PAN Number <span className="text-[10px] text-[#65706a]">(Optional, for 80G Tax Exemption)</span>
-                        </label>
                         <input
                           type="text"
                           maxLength={10}
-                          placeholder="ABCDE1234F"
+                          placeholder="PAN Number (Optional, for 80G Tax Exemption)"
                           value={panNumber}
-                          onChange={(e) => setPanNumber(e.target.value.toUpperCase())}
-                          className="w-full rounded-xl border border-[#e2e5dc] bg-[#fbfaf7] px-3.5 py-2.5 text-sm uppercase tracking-wider outline-none focus:border-[#b5623b] focus:bg-white"
+                          onChange={(e) =>
+                            setPanNumber(e.target.value.toUpperCase())
+                          }
+                          className="w-full rounded-xl border border-[#e8e4da] bg-[#fbfaf7] pl-11 pr-4 py-3 text-sm uppercase tracking-wider text-[#1b2b25] placeholder:normal-case placeholder:tracking-normal placeholder:text-[#8b9690] outline-none transition focus:border-[#b5623b] focus:bg-white"
                         />
                       </div>
                     </div>
-                  </div>
 
-                  {/* Submit Button */}
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      disabled={isSubmitting || activeAmount < 10}
-                      className="w-full flex items-center justify-center gap-2.5 rounded-full bg-[#b5623b] hover:bg-[#984f2d] text-white py-4 px-6 font-semibold shadow-lg shadow-[#b5623b]/25 transition-all duration-300 hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <CreditCard size={18} />
-                      <span>
-                        {isSubmitting
-                          ? "Connecting to Razorpay..."
-                          : `Contribute ₹${activeAmount.toLocaleString("en-IN")} via Razorpay`}
-                      </span>
-                    </button>
-                    <p className="mt-2 text-center text-[11px] text-[#65706a]">
-                      Supports Google Pay, PhonePe, Paytm, BHIM UPI, Cards & NetBanking.
-                    </p>
+                    {/* Contribute Button */}
+                    <div className="mt-6">
+                      <button
+                        type="submit"
+                        disabled={isSubmitting || activeAmount < 10}
+                        className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#b5623b] hover:bg-[#9d502d] text-white py-4 px-6 font-semibold text-base shadow-md shadow-[#b5623b]/20 transition-all duration-200 hover:scale-[1.005] disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <CreditCard size={18} />
+                        <span>
+                          {isSubmitting
+                            ? "Connecting to Razorpay..."
+                            : `Contribute ₹${activeAmount.toLocaleString(
+                                "en-IN"
+                              )} via Razorpay`}
+                        </span>
+                        <ArrowRight size={18} />
+                      </button>
+
+                      <div className="mt-3 flex items-center justify-center gap-1.5 text-xs text-[#717d77]">
+                        <Lock size={13} className="text-[#717d77]" />
+                        <span>100% secure payment powered by Razorpay</span>
+                      </div>
+                    </div>
                   </div>
                 </form>
               </div>
 
-              {/* Right Column: Trust, Summary & Contact */}
+              {/* Right Column: Donation Summary Card & Assistance Card */}
               <div className="lg:col-span-5 space-y-6">
-                {/* Contribution Summary Card */}
-                <div className="rounded-3xl border border-[#e2e5dc] bg-[#24312d] text-white p-7 shadow-lg">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#e5a37f]">
-                    Donation Summary
-                  </span>
-                  <div className="mt-3 flex items-baseline justify-between border-b border-white/10 pb-4">
-                    <span className="text-sm text-stone-300">Selected Cause:</span>
-                    <span className="text-sm font-semibold text-white">{currentCauseObj.name}</span>
+                {/* 1. Donation Summary Dark Green Card */}
+                <div className="rounded-3xl bg-[#1b2b25] text-white p-7 sm:p-8 shadow-lg relative overflow-hidden">
+                  {/* Subtle decorative leaf silhouette in bottom corner */}
+                  <div className="absolute -bottom-6 -right-6 w-36 h-36 opacity-10 pointer-events-none text-emerald-200">
+                    <svg viewBox="0 0 100 100" fill="currentColor">
+                      <path d="M10,90 Q45,50 85,85 Q90,40 55,20 Q20,35 10,90 Z" />
+                      <path d="M35,65 Q65,35 55,5 Q25,15 35,65 Z" />
+                    </svg>
                   </div>
-                  <div className="mt-3 flex items-baseline justify-between border-b border-white/10 pb-4">
-                    <span className="text-sm text-stone-300">Amount:</span>
-                    <span className="text-2xl font-serif font-bold text-[#e5a37f]">
+
+                  <h3 className="text-xl sm:text-2xl font-serif font-bold text-white mb-6">
+                    Donation Summary
+                  </h3>
+
+                  <div className="flex items-center justify-between border-b border-white/10 pb-5 mb-6">
+                    <span className="text-sm text-stone-300">Amount</span>
+                    <span className="text-3xl sm:text-4xl font-serif font-bold text-white">
                       ₹{activeAmount.toLocaleString("en-IN")}
                     </span>
                   </div>
 
-                  <div className="mt-5 space-y-2.5 text-xs text-stone-300">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
-                      <span>Instant digital receipt with transaction ID</span>
+                  <div className="space-y-5">
+                    {/* Feature 1 */}
+                    <div className="flex items-start gap-3.5">
+                      <div className="h-11 w-11 rounded-full bg-white/10 flex items-center justify-center text-emerald-300 shrink-0">
+                        <FileText size={18} />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold text-white">
+                          Instant digital receipt
+                        </h4>
+                        <p className="text-xs text-stone-300 mt-0.5">
+                          with transaction ID
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
-                      <span>Tax exemption eligible under Section 80G</span>
+
+                    {/* Feature 2 */}
+                    <div className="flex items-start gap-3.5">
+                      <div className="h-11 w-11 rounded-full bg-white/10 flex items-center justify-center text-emerald-300 shrink-0">
+                        <Percent size={18} />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold text-white">
+                          Tax exemption eligible
+                        </h4>
+                        <p className="text-xs text-stone-300 mt-0.5">
+                          under Section 80G
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
-                      <span>Direct student educational scholarship support</span>
+
+                    {/* Feature 3 */}
+                    <div className="flex items-start gap-3.5">
+                      <div className="h-11 w-11 rounded-full bg-white/10 flex items-center justify-center text-emerald-300 shrink-0">
+                        <GraduationCap size={18} />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold text-white">
+                          Direct student educational
+                        </h4>
+                        <p className="text-xs text-stone-300 mt-0.5">
+                          scholarship support
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Direct Contact & Help */}
-                <div className="rounded-3xl border border-[#e2e5dc] bg-white p-7 shadow-sm">
-                  <h3 className="font-serif font-bold text-base text-[#24312d]">
+                {/* 2. Need Assistance with Payment? White Card */}
+                <div className="rounded-3xl border border-[#e8e4da] bg-white p-7 sm:p-8 shadow-sm relative overflow-hidden">
+                  {/* Subtle botanical branch artwork in corner */}
+                  <div className="absolute top-2 right-2 w-16 h-16 opacity-30 pointer-events-none text-emerald-700">
+                    <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M12,52 Q32,32 52,12 M52,12 Q42,26 26,38 M52,12 Q38,16 22,22" />
+                    </svg>
+                  </div>
+
+                  <h3 className="font-serif font-bold text-lg sm:text-xl text-[#1b2b25]">
                     Need Assistance with Payment?
                   </h3>
-                  <p className="mt-1 text-xs text-[#65706a]">
+                  <p className="mt-1 text-xs text-[#65706a] leading-relaxed mb-5">
                     Connect with our donation coordinators directly on phone or WhatsApp.
                   </p>
 
-                  <div className="mt-4 space-y-2.5 text-xs">
+                  <div className="space-y-3">
                     <a
                       href="tel:+917820831901"
-                      className="flex items-center gap-3 p-3 rounded-xl bg-[#fbfaf7] hover:bg-stone-100 transition font-semibold text-[#24312d]"
+                      className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-[#fdf2eb] text-[#1b2b25] font-bold text-sm hover:bg-[#fae6dc] transition w-full"
                     >
-                      <Phone size={15} className="text-[#b5623b]" />
-                      <span>+91 7820831901</span>
+                      <Phone size={17} className="text-[#b5623b]" />
+                      <span>+91 78208 31901</span>
                     </a>
+
                     <a
                       href={`https://wa.me/917820831901?text=${whatsappMessage}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-3 p-3 rounded-xl bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition font-semibold"
+                      className="flex items-center justify-between p-3.5 rounded-2xl bg-[#e9f6ed] text-[#1b2b25] font-bold text-sm hover:bg-[#dcf0e2] transition w-full"
                     >
-                      <MessageCircle size={15} className="text-emerald-600" />
-                      <span>WhatsApp Inquiry</span>
+                      <div className="flex items-center gap-3">
+                        <MessageCircle size={17} className="text-emerald-700" />
+                        <span>WhatsApp Inquiry</span>
+                      </div>
+                      <ArrowRight size={16} className="text-[#1b2b25]" />
                     </a>
                   </div>
                 </div>

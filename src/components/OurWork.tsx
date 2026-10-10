@@ -23,15 +23,15 @@ const OurWork = () => {
     },
     {
       id: 6,
-      title: 'Social Awareness Program',
-      description: 'A structured social awareness program committed to educating communities, amplifying important causes, and driving sustainable societal impact.',
-      image: '/img/silder1.jpg',
-      category: 'Community Outreach',
-      badge: 'Community Initiative',
+      title: 'German & European Languages',
+      description: 'Goethe-certified German language education unlocking international academic admissions and vocational career opportunities in Germany.',
+      image: '/img/purpose.jpg',
+      category: 'Language Education',
+      badge: 'Certified Program',
       date: '2024 - 2026',
-      location: 'Community Centers',
-      impact: '50+ Active Volunteers',
-      detailsUrl: '/initiatives',
+      location: 'Training Centers',
+      impact: 'Goethe A1-B2 Batches',
+      detailsUrl: '/courses/german',
     }
   ];
 

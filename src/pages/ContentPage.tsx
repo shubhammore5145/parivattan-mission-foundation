@@ -48,7 +48,7 @@ export default function ContentPage() {
     return () => revealObserver.disconnect();
   }, [path]);
 
-  return <div className="min-h-screen bg-[#fbfaf7] text-[#24312d]"><Header /><main className="pt-28">
+  return <div className="min-h-screen bg-white text-[#24312d]"><Header /><main className="pt-28">
     {isInitiatives && <PageIntro eyebrow="Learning that travels" title="Our initiatives" copy="Three learning schools, one shared aim: make education practical, accessible and connected to a person’s next possibility." />}
     {isAbout && <>
       <PageIntro eyebrow="About Parivattan Mission Foundation" title="People-powered change starts with listening & action." copy="We work alongside communities to make education, international languages, technology skills, and human dignity accessible to every learner." />

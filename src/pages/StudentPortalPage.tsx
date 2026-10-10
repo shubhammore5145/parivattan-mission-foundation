@@ -136,7 +136,7 @@ export default function StudentPortalPage() {
   // If student is logged in, show the comprehensive Dashboard / Receipt View
   if (currentStudent && activeTab === "dashboard") {
     return (
-      <div className="min-h-screen bg-[#fbfaf7] text-[#24312d] selection:bg-[#b5623b]/20">
+      <div className="min-h-screen bg-white text-[#24312d] selection:bg-[#b5623b]/20">
         <Header />
 
         <main className="page-section pt-32 md:pt-36 pb-20">

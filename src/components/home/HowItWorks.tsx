@@ -42,7 +42,7 @@ const STEPS = [
 
 export default function HowItWorks() {
   return (
-    <section className="page-section bg-[#fbfaf7] border-t border-[#e2e5dc] py-20 sm:py-28 relative overflow-hidden">
+    <section className="page-section bg-white border-t border-[#e2e5dc] py-20 sm:py-28 relative overflow-hidden">
       <div className="container mx-auto px-4 max-w-7xl relative z-10">
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-16 sm:mb-20">

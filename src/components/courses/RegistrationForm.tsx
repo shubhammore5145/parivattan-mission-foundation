@@ -5,6 +5,7 @@ import {
   CourseLevel,
   BatchSchedule,
 } from "@/data/languageCoursesData";
+import { CountryFlagIcon } from "@/components/common/CountryFlagIcon";
 import {
   User,
   Phone,
@@ -27,6 +28,8 @@ import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { createAdmission } from "@/lib/supabase-admin";
 import { sendCourseAdmissionEmail } from "@/lib/courseEmailService";
+import { syncAdmissionToStudentPortal } from "@/lib/student-auth";
+import { printElement } from "@/lib/printUtils";
 
 interface RegistrationFormProps {
   initialLanguage?: string;
@@ -189,6 +192,22 @@ export default function RegistrationForm({
         status: "completed",
       });
 
+      // Sync into Student Portal & Supabase cloud database
+      await syncAdmissionToStudentPortal({
+        fullName: payload.fullName,
+        email: payload.emailAddress,
+        phone: payload.mobileNumber,
+        courseTitle: `${payload.language} (${payload.level})`,
+        courseCode: `PFLS-${payload.language.slice(0, 2).toUpperCase()}-${payload.level}`,
+        school: "Parivattan Foreign Language School",
+        batchPreference: `${payload.batch} (${payload.preferredTiming})`,
+        amount: payload.totalAmount,
+        paymentId: payload.id,
+        education: payload.education,
+        collegeName: payload.collegeName,
+        address: payload.address,
+      });
+
       // Save locally to registrations history
       const existing = JSON.parse(
         localStorage.getItem("parivattan_course_registrations") || "[]"
@@ -236,14 +255,17 @@ export default function RegistrationForm({
   };
 
   const handlePrint = () => {
-    window.print();
+    printElement(
+      "printable-registration-receipt",
+      `Registration Confirmation - ${submittedData?.fullName || "Student"}`
+    );
   };
 
   return (
     <div id="register" className="scroll-mt-24">
       {submittedData ? (
         /* Confirmation View (Requirement 9: Show a clear confirmation message) */
-        <div className="rounded-3xl border-2 border-emerald-500/30 bg-white p-7 sm:p-10 shadow-xl max-w-3xl mx-auto">
+        <div id="printable-registration-receipt" className="rounded-3xl border-2 border-emerald-500/30 bg-white p-7 sm:p-10 shadow-xl max-w-3xl mx-auto">
           <div className="text-center">
             <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 shadow-xs">
               <FileCheck size={42} />
@@ -337,7 +359,7 @@ export default function RegistrationForm({
           </div>
 
           {/* Action buttons */}
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 no-print">
             <button
               type="button"
               onClick={handlePrint}
@@ -513,12 +535,12 @@ export default function RegistrationForm({
                             : "border-[#e2e5dc] bg-[#fbfaf7] hover:border-[#b5623b]"
                         }`}
                       >
-                        <span className="text-2xl">{course.flag}</span>
+                        <CountryFlagIcon courseId={course.id} size="md" />
                         <div>
-                          <p className="text-xs font-bold text-[#24312d] leading-none">
+                          <p className="text-xs font-course font-black text-[#24312d] leading-none">
                             {course.name.replace(" Language", "")}
                           </p>
-                          <p className="text-[10px] text-[#65706a] mt-0.5">{course.levelsSummary}</p>
+                          <p className="text-[10px] font-course font-semibold text-[#65706a] mt-0.5">{course.levelsSummary}</p>
                         </div>
                       </button>
                     );
@@ -528,7 +550,7 @@ export default function RegistrationForm({
 
               {/* Level Selection */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#24312d] mb-1.5">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#24312d] mb-1.5 font-sans">
                   Select Level ({currentLanguage.name}) <span className="text-red-500">*</span>
                 </label>
                 <div className="flex flex-wrap gap-2">
@@ -539,17 +561,17 @@ export default function RegistrationForm({
                         key={lvl.id}
                         type="button"
                         onClick={() => setSelectedLevelId(lvl.id)}
-                        className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition border ${
+                        className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition border cursor-pointer font-course ${
                           isSelected
                             ? "bg-[#24312d] text-white border-[#24312d] shadow-sm"
                             : "bg-[#fbfaf7] text-[#65706a] border-[#e2e5dc] hover:border-[#b5623b]"
                         }`}
                       >
-                        <span>{lvl.level}</span>
+                        <span className="font-extrabold">{lvl.level}</span>
                         <span className={`text-[10px] px-2 py-0.5 rounded-full ${
                           isSelected ? "bg-white/20 text-white" : "bg-[#eef0e8] text-[#65706a]"
                         }`}>
-                          {lvl.duration}
+                          {lvl.proficiency ? `${lvl.proficiency} · ${lvl.duration}` : lvl.duration}
                         </span>
                       </button>
                     );

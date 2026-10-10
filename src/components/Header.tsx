@@ -63,7 +63,7 @@ const Header = () => {
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 w-full
          ${
         isScrolled
-          ? "py-2 bg-[#fbfaf7]/95 backdrop-blur-lg shadow-[0_10px_30px_-20px_rgba(36,49,45,0.7)] border-b border-[#e1e3d9]"
+          ? "py-2 bg-white/95 backdrop-blur-lg shadow-[0_10px_30px_-20px_rgba(36,49,45,0.7)] border-b border-[#e1e3d9]"
           : "py-3 sm:py-4 bg-gradient-to-b from-[#24312d]/55 to-transparent"
       }
         `
@@ -72,7 +72,7 @@ const Header = () => {
       <div className="container mx-auto flex max-w-7xl items-center justify-between gap-5 px-4">
         <a 
           href="/" 
-          className="flex items-center bg-[#fbfaf7] px-2 py-1 rounded-xl shadow-xs transition-all hover:opacity-95" 
+          className="flex items-center bg-white px-2 py-1 rounded-xl shadow-xs transition-all hover:opacity-95" 
           onClick={handleHomeClick}
         >
           <img
@@ -113,7 +113,7 @@ const Header = () => {
             <button type="button" className={`flex items-center gap-1 whitespace-nowrap nav-item text-sm font-medium ${isScrolled ? 'text-[#24312d] hover:text-[#b5623b]' : 'text-white hover:text-[#f2c5a8]'}`}>
               Our Initiatives <ChevronDown size={15} className="transition-transform group-hover:rotate-180" />
             </button>
-            <div className="invisible absolute left-1/2 top-full z-50 mt-4 w-80 -translate-x-1/2 translate-y-2 rounded-2xl border border-[#e1e3d9] bg-[#fbfaf7] p-2 opacity-0 shadow-xl transition-all group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
+            <div className="invisible absolute left-1/2 top-full z-50 mt-4 w-80 -translate-x-1/2 translate-y-2 rounded-2xl border border-[#e1e3d9] bg-white p-2 opacity-0 shadow-xl transition-all group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
               <Link to="/admissions" onClick={() => setMobileMenuOpen(false)} className="block rounded-xl px-4 py-3 text-sm font-semibold text-[#b5623b] hover:bg-[#eef0e8]">Admissions 2026-27 (JP, DE, EN, FR)</Link>
               <a href="/initiatives" onClick={() => setMobileMenuOpen(false)} className="block rounded-xl px-4 py-3 text-sm font-semibold text-[#24312d] hover:bg-[#eef0e8] hover:text-[#b5623b]">All initiatives</a>
               <a href="/initiatives#overseas" onClick={() => setMobileMenuOpen(false)} className="block rounded-xl px-4 py-3 text-sm text-[#65706a] hover:bg-[#eef0e8] hover:text-[#b5623b]">Parivattan Overseas Schools</a>
@@ -167,7 +167,7 @@ const Header = () => {
 
       {/* Mobile Navigation */}
       <div
-        className={`lg:hidden fixed inset-0 bg-[#fbfaf7] z-40 transform transition-transform duration-300 ease-in-out ${
+        className={`lg:hidden fixed inset-0 bg-white z-40 transform transition-transform duration-300 ease-in-out ${
           mobileMenuOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
@@ -188,93 +188,154 @@ const Header = () => {
               <X size={24} />
             </button>
           </div>
-          <nav className="flex flex-col space-y-2">
-            <a
-              href="/"
-              onClick={handleHomeClick}
-              className="text-lg sm:text-xl py-3 px-4 text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all font-medium"
-            >
-              Home
-            </a>
-            <Link
-              to="/courses"
-              onClick={() => setMobileMenuOpen(false)}
-              className="text-lg sm:text-xl py-3 px-4 text-[#b5623b] bg-[#b5623b]/10 rounded-xl font-bold flex items-center justify-between"
-            >
-              <span>Language Courses</span>
-              <span className="text-xs bg-[#b5623b] text-white px-2 py-0.5 rounded-full">New</span>
-            </Link>
+          <nav className="flex flex-col space-y-1.5 pb-8">
+            {/* Quick Action Top Cards for Mobile */}
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <Link
+                to="/admissions"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-center gap-1.5 py-3 px-3 bg-[#b5623b] text-white rounded-xl text-xs font-bold shadow-sm active:scale-95 transition text-center"
+              >
+                <GraduationCap size={16} />
+                <span>Apply Admission</span>
+              </Link>
+              <Link
+                to="/donate"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-center gap-1.5 py-3 px-3 bg-[#1b2b25] text-white rounded-xl text-xs font-bold shadow-sm active:scale-95 transition text-center"
+              >
+                <span>Donate Now</span>
+              </Link>
+            </div>
+
+            {/* Student Portal PRN Card */}
             <Link
               to="/student"
               onClick={() => setMobileMenuOpen(false)}
-              className="text-lg sm:text-xl py-3 px-4 text-[#24312d] bg-[#b5623b]/10 border border-[#b5623b]/30 rounded-xl font-bold flex items-center justify-between"
+              className="py-3 px-4 bg-emerald-50 border border-emerald-200/80 rounded-2xl font-bold flex items-center justify-between text-[#1b2b25] text-sm mb-1.5 shadow-2xs"
             >
-              <div className="flex items-center gap-2">
-                <GraduationCap size={20} className="text-[#b5623b]" />
-                <span>Student Portal (PRN)</span>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center">
+                  <GraduationCap size={16} />
+                </div>
+                <div>
+                  <span className="block text-xs font-bold text-[#1b2b25]">Student Portal</span>
+                  <span className="text-[11px] text-emerald-700 font-semibold">Verify PRN & Profile</span>
+                </div>
               </div>
-              <span className="text-xs bg-[#b5623b] text-white px-2 py-0.5 rounded-full font-medium">Get PRN</span>
+              <span className="text-[10px] bg-emerald-600 text-white font-bold px-2 py-0.5 rounded-full">
+                PRN
+              </span>
             </Link>
-            <Link
-              to="/register"
-              onClick={() => setMobileMenuOpen(false)}
-              className="text-lg sm:text-xl py-3 px-4 text-slate-700 hover:text-[#b5623b] hover:bg-amber-50 rounded-xl font-medium"
+
+            {/* Navigation links */}
+            <a
+              href="/"
+              onClick={handleHomeClick}
+              className="py-2.5 px-3.5 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition"
             >
-              Course Registration
+              Home
+            </a>
+
+            <Link
+              to="/courses"
+              onClick={() => setMobileMenuOpen(false)}
+              className="py-2.5 px-3.5 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition flex items-center justify-between"
+            >
+              <span>Language Courses (🇯🇵 🇩🇪 🇬🇧 🇫🇷)</span>
+              <span className="text-[10px] bg-[#b5623b]/10 text-[#b5623b] font-bold px-2 py-0.5 rounded-full">Active</span>
             </Link>
+
+            <Link
+              to="/admissions"
+              onClick={() => setMobileMenuOpen(false)}
+              className="py-2.5 px-3.5 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition"
+            >
+              Course Admissions
+            </Link>
+
             <Link
               to="/rules"
               onClick={() => setMobileMenuOpen(false)}
-              className="text-lg sm:text-xl py-3 px-4 text-slate-700 hover:text-[#b5623b] hover:bg-amber-50 rounded-xl font-medium"
+              className="py-2.5 px-3.5 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition"
             >
               Rules & Regulations
             </Link>
+
             <Link
               to="/about"
               onClick={() => setMobileMenuOpen(false)}
-              className="text-lg sm:text-xl py-3 px-4 text-slate-700 hover:text-[#b5623b] hover:bg-amber-50 rounded-xl transition-all font-medium"
+              className="py-2.5 px-3.5 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition"
             >
               About Us
             </Link>
+
             <Link
               to="/team"
               onClick={() => setMobileMenuOpen(false)}
-              className="text-lg sm:text-xl py-3 px-4 text-slate-700 hover:text-[#b5623b] hover:bg-amber-50 rounded-xl transition-all font-medium"
+              className="py-2.5 px-3.5 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition"
             >
               Our Team
             </Link>
-            <div className="rounded-xl bg-[#eef0e8] px-4 py-3">
-              <p className="mb-2 text-lg font-semibold text-[#24312d]">Our Initiatives</p>
-              <a href="/initiatives" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-[#b5623b]">All initiatives</a>
-              <a href="/initiatives#overseas" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-[#65706a]">Parivattan Overseas Schools</a>
-              <a href="/initiatives#languages" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-[#65706a]">Parivattan Foreign Language School</a>
-              <Link to="/courses" onClick={() => setMobileMenuOpen(false)} className="block py-1.5 text-xs font-semibold text-[#b5623b]">Upcoming: Russian, Chinese & Spanish</Link>
-              <a href="/initiatives#technology" onClick={() => setMobileMenuOpen(false)} className="block py-2 text-[#65706a]">Parivattan Technology School</a>
+
+            {/* Initiatives Sub-block */}
+            <div className="rounded-2xl bg-stone-50 border border-stone-200/80 p-3 space-y-1 text-xs">
+              <span className="font-bold uppercase tracking-wider text-[10px] text-stone-500 block mb-1">
+                Our Initiatives
+              </span>
+              <a
+                href="/initiatives"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block py-1.5 px-2 font-bold text-[#b5623b] hover:bg-white rounded-lg transition"
+              >
+                All Initiatives Overview
+              </a>
+              <a
+                href="/initiatives#overseas"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block py-1.5 px-2 text-stone-600 hover:text-[#1b2b25] hover:bg-white rounded-lg transition"
+              >
+                Parivattan Overseas Schools
+              </a>
+              <a
+                href="/initiatives#languages"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block py-1.5 px-2 text-stone-600 hover:text-[#1b2b25] hover:bg-white rounded-lg transition"
+              >
+                Parivattan Foreign Language School
+              </a>
+              <a
+                href="/initiatives#technology"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block py-1.5 px-2 text-stone-600 hover:text-[#1b2b25] hover:bg-white rounded-lg transition"
+              >
+                Parivattan Technology School
+              </a>
             </div>
-            <a href="/story" onClick={() => setMobileMenuOpen(false)} className="text-lg sm:text-xl py-3 px-4 text-slate-700 hover:text-[#b5623b] rounded-xl transition-all font-medium">Our story</a>
-            <a href="/blogs" onClick={() => setMobileMenuOpen(false)} className="text-lg sm:text-xl py-3 px-4 text-slate-700 hover:text-[#b5623b] rounded-xl transition-all font-medium">Blogs</a>
-            <a href="/admissions" onClick={() => setMobileMenuOpen(false)} className="text-lg sm:text-xl py-3 px-4 text-slate-700 hover:text-[#b5623b] rounded-xl transition-all font-medium">Admissions</a>
+
             <a
-              href="/donate" 
-              onClick={handleDonatePageClick}
-              className="text-lg sm:text-xl py-3 px-4 text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all font-medium"
+              href="/story"
+              onClick={() => setMobileMenuOpen(false)}
+              className="py-2.5 px-3.5 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition"
             >
-              Donation
+              Our Story
             </a>
+
+            <a
+              href="/blogs"
+              onClick={() => setMobileMenuOpen(false)}
+              className="py-2.5 px-3.5 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition"
+            >
+              Blogs & Updates
+            </a>
+
             <Link
               to="/contact"
               onClick={() => setMobileMenuOpen(false)}
-              className="text-lg sm:text-xl py-3 px-4 text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all font-medium"
+              className="py-2.5 px-3.5 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition"
             >
-              Contact
+              Contact Us
             </Link>
-            <a
-              href="/donate"
-              onClick={handleDonatePageClick}
-              className="mt-4 py-4 px-6 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl text-center hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg"
-            >
-              Donate Now
-            </a>
           </nav>
         </div>
       </div>

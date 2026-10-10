@@ -67,7 +67,7 @@ export default function CourseDetailPage() {
   }, [courseId]);
 
   return (
-    <div className="min-h-screen bg-[#fbfaf7] text-[#24312d]">
+    <div className="min-h-screen bg-white text-[#24312d]">
       <Header />
 
       <main className="pt-28 md:pt-36 pb-20">

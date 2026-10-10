@@ -34,6 +34,7 @@ import { toast } from "sonner";
 import { StudentUser, StudentAdmissionRecord } from "@/types/student";
 import { COURSES_DATA } from "@/data/coursesData";
 import { logoutStudent } from "@/lib/student-auth";
+import { printElement } from "@/lib/printUtils";
 
 interface StudentDashboardViewProps {
   student: StudentUser;
@@ -62,7 +63,10 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
   };
 
   const handlePrintIdCard = () => {
-    window.print();
+    printElement(
+      "printable-student-id-card",
+      `Student ID Card - ${student.name} (${student.prn})`
+    );
   };
 
   // Helper to find course syllabus/details from COURSES_DATA
@@ -448,7 +452,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
           </div>
 
           {/* Printable Identity Card Design */}
-          <div className="max-w-md mx-auto rounded-3xl border-2 border-[#24312d] bg-white p-6 shadow-xl relative overflow-hidden text-[#24312d]">
+          <div id="printable-student-id-card" className="max-w-md mx-auto rounded-3xl border-2 border-[#24312d] bg-white p-6 shadow-xl relative overflow-hidden text-[#24312d]">
             {/* Card Header Strip */}
             <div className="bg-[#24312d] text-white -mx-6 -mt-6 p-4 text-center border-b-2 border-[#b5623b]">
               <div className="flex items-center justify-between px-2">

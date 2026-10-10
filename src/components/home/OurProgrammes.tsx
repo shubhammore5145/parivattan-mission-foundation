@@ -41,22 +41,6 @@ const PROGRAMMES: Programme[] = [
     link: "/initiatives#languages",
   },
   {
-    id: "women-empowerment",
-    title: "WOMEN EMPOWERMENT",
-    description: "Empowering adolescent girls & women through higher education and community leadership.",
-    initiatives: [
-      "Savitribai Phule Higher Ed Fund",
-      "Girls Hostel & Tuition Grants",
-      "Financial Literacy Circles",
-    ],
-    icon: Award,
-    blobColor: "bg-[#ccfbf1]",
-    iconColor: "#0f766e",
-    textColor: "text-[#0f766e]",
-    tagColor: "bg-teal-50 text-teal-800 border-teal-200",
-    link: "/initiatives",
-  },
-  {
     id: "livelihood",
     title: "LIVELIHOOD",
     description: "Skill training, practical coding bootcamps, and career placement for youth.",
@@ -105,18 +89,18 @@ export default function OurProgrammes() {
           </h2>
 
           <p className="mt-4 text-sm sm:text-base text-[#65706a] leading-relaxed">
-            Focused on grassroots impact across quality education, foreign language mastery, women empowerment, and youth livelihoods.
+            Focused on grassroots impact across quality education, foreign language mastery, and youth livelihoods.
           </p>
         </div>
 
-        {/* 4 Programmes Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* 3 Programmes Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {PROGRAMMES.map((item) => {
             const Icon = item.icon;
             return (
               <div
                 key={item.id}
-                className="group relative rounded-3xl border border-[#e2e5dc] bg-[#fbfaf7] p-6 sm:p-7 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:bg-white flex flex-col justify-between"
+                className="group relative rounded-3xl border border-[#e2e5dc] bg-white p-6 sm:p-7 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl flex flex-col justify-between"
               >
                 <div>
                   {/* Organic Fluid Shape Container for Icon */}
@@ -134,9 +118,6 @@ export default function OurProgrammes() {
                       >
                         {item.title}
                       </h3>
-                      <span className="text-[10px] text-[#65706a] uppercase font-bold tracking-wider">
-                        Active Grassroots Mission
-                      </span>
                     </div>
                   </div>
 

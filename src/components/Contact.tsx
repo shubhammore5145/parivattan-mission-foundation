@@ -93,7 +93,7 @@ const Contact: React.FC = () => {
   return (
     <section
       id="contact"
-      className="py-20 md:py-28 bg-[#fbfaf7] text-[#24312d] relative overflow-hidden"
+      className="py-20 md:py-28 bg-white text-[#24312d] relative overflow-hidden"
     >
       {/* Decorative ambient background glows */}
       <div className="absolute top-0 left-0 w-80 h-80 bg-amber-100/40 rounded-full blur-3xl pointer-events-none" />

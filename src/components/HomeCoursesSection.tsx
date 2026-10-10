@@ -154,7 +154,7 @@ export default function HomeCoursesSection() {
   return (
     <section
       id="courses"
-      className="relative overflow-hidden bg-gradient-to-b from-[#fbfaf7] via-white to-[#fbfaf7] border-t border-[#e2e5dc] py-20 sm:py-28"
+      className="relative overflow-hidden bg-white border-t border-[#e2e5dc] py-20 sm:py-28"
     >
       {/* Decorative ambient background blur orbs */}
       <div

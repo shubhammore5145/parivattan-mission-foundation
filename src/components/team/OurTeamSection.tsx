@@ -54,15 +54,7 @@ export default function OurTeamSection() {
   };
 
   return (
-    <section id="team" className="relative py-16 md:py-24 bg-[#fbfaf7] text-[#24312d] overflow-hidden">
-      {/* Background Decorative Grid */}
-      <div 
-        className="absolute inset-0 opacity-[0.03] pointer-events-none"
-        style={{
-          backgroundImage: "radial-gradient(#24312d 1px, transparent 1px)",
-          backgroundSize: "24px 24px"
-        }}
-      />
+    <section id="team" className="relative py-16 md:py-24 bg-white text-[#24312d] overflow-hidden">
 
       <div className="container relative z-10 mx-auto px-4 sm:px-6 max-w-7xl">
         {/* Section Header */}

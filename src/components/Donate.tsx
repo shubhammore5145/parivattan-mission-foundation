@@ -67,7 +67,7 @@ const Donate: React.FC = () => {
   );
 
   return (
-    <section id="donate" className="py-20 md:py-28 bg-gradient-to-b from-[#fbfaf7] via-[#f7f3ed] to-[#fbfaf7] relative overflow-hidden">
+    <section id="donate" className="py-20 md:py-28 bg-white relative overflow-hidden">
       {/* Decorative ambient background glows */}
       <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[800px] h-[350px] bg-gradient-to-r from-amber-200/30 via-orange-100/40 to-emerald-100/30 blur-3xl pointer-events-none rounded-full" />
       <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-[#b5623b]/10 blur-3xl rounded-full pointer-events-none" />

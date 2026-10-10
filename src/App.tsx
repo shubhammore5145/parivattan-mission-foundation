@@ -19,6 +19,7 @@ import RulesPage from "./pages/RulesPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import ContactPage from "./pages/ContactPage";
 import StudentPortalPage from "./pages/StudentPortalPage";
+import ScrollToTop from "@/components/common/ScrollToTop";
 
 const App = () => (
   <TooltipProvider>
@@ -26,6 +27,7 @@ const App = () => (
     <Sonner />
     <LiveVisitorsProvider>
       <BrowserRouter>
+        <ScrollToTop />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/admissions" element={<AdmissionsPage />} />
