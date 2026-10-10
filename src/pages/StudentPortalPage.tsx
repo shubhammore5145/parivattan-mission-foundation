@@ -21,6 +21,7 @@ import {
   getStudentApplications,
   findStudentByPrnOrIdentifier,
   logoutStudent,
+  checkGoogleRedirectResult,
 } from "@/lib/student-auth";
 import { StudentAuthCard } from "@/components/student/StudentAuthCard";
 import { AdmissionReceiptView } from "@/components/student/AdmissionReceiptView";
@@ -69,9 +70,19 @@ export default function StudentPortalPage() {
       setStudentApplications(apps);
       setActiveTab("dashboard");
     } else {
-      setCurrentStudentState(null);
-      setStudentApplications([]);
-      setActiveTab("auth");
+      // Check if user just redirected back from Google sign-in
+      checkGoogleRedirectResult().then((redirectedStudent) => {
+        if (redirectedStudent) {
+          setCurrentStudentState(redirectedStudent);
+          setStudentApplications(getStudentApplications(redirectedStudent.id));
+          setActiveTab("dashboard");
+          toast.success(`Welcome, ${redirectedStudent.name}! Signed in with Google.`);
+        } else {
+          setCurrentStudentState(null);
+          setStudentApplications([]);
+          setActiveTab("auth");
+        }
+      });
     }
   }, [searchParams]);
 

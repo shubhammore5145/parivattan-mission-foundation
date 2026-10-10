@@ -13,6 +13,7 @@ import {
   Check,
   Eye,
   EyeOff,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { StudentUser } from "@/types/student";
@@ -21,6 +22,7 @@ import {
   registerStudent,
   setCurrentStudent,
   loginWithGoogle,
+  loginWithGoogleRedirect,
   sendStudentPasswordReset,
 } from "@/lib/student-auth";
 
@@ -37,6 +39,7 @@ export const StudentAuthCard: React.FC<StudentAuthCardProps> = ({
 }) => {
   const [mode, setMode] = useState<"login" | "register">(initialMode);
   const [loading, setLoading] = useState(false);
+  const [popupBlocked, setPopupBlocked] = useState(false);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [showRegConfirmPassword, setShowRegConfirmPassword] = useState(false);
@@ -149,24 +152,51 @@ export const StudentAuthCard: React.FC<StudentAuthCardProps> = ({
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
+    setPopupBlocked(false);
     try {
       const student = await loginWithGoogle();
-      toast.success(`Welcome, ${student.name}! Signed in with Google.`);
-      onSuccess(student);
+      if (student) {
+        toast.success(`Welcome, ${student.name}! Signed in with Google.`);
+        onSuccess(student);
+      }
     } catch (err: any) {
-      const msg = err?.message || "Google sign-in could not be completed.";
-      toast.error(msg, { duration: 6000 });
-      if (msg.includes("Firebase Console")) {
-        const inputMail = window.prompt(
-          "Google provider is pending activation in your Firebase Console.\nEnter your email address to quickly continue as student:"
-        );
-        if (inputMail && inputMail.includes("@")) {
-          setLoginId(inputMail.trim());
-          setRegEmail(inputMail.trim());
-          toast.info("Email prefilled! Enter your password to complete login or registration.");
+      console.warn("handleGoogleSignIn caught:", err);
+      const isPopupBlocked =
+        err?.code === "auth/popup-blocked" ||
+        (err?.message && (
+          err.message.toLowerCase().includes("popup-blocked") ||
+          err.message.includes("पॉप-अप") ||
+          err.message.includes("Pop-up")
+        ));
+
+      if (isPopupBlocked) {
+        setPopupBlocked(true);
+        toast.error("Browser ने Pop-up ब्लॉक केला आहे! कृपया ॲड्रेस बारमध्ये 'Always allow' करा किंवा खालील बटणावर क्लिक करा.", { duration: 8000 });
+      } else {
+        const msg = err?.message || "Google sign-in could not be completed.";
+        toast.error(msg, { duration: 6000 });
+        if (msg.includes("Firebase Console")) {
+          const inputMail = window.prompt(
+            "Google provider is pending activation in your Firebase Console.\nEnter your email address to quickly continue as student:"
+          );
+          if (inputMail && inputMail.includes("@")) {
+            setLoginId(inputMail.trim());
+            setRegEmail(inputMail.trim());
+            toast.info("Email prefilled! Enter your password to complete login or registration.");
+          }
         }
       }
     } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDirectRedirectSignIn = async () => {
+    setLoading(true);
+    try {
+      await loginWithGoogleRedirect();
+    } catch (err: any) {
+      toast.error(err?.message || "Could not redirect to Google Sign-In.");
       setLoading(false);
     }
   };
@@ -399,6 +429,31 @@ export const StudentAuthCard: React.FC<StudentAuthCardProps> = ({
               <span>Sign in with Google</span>
             </button>
 
+            {/* Popup Blocked Warning & Redirect Fallback */}
+            {popupBlocked && (
+              <div className="rounded-lg bg-amber-500/15 border border-amber-500/40 p-3 my-2 text-xs text-amber-100 space-y-2">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold text-amber-300">Browser ने Google Login Pop-up ब्लॉक केला आहे</p>
+                    <p className="text-[11px] text-amber-100/90 mt-0.5">
+                      Chrome / Edge च्या ॲड्रेस बारच्या (URL bar) उजव्या कोपऱ्यात <strong>पॉप-अप ब्लॉक आयकॉनवर</strong> क्लिक करून <strong>"Always allow pop-ups"</strong> निवडा.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleDirectRedirectSignIn}
+                    className="w-full rounded bg-[#b5623b] hover:bg-[#954b2c] text-white py-1.5 px-3 font-semibold text-center cursor-pointer transition text-xs flex items-center justify-center gap-1.5"
+                  >
+                    <span>Sign in with Full Redirect (No Pop-up)</span>
+                    <ArrowRight size={13} />
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Footer Links: Forgot Password & Register */}
             <div className="flex items-center justify-between text-xs pt-1 text-[#cbd5d0]">
               <button
@@ -571,6 +626,31 @@ export const StudentAuthCard: React.FC<StudentAuthCardProps> = ({
               </svg>
               <span>Continue with Google</span>
             </button>
+
+            {/* Popup Blocked Warning & Redirect Fallback */}
+            {popupBlocked && (
+              <div className="rounded-lg bg-amber-500/15 border border-amber-500/40 p-3 my-2 text-xs text-amber-100 space-y-2">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold text-amber-300">Browser ने Google Login Pop-up ब्लॉक केला आहे</p>
+                    <p className="text-[11px] text-amber-100/90 mt-0.5">
+                      Chrome / Edge च्या ॲड्रेस बारच्या (URL bar) उजव्या कोपऱ्यात <strong>पॉप-अप ब्लॉक आयकॉनवर</strong> क्लिक करून <strong>"Always allow pop-ups"</strong> निवडा.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleDirectRedirectSignIn}
+                    className="w-full rounded bg-[#b5623b] hover:bg-[#954b2c] text-white py-1.5 px-3 font-semibold text-center cursor-pointer transition text-xs flex items-center justify-center gap-1.5"
+                  >
+                    <span>Register with Full Redirect (No Pop-up)</span>
+                    <ArrowRight size={13} />
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="text-center pt-1 text-xs text-[#cbd5d0]">
               <button

@@ -9,6 +9,8 @@ import {
   updateProfile,
   sendPasswordResetEmail,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
 } from "@/lib/firebase";
 
 const CURRENT_STUDENT_KEY = "parivattan_current_student";
@@ -214,39 +216,98 @@ export const loginStudent = async (
   }
 };
 
-// Google 1-Click Sign-In via Firebase
-export const loginWithGoogle = async (): Promise<StudentUser> => {
+// Helper to transform Firebase user to StudentUser
+const processFirebaseUserToStudent = (fbUser: any): StudentUser => {
+  const allStudents = getAllRegisteredStudents();
+  const existingLocal = allStudents.find(
+    (s) => s.email.toLowerCase() === fbUser.email?.toLowerCase()
+  );
+
+  const student: StudentUser = {
+    id: `std_${fbUser.uid}`,
+    firebaseUid: fbUser.uid,
+    prn: existingLocal?.prn || generateStudentPRN(),
+    name: fbUser.displayName || existingLocal?.name || "Student",
+    email: fbUser.email || "",
+    phone: existingLocal?.phone || "",
+    city: existingLocal?.city || "Pune",
+    state: existingLocal?.state || "Maharashtra",
+    avatar: fbUser.photoURL || existingLocal?.avatar || undefined,
+    registeredAt: existingLocal?.registeredAt || new Date().toISOString(),
+  };
+
+  const updated = [
+    student,
+    ...allStudents.filter((s) => s.email.toLowerCase() !== student.email.toLowerCase()),
+  ];
+  try {
+    localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(updated));
+  } catch (e) {
+    console.warn("Storage warning:", e);
+  }
+  setCurrentStudent(student);
+  return student;
+};
+
+// Check if student returned from Google full-page redirect
+export const checkGoogleRedirectResult = async (): Promise<StudentUser | null> => {
+  try {
+    const result = await getRedirectResult(auth);
+    if (!result?.user) return null;
+    return processFirebaseUserToStudent(result.user);
+  } catch (err: any) {
+    console.warn("getRedirectResult check:", err?.code || err?.message);
+    return null;
+  }
+};
+
+// Direct full-page redirect login (immune to popup blockers)
+export const loginWithGoogleRedirect = async (): Promise<void> => {
+  try {
+    await signInWithRedirect(auth, googleProvider);
+  } catch (err: any) {
+    console.warn("Google signInWithRedirect error:", err);
+    if (err?.code === "auth/operation-not-allowed" || err?.code === "auth/unauthorized-domain") {
+      throw new Error(
+        "Google Sign-In is not enabled yet in your Firebase Console. Please enable Google provider in Firebase Console, or sign in using Email & Password / PRN below."
+      );
+    }
+    throw new Error(err?.message || "Could not redirect to Google Sign-In.");
+  }
+};
+
+// Google 1-Click Sign-In via Firebase (with automatic popup-blocked fallback)
+export const loginWithGoogle = async (): Promise<StudentUser | null> => {
   try {
     const result = await signInWithPopup(auth, googleProvider);
-    const fbUser = result.user;
-    const allStudents = getAllRegisteredStudents();
-    const existingLocal = allStudents.find(s => s.email.toLowerCase() === fbUser.email?.toLowerCase());
-
-    const student: StudentUser = {
-      id: `std_${fbUser.uid}`,
-      firebaseUid: fbUser.uid,
-      prn: existingLocal?.prn || generateStudentPRN(),
-      name: fbUser.displayName || existingLocal?.name || "Student",
-      email: fbUser.email || "",
-      phone: existingLocal?.phone || "",
-      city: existingLocal?.city || "Pune",
-      state: existingLocal?.state || "Maharashtra",
-      avatar: fbUser.photoURL || existingLocal?.avatar || undefined,
-      registeredAt: existingLocal?.registeredAt || new Date().toISOString(),
-    };
-
-    const updated = [student, ...allStudents.filter(s => s.email.toLowerCase() !== student.email.toLowerCase())];
-    localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(updated));
-    setCurrentStudent(student);
-
-    return student;
+    return processFirebaseUserToStudent(result.user);
   } catch (err: any) {
     console.warn("Google signIn error:", err);
+
+    // If browser blocked popup, seamlessly attempt full-page redirect
+    if (
+      err?.code === "auth/popup-blocked" ||
+      (err?.message && err.message.toLowerCase().includes("popup-blocked"))
+    ) {
+      console.info("Popup blocked by browser. Initiating full-page redirect fallback...");
+      try {
+        await signInWithRedirect(auth, googleProvider);
+        return null;
+      } catch (redirectErr: any) {
+        console.warn("Redirect fallback also failed:", redirectErr);
+        throw new Error(
+          "Browser ने Google Sign-In पॉप-अप ब्लॉक केला आहे. कृपया ॲड्रेस बारमधील (URL bar) पॉप-अप चिन्हावर क्लिक करून 'Always allow' निवडा, किंवा खाली Email आणि Password ने थेट लॉगिन करा."
+        );
+      }
+    }
+
     if (err?.code === "auth/popup-closed-by-user") {
       throw new Error("Google sign-in popup was closed. Please try again or sign in with Email/PRN.");
     }
     if (err?.code === "auth/operation-not-allowed" || err?.code === "auth/unauthorized-domain") {
-      throw new Error("Google Sign-In is not enabled yet in your Firebase Console. Please enable Google provider in Firebase Console, or sign in using Email & Password / PRN below.");
+      throw new Error(
+        "Google Sign-In is not enabled yet in your Firebase Console. Please enable Google provider in Firebase Console, or sign in using Email & Password / PRN below."
+      );
     }
     throw new Error(err?.message || "Google sign-in could not be completed.");
   }
