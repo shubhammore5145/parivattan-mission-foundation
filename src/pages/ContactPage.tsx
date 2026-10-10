@@ -334,14 +334,6 @@ export default function ContactPage() {
                             +91 7820831901
                           </a>
                         </p>
-                        <p>
-                          <a
-                            href="tel:+918767674251"
-                            className="text-stone-300 hover:text-white text-base font-semibold transition-colors"
-                          >
-                            +91 8767674251 (Helpline)
-                          </a>
-                        </p>
                       </div>
                       <div className="w-full h-px bg-white/15 my-5" />
                     </div>

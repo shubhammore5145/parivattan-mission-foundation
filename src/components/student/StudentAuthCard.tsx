@@ -154,8 +154,17 @@ export const StudentAuthCard: React.FC<StudentAuthCardProps> = ({
       toast.success(`Welcome, ${student.name}! Signed in with Google.`);
       onSuccess(student);
     } catch (err: any) {
-      if (err?.code !== "auth/popup-closed-by-user") {
-        toast.error(err?.message || "Google sign-in could not be completed.");
+      const msg = err?.message || "Google sign-in could not be completed.";
+      toast.error(msg, { duration: 6000 });
+      if (msg.includes("Firebase Console")) {
+        const inputMail = window.prompt(
+          "Google provider is pending activation in your Firebase Console.\nEnter your email address to quickly continue as student:"
+        );
+        if (inputMail && inputMail.includes("@")) {
+          setLoginId(inputMail.trim());
+          setRegEmail(inputMail.trim());
+          toast.info("Email prefilled! Enter your password to complete login or registration.");
+        }
       }
     } finally {
       setLoading(false);

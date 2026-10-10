@@ -9,12 +9,12 @@ import ClassroomVideos from "../components/home/ClassroomVideos";
 import WhyChooseUs from "../components/home/WhyChooseUs";
 import OurTeamSection from "../components/team/OurTeamSection";
 import HowItWorks from "../components/home/HowItWorks";
-import Testimonials from "../components/Testimonials";
 import HomeFaq from "../components/home/HomeFaq";
 import Donate from "../components/Donate";
 import Contact from "../components/Contact";
 import Footer from "../components/Footer";
 import { logVisitor } from "@/lib/supabase-admin";
+import { SiteEntranceLoader } from "@/components/common/SiteEntranceLoader";
 
 const Index = () => {
   useEffect(() => {
@@ -57,6 +57,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen overflow-hidden bg-[#fbfaf7]">
+      <SiteEntranceLoader />
       <Header />
       <Hero />
       <OurImpact />
@@ -67,7 +68,6 @@ const Index = () => {
       <WhyChooseUs />
       <OurTeamSection />
       <HowItWorks />
-      <Testimonials />
       <HomeFaq />
       <Donate />
       <Contact />

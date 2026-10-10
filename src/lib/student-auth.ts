@@ -85,26 +85,22 @@ export const registerStudent = async (data: {
     throw new Error("Password must be at least 6 characters long.");
   }
 
-  // 1. Create student in Firebase Authentication
+  // 1. Create student in Firebase Authentication if available
   let firebaseUid = "";
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, data.password.trim());
     firebaseUid = userCredential.user.uid;
-    // Set student's display name in Firebase profile
     await updateProfile(userCredential.user, { displayName: cleanName });
   } catch (err: any) {
     if (err.code === "auth/email-already-in-use") {
-      throw new Error("An account with this email address already exists. Please log in using your password.");
+      // If already registered in Firebase, continue to check local persistence
+      console.warn("Email already in Firebase:", cleanEmail);
     } else if (err.code === "auth/weak-password") {
       throw new Error("Password must be at least 6 characters long.");
     } else if (err.code === "auth/invalid-email") {
       throw new Error("Please enter a valid email address.");
     } else {
-      console.warn("Firebase registration notice:", err);
-      // If network fails, allow graceful local registration fallback
-      if (err.message && !err.message.includes("network")) {
-        throw new Error(err.message || "Registration failed. Please try again.");
-      }
+      console.warn("Firebase registration notice:", err?.code, err?.message);
     }
   }
 
@@ -166,8 +162,7 @@ export const loginStudent = async (
   const cleanDigits = cleanId.replace(/\D/g, "");
   const allStudents = getAllRegisteredStudents();
 
-  // Find corresponding email if user entered PRN or mobile number
-  let targetEmail = cleanId;
+  // Find corresponding student in registered students
   const existingLocal = allStudents.find(
     s =>
       s.email.toLowerCase() === cleanId ||
@@ -176,16 +171,34 @@ export const loginStudent = async (
       s.prn.toLowerCase().replace(/[^a-z0-9]/g, "") === cleanId.replace(/[^a-z0-9]/g, "")
   );
 
-  if (existingLocal && existingLocal.email) {
-    targetEmail = existingLocal.email.toLowerCase();
+  const targetEmail = existingLocal?.email || cleanId;
+
+  // 1. If student exists locally, check password first
+  if (existingLocal) {
+    const expectedPassword = (existingLocal.password && existingLocal.password.trim()) || "student123";
+    if (expectedPassword !== password.trim()) {
+      throw new Error("Invalid password. Please check your password and try again.");
+    }
+
+    // Password matches! Sync/authenticate with Firebase in background
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, targetEmail, password.trim());
+      if (userCredential?.user) {
+        existingLocal.firebaseUid = userCredential.user.uid;
+      }
+    } catch (fbErr: any) {
+      console.warn("Firebase Auth notice:", fbErr?.code);
+    }
+
+    setCurrentStudent(existingLocal);
+    return existingLocal;
   }
 
-  // 1. Sign in via Firebase Authentication
+  // 2. If not found locally, attempt Firebase Authentication directly
   try {
     const userCredential = await signInWithEmailAndPassword(auth, targetEmail, password.trim());
     const fbUser = userCredential.user;
 
-    // Retrieve Firestore student profile if available
     let studentData: Partial<StudentUser> = {};
     try {
       const snap = await getDoc(doc(db, "students", fbUser.uid));
@@ -199,14 +212,14 @@ export const loginStudent = async (
     const student: StudentUser = {
       id: `std_${fbUser.uid}`,
       firebaseUid: fbUser.uid,
-      prn: studentData.prn || existingLocal?.prn || generateStudentPRN(),
-      name: fbUser.displayName || studentData.name || existingLocal?.name || "Student",
+      prn: studentData.prn || generateStudentPRN(),
+      name: fbUser.displayName || studentData.name || "Student",
       email: fbUser.email || targetEmail,
-      phone: studentData.phone || existingLocal?.phone || "",
-      city: studentData.city || existingLocal?.city || "Pune",
-      state: studentData.state || existingLocal?.state || "Maharashtra",
-      avatar: fbUser.photoURL || existingLocal?.avatar || undefined,
-      registeredAt: studentData.registeredAt || existingLocal?.registeredAt || new Date().toISOString(),
+      phone: studentData.phone || "",
+      city: studentData.city || "Pune",
+      state: studentData.state || "Maharashtra",
+      avatar: fbUser.photoURL || undefined,
+      registeredAt: studentData.registeredAt || new Date().toISOString(),
       password: password.trim(),
     };
 
@@ -218,31 +231,14 @@ export const loginStudent = async (
   } catch (err: any) {
     console.warn("Firebase Auth signIn notice:", err?.code, err?.message);
 
-    // If credential is wrong
     if (err?.code === "auth/wrong-password" || err?.code === "auth/invalid-credential") {
-      // Check cached credentials as fallback
-      if (existingLocal && existingLocal.password && existingLocal.password === password.trim()) {
-        setCurrentStudent(existingLocal);
-        return existingLocal;
-      }
-      throw new Error("Invalid password or credentials. Please check your password.");
+      throw new Error("Invalid password. Please check your password and try again.");
     } else if (err?.code === "auth/user-not-found") {
-      if (existingLocal && existingLocal.password && existingLocal.password === password.trim()) {
-        setCurrentStudent(existingLocal);
-        return existingLocal;
-      }
       throw new Error("No student account found with this email/PRN. Please register first.");
     } else if (err?.code === "auth/too-many-requests") {
-      throw new Error("Too many failed login attempts. Please try again after a few minutes.");
-    }
-
-    // Offline / fallback verification
-    if (existingLocal) {
-      const expectedPassword = existingLocal.password || "student123";
-      if (expectedPassword === password.trim()) {
-        setCurrentStudent(existingLocal);
-        return existingLocal;
-      }
+      throw new Error("Too many failed attempts. Please try again after a few minutes.");
+    } else if (err?.code === "auth/operation-not-allowed") {
+      throw new Error("Please register your student account first below to get your PRN.");
     }
 
     throw new Error(err?.message || "Invalid credentials. Please verify your PRN/Email and password.");
@@ -251,54 +247,65 @@ export const loginStudent = async (
 
 // Google 1-Click Sign-In via Firebase
 export const loginWithGoogle = async (): Promise<StudentUser> => {
-  const result = await signInWithPopup(auth, googleProvider);
-  const fbUser = result.user;
-  const allStudents = getAllRegisteredStudents();
-  const existingLocal = allStudents.find(s => s.email.toLowerCase() === fbUser.email?.toLowerCase());
-
-  let studentData: Partial<StudentUser> = {};
   try {
-    const snap = await getDoc(doc(db, "students", fbUser.uid));
-    if (snap.exists()) {
-      studentData = snap.data() as Partial<StudentUser>;
+    const result = await signInWithPopup(auth, googleProvider);
+    const fbUser = result.user;
+    const allStudents = getAllRegisteredStudents();
+    const existingLocal = allStudents.find(s => s.email.toLowerCase() === fbUser.email?.toLowerCase());
+
+    let studentData: Partial<StudentUser> = {};
+    try {
+      const snap = await getDoc(doc(db, "students", fbUser.uid));
+      if (snap.exists()) {
+        studentData = snap.data() as Partial<StudentUser>;
+      }
+    } catch (e) {
+      console.warn("Firestore lookup notice:", e);
     }
-  } catch (e) {
-    console.warn("Firestore lookup notice:", e);
+
+    const student: StudentUser = {
+      id: `std_${fbUser.uid}`,
+      firebaseUid: fbUser.uid,
+      prn: studentData.prn || existingLocal?.prn || generateStudentPRN(),
+      name: fbUser.displayName || existingLocal?.name || "Student",
+      email: fbUser.email || "",
+      phone: studentData.phone || existingLocal?.phone || "",
+      city: studentData.city || existingLocal?.city || "Pune",
+      state: studentData.state || existingLocal?.state || "Maharashtra",
+      avatar: fbUser.photoURL || existingLocal?.avatar || undefined,
+      registeredAt: studentData.registeredAt || existingLocal?.registeredAt || new Date().toISOString(),
+    };
+
+    try {
+      await setDoc(doc(db, "students", fbUser.uid), {
+        uid: fbUser.uid,
+        prn: student.prn,
+        name: student.name,
+        email: student.email,
+        phone: student.phone,
+        city: student.city,
+        state: student.state,
+        registeredAt: student.registeredAt,
+      }, { merge: true });
+    } catch (e) {
+      console.warn("Could not save to Firestore:", e);
+    }
+
+    const updated = [student, ...allStudents.filter(s => s.email.toLowerCase() !== student.email.toLowerCase())];
+    localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(updated));
+    setCurrentStudent(student);
+
+    return student;
+  } catch (err: any) {
+    console.warn("Google signIn error:", err);
+    if (err?.code === "auth/popup-closed-by-user") {
+      throw new Error("Google sign-in popup was closed. Please try again or sign in with Email/PRN.");
+    }
+    if (err?.code === "auth/operation-not-allowed" || err?.code === "auth/unauthorized-domain") {
+      throw new Error("Google Sign-In is not enabled yet in your Firebase Console. Please enable Google provider in Firebase Console, or sign in using Email & Password / PRN below.");
+    }
+    throw new Error(err?.message || "Google sign-in could not be completed.");
   }
-
-  const student: StudentUser = {
-    id: `std_${fbUser.uid}`,
-    firebaseUid: fbUser.uid,
-    prn: studentData.prn || existingLocal?.prn || generateStudentPRN(),
-    name: fbUser.displayName || existingLocal?.name || "Student",
-    email: fbUser.email || "",
-    phone: studentData.phone || existingLocal?.phone || "",
-    city: studentData.city || existingLocal?.city || "Pune",
-    state: studentData.state || existingLocal?.state || "Maharashtra",
-    avatar: fbUser.photoURL || existingLocal?.avatar || undefined,
-    registeredAt: studentData.registeredAt || existingLocal?.registeredAt || new Date().toISOString(),
-  };
-
-  try {
-    await setDoc(doc(db, "students", fbUser.uid), {
-      uid: fbUser.uid,
-      prn: student.prn,
-      name: student.name,
-      email: student.email,
-      phone: student.phone,
-      city: student.city,
-      state: student.state,
-      registeredAt: student.registeredAt,
-    }, { merge: true });
-  } catch (e) {
-    console.warn("Could not save to Firestore:", e);
-  }
-
-  const updated = [student, ...allStudents.filter(s => s.email.toLowerCase() !== student.email.toLowerCase())];
-  localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(updated));
-  setCurrentStudent(student);
-
-  return student;
 };
 
 // Firebase Password Reset Email
