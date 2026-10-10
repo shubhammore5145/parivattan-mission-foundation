@@ -2,7 +2,6 @@ import { StudentUser, StudentAdmissionRecord } from "@/types/student";
 import { createAdmission } from "@/lib/supabase-admin";
 import {
   auth,
-  db,
   googleProvider,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -11,7 +10,6 @@ import {
   sendPasswordResetEmail,
   signInWithPopup,
 } from "@/lib/firebase";
-import { doc, setDoc, getDoc } from "firebase/firestore";
 
 const CURRENT_STUDENT_KEY = "parivattan_current_student";
 const ALL_STUDENTS_KEY = "parivattan_registered_students";
@@ -85,22 +83,21 @@ export const registerStudent = async (data: {
     throw new Error("Password must be at least 6 characters long.");
   }
 
-  // 1. Create student in Firebase Authentication if available
+  // 1. Create student in Firebase Authentication
   let firebaseUid = "";
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, data.password.trim());
     firebaseUid = userCredential.user.uid;
     await updateProfile(userCredential.user, { displayName: cleanName });
   } catch (err: any) {
-    if (err.code === "auth/email-already-in-use") {
-      // If already registered in Firebase, continue to check local persistence
-      console.warn("Email already in Firebase:", cleanEmail);
-    } else if (err.code === "auth/weak-password") {
+    if (err?.code === "auth/email-already-in-use") {
+      throw new Error("An account with this email address already exists. Please log in using your password.");
+    } else if (err?.code === "auth/weak-password") {
       throw new Error("Password must be at least 6 characters long.");
-    } else if (err.code === "auth/invalid-email") {
+    } else if (err?.code === "auth/invalid-email") {
       throw new Error("Please enter a valid email address.");
     } else {
-      console.warn("Firebase registration notice:", err?.code, err?.message);
+      console.warn("Firebase Auth registration notice:", err?.code, err?.message);
     }
   }
 
@@ -119,25 +116,7 @@ export const registerStudent = async (data: {
     registeredAt: new Date().toISOString(),
   };
 
-  // 3. Save student in Firestore if UID is present
-  if (firebaseUid) {
-    try {
-      await setDoc(doc(db, "students", firebaseUid), {
-        uid: firebaseUid,
-        prn: newStudent.prn,
-        name: newStudent.name,
-        email: newStudent.email,
-        phone: newStudent.phone,
-        city: newStudent.city,
-        state: newStudent.state,
-        registeredAt: newStudent.registeredAt,
-      }, { merge: true });
-    } catch (fsErr) {
-      console.warn("Could not write student to Firestore:", fsErr);
-    }
-  }
-
-  // 4. Update local cache
+  // 3. Update local cache immediately
   const allStudents = getAllRegisteredStudents();
   try {
     const updated = [newStudent, ...allStudents.filter(s => s.email.toLowerCase() !== cleanEmail)];
@@ -173,14 +152,14 @@ export const loginStudent = async (
 
   const targetEmail = existingLocal?.email || cleanId;
 
-  // 1. If student exists locally, check password first
+  // 1. If student exists locally, verify password
   if (existingLocal) {
     const expectedPassword = (existingLocal.password && existingLocal.password.trim()) || "student123";
     if (expectedPassword !== password.trim()) {
       throw new Error("Invalid password. Please check your password and try again.");
     }
 
-    // Password matches! Sync/authenticate with Firebase in background
+    // Password matches! Sync session with Firebase Auth in background
     try {
       const userCredential = await signInWithEmailAndPassword(auth, targetEmail, password.trim());
       if (userCredential?.user) {
@@ -194,32 +173,22 @@ export const loginStudent = async (
     return existingLocal;
   }
 
-  // 2. If not found locally, attempt Firebase Authentication directly
+  // 2. If not found locally, authenticate with Firebase Auth directly
   try {
     const userCredential = await signInWithEmailAndPassword(auth, targetEmail, password.trim());
     const fbUser = userCredential.user;
 
-    let studentData: Partial<StudentUser> = {};
-    try {
-      const snap = await getDoc(doc(db, "students", fbUser.uid));
-      if (snap.exists()) {
-        studentData = snap.data() as Partial<StudentUser>;
-      }
-    } catch (e) {
-      console.warn("Firestore lookup error:", e);
-    }
-
     const student: StudentUser = {
       id: `std_${fbUser.uid}`,
       firebaseUid: fbUser.uid,
-      prn: studentData.prn || generateStudentPRN(),
-      name: fbUser.displayName || studentData.name || "Student",
+      prn: generateStudentPRN(),
+      name: fbUser.displayName || "Student",
       email: fbUser.email || targetEmail,
-      phone: studentData.phone || "",
-      city: studentData.city || "Pune",
-      state: studentData.state || "Maharashtra",
+      phone: "",
+      city: "Pune",
+      state: "Maharashtra",
       avatar: fbUser.photoURL || undefined,
-      registeredAt: studentData.registeredAt || new Date().toISOString(),
+      registeredAt: new Date().toISOString(),
       password: password.trim(),
     };
 
@@ -253,43 +222,18 @@ export const loginWithGoogle = async (): Promise<StudentUser> => {
     const allStudents = getAllRegisteredStudents();
     const existingLocal = allStudents.find(s => s.email.toLowerCase() === fbUser.email?.toLowerCase());
 
-    let studentData: Partial<StudentUser> = {};
-    try {
-      const snap = await getDoc(doc(db, "students", fbUser.uid));
-      if (snap.exists()) {
-        studentData = snap.data() as Partial<StudentUser>;
-      }
-    } catch (e) {
-      console.warn("Firestore lookup notice:", e);
-    }
-
     const student: StudentUser = {
       id: `std_${fbUser.uid}`,
       firebaseUid: fbUser.uid,
-      prn: studentData.prn || existingLocal?.prn || generateStudentPRN(),
+      prn: existingLocal?.prn || generateStudentPRN(),
       name: fbUser.displayName || existingLocal?.name || "Student",
       email: fbUser.email || "",
-      phone: studentData.phone || existingLocal?.phone || "",
-      city: studentData.city || existingLocal?.city || "Pune",
-      state: studentData.state || existingLocal?.state || "Maharashtra",
+      phone: existingLocal?.phone || "",
+      city: existingLocal?.city || "Pune",
+      state: existingLocal?.state || "Maharashtra",
       avatar: fbUser.photoURL || existingLocal?.avatar || undefined,
-      registeredAt: studentData.registeredAt || existingLocal?.registeredAt || new Date().toISOString(),
+      registeredAt: existingLocal?.registeredAt || new Date().toISOString(),
     };
-
-    try {
-      await setDoc(doc(db, "students", fbUser.uid), {
-        uid: fbUser.uid,
-        prn: student.prn,
-        name: student.name,
-        email: student.email,
-        phone: student.phone,
-        city: student.city,
-        state: student.state,
-        registeredAt: student.registeredAt,
-      }, { merge: true });
-    } catch (e) {
-      console.warn("Could not save to Firestore:", e);
-    }
 
     const updated = [student, ...allStudents.filter(s => s.email.toLowerCase() !== student.email.toLowerCase())];
     localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(updated));
