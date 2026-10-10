@@ -6,7 +6,7 @@ import Footer from "../components/Footer";
 import { getDonationStats } from "@/lib/supabase-admin";
 import qrCode from "../assets/qr.png";
 
-const FUNDRAISING_GOAL = 2500000;
+const FUNDRAISING_GOAL = 20000000;
 
 const DonationPage = () => {
   const navigate = useNavigate();
