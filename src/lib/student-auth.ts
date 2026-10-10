@@ -1,5 +1,17 @@
 import { StudentUser, StudentAdmissionRecord } from "@/types/student";
 import { createAdmission } from "@/lib/supabase-admin";
+import {
+  auth,
+  db,
+  googleProvider,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  updateProfile,
+  sendPasswordResetEmail,
+  signInWithPopup,
+} from "@/lib/firebase";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 
 const CURRENT_STUDENT_KEY = "parivattan_current_student";
 const ALL_STUDENTS_KEY = "parivattan_registered_students";
@@ -44,7 +56,12 @@ export const setCurrentStudent = (student: StudentUser): void => {
   }
 };
 
-export const logoutStudent = (): void => {
+export const logoutStudent = async (): Promise<void> => {
+  try {
+    await signOut(auth);
+  } catch (e) {
+    console.warn("Firebase signOut error:", e);
+  }
   try {
     localStorage.removeItem(CURRENT_STUDENT_KEY);
   } catch (e) {
@@ -52,45 +69,82 @@ export const logoutStudent = (): void => {
   }
 };
 
-export const registerStudent = (data: {
+export const registerStudent = async (data: {
   name: string;
   email: string;
   phone: string;
   password: string;
   city?: string;
   state?: string;
-}): StudentUser => {
-  const allStudents = getAllRegisteredStudents();
-  
-  // Check if student with same email or phone exists
-  const cleanPhone = data.phone.replace(/\D/g, "");
-  const existing = allStudents.find(
-    s => s.email.toLowerCase() === data.email.toLowerCase().trim() ||
-         (cleanPhone.length >= 10 && s.phone.replace(/\D/g, "") === cleanPhone)
-  );
-  if (existing) {
-    throw new Error("An account with this email address or mobile number already exists. Please log in using your password.");
-  }
+}): Promise<StudentUser> => {
+  const cleanEmail = data.email.trim().toLowerCase();
+  const cleanPhone = data.phone.trim();
+  const cleanName = data.name.trim();
 
   if (!data.password || data.password.trim().length < 6) {
     throw new Error("Password must be at least 6 characters long.");
   }
 
+  // 1. Create student in Firebase Authentication
+  let firebaseUid = "";
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, data.password.trim());
+    firebaseUid = userCredential.user.uid;
+    // Set student's display name in Firebase profile
+    await updateProfile(userCredential.user, { displayName: cleanName });
+  } catch (err: any) {
+    if (err.code === "auth/email-already-in-use") {
+      throw new Error("An account with this email address already exists. Please log in using your password.");
+    } else if (err.code === "auth/weak-password") {
+      throw new Error("Password must be at least 6 characters long.");
+    } else if (err.code === "auth/invalid-email") {
+      throw new Error("Please enter a valid email address.");
+    } else {
+      console.warn("Firebase registration notice:", err);
+      // If network fails, allow graceful local registration fallback
+      if (err.message && !err.message.includes("network")) {
+        throw new Error(err.message || "Registration failed. Please try again.");
+      }
+    }
+  }
+
+  // 2. Generate student PRN and prepare profile
   const newPrn = generateStudentPRN();
   const newStudent: StudentUser = {
-    id: `std_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`,
+    id: firebaseUid ? `std_${firebaseUid}` : `std_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`,
+    firebaseUid: firebaseUid || undefined,
     prn: newPrn,
-    name: data.name.trim(),
-    email: data.email.trim().toLowerCase(),
-    phone: data.phone.trim(),
+    name: cleanName,
+    email: cleanEmail,
+    phone: cleanPhone,
     password: data.password.trim(),
     city: data.city || "Pune",
     state: data.state || "Maharashtra",
     registeredAt: new Date().toISOString(),
   };
 
+  // 3. Save student in Firestore if UID is present
+  if (firebaseUid) {
+    try {
+      await setDoc(doc(db, "students", firebaseUid), {
+        uid: firebaseUid,
+        prn: newStudent.prn,
+        name: newStudent.name,
+        email: newStudent.email,
+        phone: newStudent.phone,
+        city: newStudent.city,
+        state: newStudent.state,
+        registeredAt: newStudent.registeredAt,
+      }, { merge: true });
+    } catch (fsErr) {
+      console.warn("Could not write student to Firestore:", fsErr);
+    }
+  }
+
+  // 4. Update local cache
+  const allStudents = getAllRegisteredStudents();
   try {
-    const updated = [newStudent, ...allStudents];
+    const updated = [newStudent, ...allStudents.filter(s => s.email.toLowerCase() !== cleanEmail)];
     localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(updated));
   } catch (e) {
     console.warn("Error persisting student list:", e);
@@ -100,11 +154,10 @@ export const registerStudent = (data: {
   return newStudent;
 };
 
-export const loginStudent = (
+export const loginStudent = async (
   identifier: string,
   password?: string
-): StudentUser | null => {
-  // STRICT PASSWORD VALIDATION: Login CANNOT proceed without password!
+): Promise<StudentUser | null> => {
   if (!password || !password.trim()) {
     return null;
   }
@@ -113,8 +166,9 @@ export const loginStudent = (
   const cleanDigits = cleanId.replace(/\D/g, "");
   const allStudents = getAllRegisteredStudents();
 
-  // Find by email or phone or PRN
-  const found = allStudents.find(
+  // Find corresponding email if user entered PRN or mobile number
+  let targetEmail = cleanId;
+  const existingLocal = allStudents.find(
     s =>
       s.email.toLowerCase() === cleanId ||
       (cleanDigits.length >= 7 && s.phone.replace(/\D/g, "") === cleanDigits) ||
@@ -122,28 +176,140 @@ export const loginStudent = (
       s.prn.toLowerCase().replace(/[^a-z0-9]/g, "") === cleanId.replace(/[^a-z0-9]/g, "")
   );
 
-  if (!found) {
-    return null;
+  if (existingLocal && existingLocal.email) {
+    targetEmail = existingLocal.email.toLowerCase();
   }
 
-  const expectedPassword = (found.password && found.password.trim()) || "student123";
-  if (expectedPassword !== password.trim()) {
-    return null;
-  }
+  // 1. Sign in via Firebase Authentication
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, targetEmail, password.trim());
+    const fbUser = userCredential.user;
 
-  // If student record didn't have password, update it now
-  if (!found.password) {
-    found.password = password.trim();
+    // Retrieve Firestore student profile if available
+    let studentData: Partial<StudentUser> = {};
     try {
-      localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(allStudents));
+      const snap = await getDoc(doc(db, "students", fbUser.uid));
+      if (snap.exists()) {
+        studentData = snap.data() as Partial<StudentUser>;
+      }
     } catch (e) {
-      console.warn("Could not save password to student record:", e);
+      console.warn("Firestore lookup error:", e);
     }
+
+    const student: StudentUser = {
+      id: `std_${fbUser.uid}`,
+      firebaseUid: fbUser.uid,
+      prn: studentData.prn || existingLocal?.prn || generateStudentPRN(),
+      name: fbUser.displayName || studentData.name || existingLocal?.name || "Student",
+      email: fbUser.email || targetEmail,
+      phone: studentData.phone || existingLocal?.phone || "",
+      city: studentData.city || existingLocal?.city || "Pune",
+      state: studentData.state || existingLocal?.state || "Maharashtra",
+      avatar: fbUser.photoURL || existingLocal?.avatar || undefined,
+      registeredAt: studentData.registeredAt || existingLocal?.registeredAt || new Date().toISOString(),
+      password: password.trim(),
+    };
+
+    const updated = [student, ...allStudents.filter(s => s.email.toLowerCase() !== student.email.toLowerCase())];
+    localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(updated));
+    setCurrentStudent(student);
+
+    return student;
+  } catch (err: any) {
+    console.warn("Firebase Auth signIn notice:", err?.code, err?.message);
+
+    // If credential is wrong
+    if (err?.code === "auth/wrong-password" || err?.code === "auth/invalid-credential") {
+      // Check cached credentials as fallback
+      if (existingLocal && existingLocal.password && existingLocal.password === password.trim()) {
+        setCurrentStudent(existingLocal);
+        return existingLocal;
+      }
+      throw new Error("Invalid password or credentials. Please check your password.");
+    } else if (err?.code === "auth/user-not-found") {
+      if (existingLocal && existingLocal.password && existingLocal.password === password.trim()) {
+        setCurrentStudent(existingLocal);
+        return existingLocal;
+      }
+      throw new Error("No student account found with this email/PRN. Please register first.");
+    } else if (err?.code === "auth/too-many-requests") {
+      throw new Error("Too many failed login attempts. Please try again after a few minutes.");
+    }
+
+    // Offline / fallback verification
+    if (existingLocal) {
+      const expectedPassword = existingLocal.password || "student123";
+      if (expectedPassword === password.trim()) {
+        setCurrentStudent(existingLocal);
+        return existingLocal;
+      }
+    }
+
+    throw new Error(err?.message || "Invalid credentials. Please verify your PRN/Email and password.");
+  }
+};
+
+// Google 1-Click Sign-In via Firebase
+export const loginWithGoogle = async (): Promise<StudentUser> => {
+  const result = await signInWithPopup(auth, googleProvider);
+  const fbUser = result.user;
+  const allStudents = getAllRegisteredStudents();
+  const existingLocal = allStudents.find(s => s.email.toLowerCase() === fbUser.email?.toLowerCase());
+
+  let studentData: Partial<StudentUser> = {};
+  try {
+    const snap = await getDoc(doc(db, "students", fbUser.uid));
+    if (snap.exists()) {
+      studentData = snap.data() as Partial<StudentUser>;
+    }
+  } catch (e) {
+    console.warn("Firestore lookup notice:", e);
   }
 
-  setCurrentStudent(found);
-  return found;
+  const student: StudentUser = {
+    id: `std_${fbUser.uid}`,
+    firebaseUid: fbUser.uid,
+    prn: studentData.prn || existingLocal?.prn || generateStudentPRN(),
+    name: fbUser.displayName || existingLocal?.name || "Student",
+    email: fbUser.email || "",
+    phone: studentData.phone || existingLocal?.phone || "",
+    city: studentData.city || existingLocal?.city || "Pune",
+    state: studentData.state || existingLocal?.state || "Maharashtra",
+    avatar: fbUser.photoURL || existingLocal?.avatar || undefined,
+    registeredAt: studentData.registeredAt || existingLocal?.registeredAt || new Date().toISOString(),
+  };
+
+  try {
+    await setDoc(doc(db, "students", fbUser.uid), {
+      uid: fbUser.uid,
+      prn: student.prn,
+      name: student.name,
+      email: student.email,
+      phone: student.phone,
+      city: student.city,
+      state: student.state,
+      registeredAt: student.registeredAt,
+    }, { merge: true });
+  } catch (e) {
+    console.warn("Could not save to Firestore:", e);
+  }
+
+  const updated = [student, ...allStudents.filter(s => s.email.toLowerCase() !== student.email.toLowerCase())];
+  localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(updated));
+  setCurrentStudent(student);
+
+  return student;
 };
+
+// Firebase Password Reset Email
+export const sendStudentPasswordReset = async (email: string): Promise<void> => {
+  const cleanEmail = email.trim().toLowerCase();
+  if (!cleanEmail || !cleanEmail.includes("@")) {
+    throw new Error("Please enter a valid registered email address.");
+  }
+  await sendPasswordResetEmail(auth, cleanEmail);
+};
+
 
 export const deleteRegisteredStudent = (id: string): void => {
   try {

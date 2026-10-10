@@ -9,6 +9,7 @@ export interface StudentUser {
   state?: string;
   avatar?: string;
   registeredAt: string;
+  firebaseUid?: string;
 }
 
 export type CourseCategory = 'all' | 'technology' | 'languages' | 'overseas' | 'vocational';

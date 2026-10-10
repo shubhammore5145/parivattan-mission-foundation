@@ -114,8 +114,8 @@ export default function StudentPortalPage() {
     setActiveTab("dashboard");
   };
 
-  const handleLogout = () => {
-    logoutStudent();
+  const handleLogout = async () => {
+    await logoutStudent();
     setCurrentStudentState(null);
     setStudentApplications([]);
     setActiveTab("auth");
