@@ -56,9 +56,9 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
     name: "Japanese Language",
     flag: "🇯🇵",
     nativeName: "日本語",
-    tagline: "Master JLPT N5, N4 & N3 with certified curriculum & exam readiness",
+    tagline: "Master JLPT N5 (Basic), N4 (Medium) & N3 (Advanced) with certified curriculum & exam readiness",
     shortDesc: "Structured training in Hiragana, Katakana, Kanji, grammar and listening with refundable examination security deposit.",
-    levelsSummary: "N5, N4, N3",
+    levelsSummary: "Basic (N5), Medium (N4), Advanced (N3)",
     durationSummary: "6 – 7 Months",
     image: "/img/japanese.jpeg",
     colorScheme: {
@@ -72,7 +72,7 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
       {
         id: "japanese-n5",
         level: "N5",
-        levelShort: "N5 Level",
+        levelShort: "N5 Level (Basic)",
         proficiency: "Basic",
         duration: "6 Months",
         durationBadge: "6-Month Course",
@@ -93,7 +93,7 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
         batches: [
           {
             id: "jp-n5-morning",
-            name: "N5 – Morning Batch",
+            name: "N5 (Basic) – Morning Batch",
             days: "Monday, Wednesday & Friday",
             time: "10:00 AM – 11:30 AM",
             duration: "6 Months",
@@ -104,7 +104,7 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
           },
           {
             id: "jp-n5-evening",
-            name: "N5 – Evening Batch",
+            name: "N5 (Basic) – Evening Batch",
             days: "Monday, Wednesday & Friday",
             time: "7:00 PM – 8:30 PM",
             duration: "6 Months",
@@ -118,8 +118,8 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
       {
         id: "japanese-n4",
         level: "N4",
-        levelShort: "N4 Level",
-        proficiency: "Mid",
+        levelShort: "N4 Level (Medium)",
+        proficiency: "Medium",
         duration: "6 Months",
         durationBadge: "6-Month Course",
         courseFee: 4000,
@@ -139,7 +139,7 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
         batches: [
           {
             id: "jp-n4-evening",
-            name: "N4 – Evening Batch",
+            name: "N4 (Medium) – Evening Batch",
             days: "Tuesday, Thursday & Saturday",
             time: "7:00 PM – 8:30 PM",
             duration: "6 Months",
@@ -153,8 +153,8 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
       {
         id: "japanese-n3",
         level: "N3",
-        levelShort: "N3 Level",
-        proficiency: "Adv",
+        levelShort: "N3 Level (Advanced)",
+        proficiency: "Advanced",
         duration: "7 Months",
         durationBadge: "7-Month Course",
         courseFee: 8000,
@@ -174,7 +174,7 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
         batches: [
           {
             id: "jp-n3-regular",
-            name: "N3 – Regular Batch",
+            name: "N3 (Advanced) – Regular Batch",
             days: "Monday to Friday",
             time: "7:00 PM – 8:30 PM",
             duration: "7 Months",

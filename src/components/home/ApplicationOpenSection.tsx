@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Sparkles,
@@ -33,7 +33,7 @@ const languages: LanguageItem[] = [
     name: "JAPANESE",
     nativeName: "日本語",
     cardImage: "/img/poster-card-japanese.jpg",
-    levels: "N5 (Basic), N4 (Mid), N3 (Adv)",
+    levels: "Basic (N5), Medium (N4), Advanced (N3)",
     highlight: "JLPT Prep • Japan SSW Career Visa",
     flagCode: "jp",
     batchInfo: "Morning & Evening Batches",
@@ -72,6 +72,35 @@ const languages: LanguageItem[] = [
 
 export default function ApplicationOpenSection() {
   const [showPosterModal, setShowPosterModal] = useState(false);
+
+  // Automatically open announcement popup 3 seconds after website opens
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowPosterModal(true);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Keyboard Escape listener and background scroll lock when modal is open
+  useEffect(() => {
+    if (!showPosterModal) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowPosterModal(false);
+      }
+    };
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [showPosterModal]);
 
   const whatsappMessage = encodeURIComponent(
     "Namaste Parivattan Mission Foundation! I would like to inquire about the Foreign Language Course Admissions (Japanese / German / French / English)."
@@ -265,7 +294,7 @@ export default function ApplicationOpenSection() {
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={() => setShowPosterModal(false)}
         >
           <div

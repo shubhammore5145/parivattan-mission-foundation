@@ -97,7 +97,7 @@ export default function CourseDetailPage() {
                         {course.nativeName}
                       </span>
                       <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-900">
-                        Level {level.level}
+                        Level {level.level} {level.proficiency ? `(${level.proficiency})` : ""}
                       </span>
                       {level.batches[0]?.isLimitedSeats && (
                         <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-bold text-red-900">
@@ -106,7 +106,7 @@ export default function CourseDetailPage() {
                       )}
                     </div>
                     <h1 className="mt-1 text-3xl sm:text-4xl font-serif font-bold text-[#24312d]">
-                      {course.name} – {level.level}
+                      {course.name} – {level.level} {level.proficiency ? `(${level.proficiency})` : ""}
                     </h1>
                   </div>
                 </div>
@@ -133,7 +133,7 @@ export default function CourseDetailPage() {
                               : "bg-[#fbfaf7] text-[#65706a] border-[#e2e5dc] hover:border-[#b5623b]"
                           }`}
                         >
-                          {lvl.level} ({lvl.duration})
+                          {lvl.level} {lvl.proficiency ? `(${lvl.proficiency})` : ""} · {lvl.duration}
                         </button>
                       ))}
                     </div>

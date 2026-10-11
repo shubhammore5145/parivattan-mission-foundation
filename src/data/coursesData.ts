@@ -88,11 +88,11 @@ export const COURSES_DATA: Course[] = [
   {
     id: "lang-japanese",
     code: "PFL-JP-201",
-    title: "Japanese Language & Culture (JLPT N5 + N4)",
-    marathiTitle: "जपानी भाषा व संस्कृती (JLPT N5 व N4)",
+    title: "Japanese Language & Culture (Basic, Medium, Advanced)",
+    marathiTitle: "जपानी भाषा व संस्कृती (बेसिक, मिडियम, ॲडव्हान्स्ड)",
     school: "Parivattan Foreign Language School",
     category: "languages",
-    duration: "6 Months",
+    duration: "6 – 7 Months",
     mode: "Hybrid Classroom",
     eligibility: "Open to all students (10th/12th/Graduate)",
     batchStart: "10th November 2026",
@@ -104,7 +104,7 @@ export const COURSES_DATA: Course[] = [
     rating: 5.0,
     studentsEnrolled: 420,
     badge: "Direct Overseas Jobs 🇯🇵",
-    shortDesc: "Comprehensive Japanese language certification with Kanji, Grammar, Kaiwa (speaking) & Japan visa interview guidance.",
+    shortDesc: "Comprehensive Japanese language certification across Basic (N5), Medium (N4) & Advanced (N3) with Kanji, Grammar, Kaiwa (speaking) & Japan visa interview guidance.",
     marathiDesc: "जपानमधील आयटी, इंजिनिअरिंग व नर्सिंगच्या संधींसाठी प्रमाणित जपानी भाषा प्रशिक्षण.",
     highlights: [
       "Native & certified JLPT N1/N2 educators with immersive audio drills",

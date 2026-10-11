@@ -85,7 +85,7 @@ export default function CourseCard({ course, onEnroll, onOpenDetails }: CourseCa
                       : "bg-[#fbfaf7] text-[#65706a] border border-[#e2e5dc] hover:border-[#b5623b] hover:text-[#24312d]"
                   }`}
                 >
-                  <span>{lvl.level}</span>
+                  <span>{lvl.level} {lvl.proficiency ? `(${lvl.proficiency})` : ""}</span>
                   <span className={`text-[10px] font-normal px-1.5 py-0.2 rounded-md ${
                     isSelected ? "bg-white/20 text-white" : "bg-[#eef0e8] text-[#65706a]"
                   }`}>

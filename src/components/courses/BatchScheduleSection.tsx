@@ -61,7 +61,7 @@ export default function BatchScheduleSection({ onEnrollBatch }: BatchScheduleSec
                     Japanese Course – Batch Schedule
                   </h3>
                   <p className="text-xs sm:text-sm text-[#65706a]">
-                    Covers JLPT N5, N4 and N3 curricula with morning and evening slots.
+                    Covers JLPT N5 (Basic), N4 (Medium) and N3 (Advanced) curricula with morning and evening slots.
                   </p>
                 </div>
               </div>
@@ -87,7 +87,7 @@ export default function BatchScheduleSection({ onEnrollBatch }: BatchScheduleSec
                   </div>
 
                   <h4 className="mt-3 text-lg font-serif font-bold text-[#24312d]">
-                    N5 – Morning Batch
+                    N5 (Basic) – Morning Batch
                   </h4>
 
                   <dl className="mt-4 space-y-2 text-xs">
@@ -115,7 +115,7 @@ export default function BatchScheduleSection({ onEnrollBatch }: BatchScheduleSec
                   onClick={() => onEnrollBatch && onEnrollBatch("Japanese", "N5", "Morning Batch (10:00 AM – 11:30 AM)")}
                   className="mt-5 w-full rounded-xl bg-[#24312d] py-2.5 text-xs font-bold text-white hover:bg-[#b5623b] transition flex items-center justify-center gap-1.5"
                 >
-                  <span>Select N5 Morning</span>
+                  <span>Select N5 (Basic) Morning</span>
                   <ArrowRight size={13} />
                 </button>
               </div>
@@ -133,7 +133,7 @@ export default function BatchScheduleSection({ onEnrollBatch }: BatchScheduleSec
                   </div>
 
                   <h4 className="mt-3 text-lg font-serif font-bold text-[#24312d]">
-                    N5 – Evening Batch
+                    N5 (Basic) – Evening Batch
                   </h4>
 
                   <dl className="mt-4 space-y-2 text-xs">
@@ -161,7 +161,7 @@ export default function BatchScheduleSection({ onEnrollBatch }: BatchScheduleSec
                   onClick={() => onEnrollBatch && onEnrollBatch("Japanese", "N5", "Evening Batch (7:00 PM – 8:30 PM)")}
                   className="mt-5 w-full rounded-xl bg-[#24312d] py-2.5 text-xs font-bold text-white hover:bg-[#b5623b] transition flex items-center justify-center gap-1.5"
                 >
-                  <span>Select N5 Evening</span>
+                  <span>Select N5 (Basic) Evening</span>
                   <ArrowRight size={13} />
                 </button>
               </div>
@@ -179,7 +179,7 @@ export default function BatchScheduleSection({ onEnrollBatch }: BatchScheduleSec
                   </div>
 
                   <h4 className="mt-3 text-lg font-serif font-bold text-[#24312d]">
-                    N4 – Evening Batch
+                    N4 (Medium) – Evening Batch
                   </h4>
 
                   <dl className="mt-4 space-y-2 text-xs">
@@ -207,7 +207,7 @@ export default function BatchScheduleSection({ onEnrollBatch }: BatchScheduleSec
                   onClick={() => onEnrollBatch && onEnrollBatch("Japanese", "N4", "Evening Batch (7:00 PM – 8:30 PM)")}
                   className="mt-5 w-full rounded-xl bg-[#24312d] py-2.5 text-xs font-bold text-white hover:bg-[#b5623b] transition flex items-center justify-center gap-1.5"
                 >
-                  <span>Select N4 Evening</span>
+                  <span>Select N4 (Medium) Evening</span>
                   <ArrowRight size={13} />
                 </button>
               </div>
@@ -225,7 +225,7 @@ export default function BatchScheduleSection({ onEnrollBatch }: BatchScheduleSec
                   </div>
 
                   <h4 className="mt-3 text-lg font-serif font-bold text-[#24312d]">
-                    N3 – Regular Batch
+                    N3 (Advanced) – Regular Batch
                   </h4>
 
                   <dl className="mt-4 space-y-2 text-xs">
@@ -253,7 +253,7 @@ export default function BatchScheduleSection({ onEnrollBatch }: BatchScheduleSec
                   onClick={() => onEnrollBatch && onEnrollBatch("Japanese", "N3", "Regular Batch (7:00 PM – 8:30 PM)")}
                   className="mt-5 w-full rounded-xl bg-[#24312d] py-2.5 text-xs font-bold text-white hover:bg-[#b5623b] transition flex items-center justify-center gap-1.5"
                 >
-                  <span>Select N3 Regular</span>
+                  <span>Select N3 (Advanced) Regular</span>
                   <ArrowRight size={13} />
                 </button>
               </div>

@@ -524,7 +524,7 @@ export default function CoursesPage() {
                     <td className="py-4 px-4 text-[#48534e]">
                       Software IT, Mechanical, Caregiving (SSW), Automotive
                     </td>
-                    <td className="py-4 px-4 font-mono font-bold text-[#b5623b]">JLPT N5 / N4</td>
+                    <td className="py-4 px-4 font-mono font-bold text-[#b5623b]">JLPT N5 (Basic) / N4 (Med) / N3 (Adv)</td>
                     <td className="py-4 px-4 text-emerald-700 font-bold">₹18L – ₹35L / yr</td>
                     <td className="py-4 px-4 text-right">
                       <Link
