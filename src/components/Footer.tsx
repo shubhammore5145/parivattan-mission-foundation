@@ -44,7 +44,7 @@ const SDG_GOALS: SdgGoal[] = [
   {
     number: 2,
     title: "ZERO HUNGER",
-    tagline: "Child nutrition, school meal kits & disaster relief food",
+    tagline: "Student nutrition support & meal kits for rural school learners",
     bgColor: "#dda63a",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7 sm:w-8 sm:h-8">
@@ -60,7 +60,7 @@ const SDG_GOALS: SdgGoal[] = [
   {
     number: 3,
     title: "GOOD HEALTH & WELL-BEING",
-    tagline: "Doorstep health camps, preventive tests & maternal care",
+    tagline: "Student well-being, mental health counseling & stress-free learning",
     bgColor: "#4c9f38",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7 sm:w-8 sm:h-8">
@@ -104,7 +104,7 @@ const SDG_GOALS: SdgGoal[] = [
   {
     number: 8,
     title: "DECENT WORK & ECONOMIC GROWTH",
-    tagline: "Bilingual IT jobs, Japan SSW pathways & youth livelihood",
+    tagline: "Bilingual IT skills, Japan career pathways & student education",
     bgColor: "#a21942",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7 sm:w-8 sm:h-8">
@@ -165,7 +165,7 @@ const Footer = () => {
                 Committed to the UN Sustainable Development Goals
               </h3>
               <p className="mt-2 text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed font-light">
-                Parivattan Mission Foundation actively aligns its grassroots educational, healthcare, and livelihood initiatives with the United Nations Global Goals.
+                Parivattan Mission Foundation actively aligns its grassroots educational, foreign language training, and student skilling initiatives with the United Nations Global Goals.
               </p>
             </div>
 

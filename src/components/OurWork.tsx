@@ -10,29 +10,53 @@ const OurWork = () => {
 
   const workItems = [
     {
-      id: 5,
+      id: 1,
       title: 'Japanese Language Learning',
       description: 'Foreign language education program helping students access global academic and career opportunities with JLPT-certified training.',
       image: '/img/japanese.jpeg',
       category: 'Language Education',
-      badge: 'Flagship Program',
+      badge: 'JLPT N5-N3',
       date: '2024 - 2026',
       location: 'Training Centers',
       impact: '100+ Students Enrolled',
-      detailsUrl: '/courses/japanese',
+      detailsUrl: '/courses',
     },
     {
-      id: 6,
+      id: 2,
       title: 'German & European Languages',
       description: 'Goethe-certified German language education unlocking international academic admissions and vocational career opportunities in Germany.',
       image: '/img/purpose.jpg',
       category: 'Language Education',
-      badge: 'Certified Program',
+      badge: 'Goethe A1-B2',
       date: '2024 - 2026',
       location: 'Training Centers',
-      impact: 'Goethe A1-B2 Batches',
-      detailsUrl: '/courses/german',
-    }
+      impact: 'Certified Batches',
+      detailsUrl: '/courses',
+    },
+    {
+      id: 3,
+      title: 'Parivattan Coding & AI Tech School',
+      description: 'Practical technology bootcamp empowering students with full-stack web development, Python programming, and modern software skills.',
+      image: '/img/silder3.jpg',
+      category: 'Technology Education',
+      badge: 'Tech Bootcamp',
+      date: '2024 - 2026',
+      location: 'Computer Labs',
+      impact: '300+ Coders Trained',
+      detailsUrl: '/student/courses',
+    },
+    {
+      id: 4,
+      title: 'Sau Library Campaign',
+      description: 'Establishing free community libraries and smart digital study rooms for rural students preparing for competitive exams and higher education.',
+      image: '/img/silder4.jpg',
+      category: 'Rural Education',
+      badge: 'Community Libraries',
+      date: '2024 - 2026',
+      location: 'Village Centers',
+      impact: '100+ Libraries Active',
+      detailsUrl: '/initiatives',
+    },
   ];
 
   return (
@@ -44,15 +68,14 @@ const OurWork = () => {
       <div className="container mx-auto px-4 relative z-10">
         {/* Header */}
         <div className="text-center mb-12 md:mb-16">
-          <h2 className="section-title animate-on-scroll">Our Work in Action</h2>
+          <h2 className="section-title animate-on-scroll">Our Educational Work in Action</h2>
           <p className="section-subtitle animate-on-scroll mt-4 max-w-2xl mx-auto text-slate-600">
-            See how we're making a difference in communities through our education and grassroots initiatives.
-            Every project tells a story of opportunity, growth, and empowerment.
+            See how we are transforming student futures through quality education, global foreign languages, and digital technology bootcamps.
           </p>
         </div>
 
         {/* Work Gallery Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
           {workItems.map((item) => (
             <Card key={item.id} className="group hover:shadow-2xl transition-all duration-500 overflow-hidden border border-blue-100/60 bg-white rounded-2xl flex flex-col">
               <div className="relative overflow-hidden aspect-[16/10] bg-slate-100">
@@ -74,26 +97,26 @@ const OurWork = () => {
                     {item.badge}
                   </Badge>
                 </div>
-                <CardTitle className="text-xl font-bold text-slate-800 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                <CardTitle className="text-lg font-bold text-slate-800 line-clamp-2 group-hover:text-blue-600 transition-colors">
                   {item.title}
                 </CardTitle>
-                <CardDescription className="text-sm text-slate-600 line-clamp-3 mt-2 leading-relaxed">
+                <CardDescription className="text-xs text-slate-600 line-clamp-3 mt-2 leading-relaxed">
                   {item.description}
                 </CardDescription>
               </CardHeader>
 
               <CardContent className="pt-0">
-                <div className="space-y-2 text-sm text-slate-500 mb-5 pt-3 border-t border-slate-100">
+                <div className="space-y-1.5 text-xs text-slate-500 mb-4 pt-3 border-t border-slate-100">
                   <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-blue-500 shrink-0" />
+                    <Calendar className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                     <span>{item.date}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-blue-500 shrink-0" />
+                    <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                     <span>{item.location}</span>
                   </div>
                   <div className="flex items-center gap-2 text-blue-600 font-semibold">
-                    <Heart className="w-4 h-4 text-rose-500 shrink-0" />
+                    <Heart className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                     <span>{item.impact}</span>
                   </div>
                 </div>
@@ -102,19 +125,18 @@ const OurWork = () => {
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    className="flex-1 border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700 rounded-xl"
+                    className="flex-1 border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700 rounded-xl text-xs"
                     onClick={() => navigate(item.detailsUrl)}
                   >
-                    <Eye className="w-4 h-4 mr-1.5" />
-                    View Details
+                    <Eye className="w-3.5 h-3.5 mr-1" />
+                    Explore
                   </Button>
                   <Button 
                     size="sm" 
-                    className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl px-4"
-                    onClick={() => navigate('/donate')}
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl px-3 text-xs"
+                    onClick={() => navigate('/admissions')}
                   >
-                    <Heart className="w-4 h-4 mr-1.5" />
-                    Support
+                    Enroll
                   </Button>
                 </div>
               </CardContent>
@@ -129,24 +151,24 @@ const OurWork = () => {
             <div className="absolute bottom-0 left-0 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
             
             <div className="relative z-10">
-              <h3 className="text-2xl md:text-3xl font-bold mb-3 text-white">Want to Make a Difference?</h3>
+              <h3 className="text-2xl md:text-3xl font-bold mb-3 text-white">Join Our Educational Movement</h3>
               <p className="text-blue-200 mb-8 text-base md:text-lg max-w-xl mx-auto">
-                Explore our accredited programs and community initiatives empowering students across regions.
+                Explore our accredited language courses, tech programs, and student scholarship opportunities.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button 
                   className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 px-8 py-6 text-base md:text-lg rounded-full shadow-xl text-white font-medium"
                   onClick={() => navigate("/courses")}
                 >
-                  View All Programs
+                  View All Courses
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
                 <Button 
                   variant="outline" 
                   className="border-2 border-white/30 text-white hover:bg-white/10 px-8 py-6 text-base md:text-lg rounded-full font-medium"
-                  onClick={() => navigate("/donate")}
+                  onClick={() => navigate("/admissions")}
                 >
-                  Join Our Mission
+                  Apply For Admission
                 </Button>
               </div>
             </div>

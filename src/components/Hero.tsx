@@ -63,7 +63,7 @@ const Hero = () => {
           <SwiperSlide>
             <img
               src="/img/silder3.jpg"
-              alt="Environmental Sustainability"
+              alt="Sau Study Libraries & Rural Classrooms"
               className="w-full h-full object-cover"
             />
           </SwiperSlide>

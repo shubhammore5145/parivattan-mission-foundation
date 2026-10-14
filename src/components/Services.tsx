@@ -43,91 +43,79 @@ interface CategoryStats {
 }
 
 
-// Static service definitions
+// Static service definitions - 100% Focused on Education & Youth Skilling
 const staticServices: Service[] = [
     {
-      id: 'health-for-all',
-      name: 'Health For All',
-      description: 'Providing essential healthcare services to underserved communities',
-      icon: <Heart className="w-6 h-6" />,
-      color: 'text-red-600',
-      bgGradient: 'from-red-50 to-red-100',
-      target: 1000000,
-      raised: 30000,
-      donors: 10,
-      urgency: 'high'
-    },
-    {
-      id: 'education-festival',
-      name: 'Education Festival',
-      description: 'Organizing educational events and workshops for children',
-      icon: <GraduationCap className="w-6 h-6" />,
-      color: 'text-blue-600',
-      bgGradient: 'from-blue-50 to-blue-100',
-      target: 500000,
-      raised: 10000,
-      donors: 5,
-      urgency: 'medium'
-    },
-    {
       id: 'foreign-language',
-      name: 'Foreign Language',
-      description: 'Teaching foreign languages to expand global opportunities',
+      name: 'Foreign Language Academy',
+      description: 'Teaching Japanese, German, and global languages to unlock overseas academic & career opportunities',
       icon: <Globe className="w-6 h-6" />,
       color: 'text-purple-600',
       bgGradient: 'from-purple-50 to-purple-100',
-      target: 300000,
-      raised: 5000,
-      donors: 2,
-      urgency: 'low'
+      target: 500000,
+      raised: 45000,
+      donors: 14,
+      urgency: 'high'
     },
     {
-      id: 'environment-sustainability',
-      name: 'Environment Sustainability',
-      description: 'Promoting eco-friendly practices and environmental conservation',
-      icon: <Leaf className="w-6 h-6" />,
-      color: 'text-green-600',
-      bgGradient: 'from-green-50 to-green-100',
+      id: 'parivattan-tech-school',
+      name: 'Parivattan Coding & Tech School',
+      description: 'Hands-on software programming bootcamps in Full Stack Web, Python, and AI applications',
+      icon: <GraduationCap className="w-6 h-6" />,
+      color: 'text-blue-600',
+      bgGradient: 'from-blue-50 to-blue-100',
       target: 750000,
-      raised: 20000,
-      donors: 8 ,
+      raised: 60000,
+      donors: 18,
       urgency: 'high'
     },
     {
       id: 'sau-library-campaign',
       name: 'Sau Library Campaign',
-      description: 'Building and supporting libraries for community education',
+      description: 'Building and supporting free digital libraries and quiet study rooms for rural students',
       icon: <BookOpen className="w-6 h-6" />,
       color: 'text-amber-600',
       bgGradient: 'from-amber-50 to-amber-100',
       target: 400000,
-      raised: 15000,
-      donors: 3,
+      raised: 28000,
+      donors: 11,
       urgency: 'medium'
-    },
-    {
-      id: 'disaster-aid-fund',
-      name: 'Disaster Aid Fund',
-      description: 'Emergency response and relief for disaster-affected areas',
-      icon: <Shield className="w-6 h-6" />,
-      color: 'text-orange-600',
-      bgGradient: 'from-orange-50 to-orange-100',
-      target: 2000000,
-      raised: 0,
-      donors: 0,
-      urgency: 'high'
     },
     {
       id: 'scholarship-support-overseas',
       name: 'Scholarship Support For Overseas',
-      description: 'Supporting students with international education opportunities',
+      description: 'Supporting deserving rural students with international university scholarships and visa counseling',
       icon: <Plane className="w-6 h-6" />,
       color: 'text-indigo-600',
       bgGradient: 'from-indigo-50 to-indigo-100',
       target: 800000,
-      raised: 10000,
-      donors: 2,
+      raised: 35000,
+      donors: 9,
       urgency: 'medium'
+    },
+    {
+      id: 'savitribai-girls-education',
+      name: 'Savitribai Girls Higher Education Fund',
+      description: 'Direct college tuition grants and digital learning equipment for ambitious rural girls',
+      icon: <Heart className="w-6 h-6" />,
+      color: 'text-rose-600',
+      bgGradient: 'from-rose-50 to-rose-100',
+      target: 600000,
+      raised: 40000,
+      donors: 12,
+      urgency: 'high'
+    },
+    {
+      id: 'education-festival',
+      name: 'Rural Education Festivals & Career Hubs',
+      description: 'Conducting career counseling, competitive exam seminars, and foreign language awareness drives',
+      icon: <Shield className="w-6 h-6" />,
+      color: 'text-emerald-600',
+      bgGradient: 'from-emerald-50 to-emerald-100',
+      target: 300000,
+      raised: 20000,
+      donors: 7,
+      urgency: 'low'
     }
 ];
 

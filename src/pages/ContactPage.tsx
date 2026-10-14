@@ -50,7 +50,7 @@ const COMMUNITY_SLIDES: CommunitySlide[] = [
   {
     id: 4,
     image: "/img/slides/slide4.jpg",
-    tagline: "Preserving Traditional Crafts, Building Self-Reliant Livelihoods",
+    tagline: "Empowering Rural Students with Modern Tech & Global Skills",
   },
   {
     id: 5,

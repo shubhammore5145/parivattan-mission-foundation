@@ -1,5 +1,5 @@
 import React from "react";
-import { Sparkles, Users, Home, FolderHeart, MapPin, CheckCircle2 } from "lucide-react";
+import { Sparkles, GraduationCap, BookOpen, Globe, Laptop, CheckCircle2 } from "lucide-react";
 
 interface ImpactStat {
   value: string;
@@ -14,41 +14,41 @@ interface ImpactStat {
 
 const IMPACT_METRICS: ImpactStat[] = [
   {
-    value: "20+",
-    unit: "LAC",
-    title: "LIVES IMPACTED",
-    desc: "Children, youth, and families supported every year through education, nutrition, and healthcare.",
-    icon: Users,
+    value: "25,000+",
+    unit: "STUDENTS",
+    title: "STUDENTS EMPOWERED",
+    desc: "Rural learners, youth, and first-generation aspirants supported annually with quality education, scholarships, and career prep.",
+    icon: GraduationCap,
     accentColor: "#10b981",
     glowColor: "rgba(16, 185, 129, 0.15)",
     pillBg: "bg-emerald-50 text-emerald-800 border-emerald-200",
   },
   {
-    value: "2,000+",
-    unit: "VILLAGES",
-    title: "VILLAGES & SLUMS",
-    desc: "Reached out to across rural districts and grassroots communities across the state and beyond.",
-    icon: Home,
+    value: "100+",
+    unit: "LIBRARIES",
+    title: "SAU STUDY LIBRARIES",
+    desc: "Digital libraries and rural study hubs established to provide free academic books, high-speed internet, and quiet study spaces.",
+    icon: BookOpen,
     accentColor: "#0284c7",
     glowColor: "rgba(2, 132, 199, 0.15)",
     pillBg: "bg-sky-50 text-sky-800 border-sky-200",
   },
   {
-    value: "400+",
-    unit: "PROJECTS",
-    title: "PROJECTS & DRIVES",
-    desc: "Focused on holistic education, foreign language mastery, health access, and youth skill building.",
-    icon: FolderHeart,
+    value: "1,500+",
+    unit: "SCHOLARS",
+    title: "FOREIGN LANGUAGE SCHOLARS",
+    desc: "Students trained in JLPT-certified Japanese, Goethe-certified German, and international professional communication.",
+    icon: Globe,
     accentColor: "#b5623b",
     glowColor: "rgba(181, 98, 59, 0.15)",
     pillBg: "bg-orange-50 text-orange-800 border-orange-200",
   },
   {
-    value: "27+",
-    unit: "REGIONS",
-    title: "DISTRICTS & STATES",
-    desc: "Reached with on-ground volunteer networks, learning centers, and emergency relief drives.",
-    icon: MapPin,
+    value: "25+",
+    unit: "CENTERS",
+    title: "DISTRICT LEARNING CENTERS",
+    desc: "Hybrid learning centers across Maharashtra empowering youth with modern computer labs, coding bootcamps, and global pathways.",
+    icon: Laptop,
     accentColor: "#7c3aed",
     glowColor: "rgba(124, 58, 237, 0.15)",
     pillBg: "bg-purple-50 text-purple-800 border-purple-200",
@@ -70,15 +70,15 @@ export default function OurImpact() {
         {/* Section Title */}
         <div className="text-center max-w-3xl mx-auto mb-16 sm:mb-20">
           <div className="inline-flex items-center gap-2 rounded-full bg-[#10b981]/10 border border-[#10b981]/25 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-[#059669]">
-            <Sparkles size={14} /> Measurable Social Change
+            <Sparkles size={14} /> Educational Excellence & Transformation
           </div>
 
           <h2 className="mt-4 text-3xl font-serif sm:text-5xl md:text-6xl font-bold text-[#24312d] tracking-tight">
-            OUR IMPACT
+            OUR EDUCATIONAL IMPACT
           </h2>
 
           <p className="mt-3.5 text-sm sm:text-base text-[#65706a] max-w-2xl mx-auto leading-relaxed">
-            Real scale. Real transformation. Here is how our on-ground programs and grassroots volunteers are creating lasting change every day.
+            Real student transformation. Real global opportunities. See how our accredited language schools, coding bootcamps, and rural study libraries are creating lasting academic empowerment every day.
           </p>
         </div>
 
@@ -142,7 +142,7 @@ export default function OurImpact() {
                 {/* Subtle Bottom Accent Indicator */}
                 <div className="mt-6 pt-4 border-t border-[#f0f2eb] flex items-center gap-1.5 text-[11px] font-semibold text-[#87938b]">
                   <CheckCircle2 size={13} style={{ color: item.accentColor }} />
-                  <span>Verified NGO Track Record</span>
+                  <span>Verified Educational Track Record</span>
                 </div>
               </div>
             );
@@ -157,18 +157,18 @@ export default function OurImpact() {
             </div>
             <div>
               <p className="text-sm font-bold text-[#24312d]">
-                100% Transparent & Community-Audited
+                100% Transparent Educational Non-Profit
               </p>
               <p className="text-xs text-[#65706a]">
-                All donations and project allocations are tracked through strict governance and social audits.
+                All student scholarship funds and classroom learning allocations are tracked through strict governance and social audits.
               </p>
             </div>
           </div>
           <a
-            href="#donate"
+            href="/donate"
             className="shrink-0 rounded-full bg-[#24312d] px-6 py-2.5 text-xs font-bold text-white hover:bg-[#b5623b] transition shadow-xs"
           >
-            Support Our Mission →
+            Support Student Education →
           </a>
         </div>
       </div>

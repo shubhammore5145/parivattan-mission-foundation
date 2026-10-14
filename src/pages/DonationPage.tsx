@@ -185,7 +185,7 @@ const DonationPage = () => {
                   Why Your Donation Matters
                 </h3>
                 <p className="text-blue-100 leading-relaxed mb-4">
-                  Every rupee raised through our collective effort helps us create sustainable social impact. Your contribution enables us to provide education, healthcare, and livelihood support to communities in need.
+                  Every rupee raised through our collective effort helps us create sustainable educational impact. Your contribution enables us to provide quality education, international language training, and tech skills to underprivileged students in need.
                 </p>
                 <p className="text-blue-100 leading-relaxed">
                   Together, we can achieve our ₹25 Lakh goal and create meaningful, measurable change that transforms lives.

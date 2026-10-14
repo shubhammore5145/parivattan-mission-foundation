@@ -26,12 +26,12 @@ interface Programme {
 const PROGRAMMES: Programme[] = [
   {
     id: "education",
-    title: "EDUCATION",
-    description: "Quality education, foundational literacy, and international language fluency.",
+    title: "GLOBAL LANGUAGE ACADEMY",
+    description: "International language fluency and certified training in Japanese (JLPT), German (Goethe), and English.",
     initiatives: [
-      "Parivattan Foreign Language School",
-      "Sau Library Campaign",
-      "Foundational Learning Hubs",
+      "Japanese Language School (JLPT N5-N3)",
+      "German Language & Study Abroad Prep",
+      "Spoken English & Communication Mastery",
     ],
     icon: BookOpen,
     blobColor: "bg-[#fef3c7]",
@@ -41,13 +41,13 @@ const PROGRAMMES: Programme[] = [
     link: "/initiatives#languages",
   },
   {
-    id: "livelihood",
-    title: "LIVELIHOOD",
-    description: "Skill training, practical coding bootcamps, and career placement for youth.",
+    id: "tech-education",
+    title: "TECH & CODING SCHOOL",
+    description: "Hands-on coding bootcamps, full stack development, Python AI literacy, and technical career skills for youth.",
     initiatives: [
-      "Parivattan Coding & Tech School",
+      "Full Stack Web Development",
+      "Python, Data & AI Literacy",
       "Bilingual Overseas IT Pathways",
-      "Practical Employment Coaching",
     ],
     icon: Briefcase,
     blobColor: "bg-[#ffedd5]",
@@ -57,13 +57,13 @@ const PROGRAMMES: Programme[] = [
     link: "/admissions",
   },
   {
-    id: "grassroots",
-    title: "EMPOWERING GRASSROOTS",
-    description: "Helping rural communities and learners build sustainable, independent futures.",
+    id: "libraries",
+    title: "SAU STUDY LIBRARIES",
+    description: "Free village study centers, competitive exam libraries, and digital academic hubs across Maharashtra.",
     initiatives: [
-      "Village Study Centers",
-      "Youth Leadership Mentorship",
-      "Community Resource Centers",
+      "Sau Community Library Network",
+      "MPSC & UPSC Free Book Banks",
+      "Digital Classrooms & WiFi Study Pods",
     ],
     icon: Sprout,
     blobColor: "bg-[#dcfce7]",
@@ -81,7 +81,7 @@ export default function OurProgrammes() {
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-16 sm:mb-20">
           <div className="inline-flex items-center gap-2 rounded-full bg-[#b5623b]/10 border border-[#b5623b]/20 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-[#b5623b]">
-            <Sparkles size={14} /> Core Pillars of Transformation
+            <Sparkles size={14} /> Core Educational Pillars
           </div>
 
           <h2 className="mt-4 text-3xl font-serif sm:text-5xl md:text-6xl font-bold text-[#24312d] tracking-tight">
@@ -89,7 +89,7 @@ export default function OurProgrammes() {
           </h2>
 
           <p className="mt-4 text-sm sm:text-base text-[#65706a] leading-relaxed">
-            Focused on grassroots impact across quality education, foreign language mastery, and youth livelihoods.
+            Focused on grassroots educational transformation through foreign languages, modern tech skills, and rural study libraries.
           </p>
         </div>
 
