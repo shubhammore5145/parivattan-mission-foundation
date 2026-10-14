@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import {
   LogOut,
@@ -60,6 +60,7 @@ import {
   resetBatchEnrollment,
   BatchSeatsStatus,
   getStoredCourses,
+  matchAdmissionToBatchId,
 } from "@/data/languageCoursesData";
 import {
   getAllDonations,
@@ -82,6 +83,7 @@ import {
   deleteAdmission,
   updateAdmissionStatus,
   Admission,
+  isRealCourseAdmission,
 } from "@/lib/supabase-admin";
 import { CountryFlagIcon } from "@/components/common/CountryFlagIcon";
 import { toast } from "sonner";
@@ -150,7 +152,9 @@ export default function AdminDashboard() {
   const [admissionsLoading, setAdmissionsLoading] = useState(false);
   const [admissionsSearch, setAdmissionsSearch] = useState("");
   const [admissionCourseFilter, setAdmissionCourseFilter] = useState<string>("all");
+  const [admissionBatchFilter, setAdmissionBatchFilter] = useState<string>("all");
   const [admissionStatusFilter, setAdmissionStatusFilter] = useState<string>("all");
+  const [studentAdmissionFilter, setStudentAdmissionFilter] = useState<"all" | "enrolled" | "registered_only">("all");
   const [selectedAdmission, setSelectedAdmission] = useState<Admission | null>(null);
   const [deletingAdmissionId, setDeletingAdmissionId] = useState<string | null>(null);
   const [viewingDoc, setViewingDoc] = useState<{
@@ -282,7 +286,8 @@ export default function AdminDashboard() {
     try {
       setAdmissionsLoading(true);
       const data = await getAllAdmissions();
-      setAdmissions(data);
+      const realCourseAdmissions = data.filter(isRealCourseAdmission);
+      setAdmissions(realCourseAdmissions);
     } catch (err) {
       console.error("Error loading admissions:", err);
     } finally {
@@ -336,6 +341,65 @@ export default function AdminDashboard() {
     setFilteredDonations(result);
   }, [donations, donationSearchQuery, donationFilterStatus]);
 
+  const getAdmissionBatchDetails = (adm: Admission) => {
+    const bId = adm.batchId || adm.batch_id || matchAdmissionToBatchId(adm);
+    const found = batchSeatsList.find((b) => b.batchId === bId);
+    if (found) {
+      return {
+        batchId: found.batchId,
+        courseId: found.courseId,
+        courseName: found.courseName,
+        flag: found.flag,
+        levelName: found.levelName,
+        batchName: found.batchName,
+        days: found.days,
+        time: found.time,
+      };
+    }
+    return {
+      batchId: bId || "general",
+      courseId: "general",
+      courseName: adm.program || "Language Course",
+      flag: "🎓",
+      levelName: "",
+      batchName: "Regular Batch",
+      days: "",
+      time: "",
+    };
+  };
+
+  const courseEnrollmentGroups = useMemo(() => {
+    const map: Record<
+      string,
+      {
+        courseId: string;
+        courseName: string;
+        flag: string;
+        totalEnrolled: number;
+        totalSeats: number;
+        batches: BatchSeatsStatus[];
+      }
+    > = {};
+
+    for (const b of batchSeatsList) {
+      if (!map[b.courseId]) {
+        map[b.courseId] = {
+          courseId: b.courseId,
+          courseName: b.courseName,
+          flag: b.flag,
+          totalEnrolled: 0,
+          totalSeats: 0,
+          batches: [],
+        };
+      }
+      map[b.courseId].totalEnrolled += b.enrolled;
+      map[b.courseId].totalSeats += b.totalSeats;
+      map[b.courseId].batches.push(b);
+    }
+
+    return Object.values(map);
+  }, [batchSeatsList]);
+
   const filteredAdmissions = admissions.filter((a) => {
     // Search query filter
     const matchesSearch =
@@ -344,22 +408,46 @@ export default function AdminDashboard() {
       a.education?.toLowerCase().includes(admissionsSearch.toLowerCase()) ||
       a.college_name?.toLowerCase().includes(admissionsSearch.toLowerCase()) ||
       a.address?.toLowerCase().includes(admissionsSearch.toLowerCase()) ||
-      a.id?.toLowerCase().includes(admissionsSearch.toLowerCase());
+      a.id?.toLowerCase().includes(admissionsSearch.toLowerCase()) ||
+      a.email?.toLowerCase().includes(admissionsSearch.toLowerCase()) ||
+      a.phone?.toLowerCase().includes(admissionsSearch.toLowerCase());
+
+    const bDetails = getAdmissionBatchDetails(a);
 
     // Course filter
     const matchesCourse =
       admissionCourseFilter === "all" ||
+      bDetails.courseId.toLowerCase() === admissionCourseFilter.toLowerCase() ||
       (a.program &&
         a.program.toLowerCase().includes(admissionCourseFilter.toLowerCase()));
+
+    // Batch filter
+    const matchesBatch =
+      admissionBatchFilter === "all" || bDetails.batchId === admissionBatchFilter;
 
     // Status filter
     const matchesStatus =
       admissionStatusFilter === "all" || a.status === admissionStatusFilter;
 
-    return matchesSearch && matchesCourse && matchesStatus;
+    return matchesSearch && matchesCourse && matchesBatch && matchesStatus;
   });
 
   const filteredStudents = students.filter((s) => {
+    const userAdmissions = admissions.filter(
+      (a) =>
+        (a.name && s.name && a.name.toLowerCase() === s.name.toLowerCase()) ||
+        (a.email && s.email && a.email.toLowerCase() === s.email.toLowerCase()) ||
+        (a.phone && s.phone && a.phone.includes(s.phone)) ||
+        (a.message && s.prn && a.message.includes(s.prn))
+    );
+
+    if (studentAdmissionFilter === "enrolled" && userAdmissions.length === 0) {
+      return false;
+    }
+    if (studentAdmissionFilter === "registered_only" && userAdmissions.length > 0) {
+      return false;
+    }
+
     if (!studentsSearch.trim()) return true;
     const q = studentsSearch.toLowerCase();
     return (
@@ -1142,34 +1230,204 @@ export default function AdminDashboard() {
           {/* ==================== TAB A: ADMISSIONS ==================== */}
           {activeTab === "admissions" && (
             <div className="space-y-6">
-              {/* Batch Seats Control Drawer Toggle Bar */}
-              <div className="rounded-3xl border border-stone-200/80 bg-white p-5 sm:p-6 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div className="flex items-center gap-3.5">
-                  <div className="h-11 w-11 rounded-2xl bg-amber-50 text-[#b5623b] flex items-center justify-center shrink-0">
-                    <Layers size={22} />
+              {/* Informational Separation Banner */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs">
+                <div className="flex items-start sm:items-center gap-2.5">
+                  <Shield className="text-[#b5623b] shrink-0 mt-0.5 sm:mt-0" size={18} />
+                  <p className="text-stone-700">
+                    <strong>कोर्स प्रवेश यादी (Verified Course Admissions):</strong> येथे फक्त ज्या विद्यार्थ्यांनी प्रत्यक्ष कोर्ससाठी फी भरून प्रवेश (Admission) घेतला आहे तेच विद्यार्थी दाखवले आहेत. केवळ पोर्टल खाते नोंदणी (Student PRN Account Registration) केलेले युजर्स <strong>'Students Directory'</strong> टॅबमध्ये पाहू शकता.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setActiveTab("students")}
+                  className="px-3.5 py-1.5 rounded-xl bg-white border border-stone-200 text-[#1b2b25] font-bold shrink-0 hover:bg-stone-50 transition shadow-2xs self-start sm:self-auto"
+                >
+                  Students Directory पहा →
+                </button>
+              </div>
+
+              {/* ==================== COURSE & BATCH ENROLLMENT MATRIX ==================== */}
+              <div className="rounded-3xl border border-stone-200/80 bg-white p-6 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-stone-100">
+                  <div className="flex items-center gap-3">
+                    <div className="h-11 w-11 rounded-2xl bg-[#1b2b25] text-[#fedb41] flex items-center justify-center shrink-0 shadow-xs">
+                      <BarChart3 size={22} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-serif font-bold text-lg text-[#1b2b25]">
+                          कोर्स व बॅचनुसार प्रवेश संख्या (Course & Batch Enrollment Matrix)
+                        </h3>
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                          Live Sync
+                        </span>
+                      </div>
+                      <p className="text-xs text-stone-500 mt-0.5">
+                        कोणत्या कोर्समध्ये आणि कोणत्या बॅचमध्ये किती विद्यार्थ्यांनी प्रवेश घेतला आहे याचा तपशील. बॅचवर क्लिक करून खालील यादी फिल्टर करा.
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-serif font-bold text-lg text-[#1b2b25]">
-                      Live Batch Seats & Intake Controller (बॅच जागा नियंत्रण)
-                    </h3>
-                    <p className="text-xs text-stone-500">
-                      Monitor live student enrollments, remaining seats, or adjust intake capacity for Japanese & German batches.
-                    </p>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {(admissionBatchFilter !== "all" || admissionCourseFilter !== "all") && (
+                      <button
+                        onClick={() => {
+                          setAdmissionBatchFilter("all");
+                          setAdmissionCourseFilter("all");
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold transition shrink-0"
+                      >
+                        <X size={13} />
+                        <span>फिल्टर काढा (Show All)</span>
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => setShowBatchSeatsManager(!showBatchSeatsManager)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-xs font-bold text-[#1b2b25] transition shadow-2xs shrink-0"
+                    >
+                      <SlidersHorizontal size={13} />
+                      <span>{showBatchSeatsManager ? "Hide Seat Settings" : "बॅच जागा बदला (Settings)"}</span>
+                    </button>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() => setShowBatchSeatsManager(!showBatchSeatsManager)}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-xs font-bold text-[#1b2b25] transition"
-                  >
-                    <SlidersHorizontal size={14} />
-                    <span>{showBatchSeatsManager ? "Hide Batch Seats" : "Configure Batch Seats"}</span>
-                  </button>
+                {/* Grid of Courses and their Batches */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-5">
+                  {courseEnrollmentGroups.map((grp) => {
+                    const isCourseActive =
+                      admissionCourseFilter.toLowerCase() === grp.courseId.toLowerCase();
+                    return (
+                      <div
+                        key={grp.courseId}
+                        className={`rounded-2xl border p-4.5 transition-all flex flex-col justify-between ${
+                          isCourseActive
+                            ? "border-[#b5623b] bg-amber-500/5 ring-1 ring-[#b5623b]/30 shadow-xs"
+                            : "border-stone-200 bg-stone-50/40 hover:border-stone-300"
+                        }`}
+                      >
+                        <div>
+                          {/* Course Header */}
+                          <div className="flex items-center justify-between gap-2 pb-3 border-b border-stone-200/70">
+                            <div className="flex items-center gap-2.5">
+                              <span className="text-2xl shrink-0">{grp.flag}</span>
+                              <div>
+                                <h4 className="font-bold text-sm text-[#1b2b25]">
+                                  {grp.courseName}
+                                </h4>
+                                <span className="text-[11px] text-stone-500">
+                                  {grp.batches.length} {grp.batches.length === 1 ? "Batch" : "Batches"}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-base font-serif font-bold text-[#b5623b]">
+                                {grp.totalEnrolled}{" "}
+                                <span className="text-xs font-normal text-stone-500">
+                                  / {grp.totalSeats}
+                                </span>
+                              </div>
+                              <span className="inline-block text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                एकूण प्रवेशित
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Batches in this Course */}
+                          <div className="space-y-2 mt-3">
+                            {grp.batches.map((b) => {
+                              const isBatchSelected = admissionBatchFilter === b.batchId;
+                              const pct = Math.min(
+                                100,
+                                Math.round((b.enrolled / b.totalSeats) * 100)
+                              );
+
+                              return (
+                                <button
+                                  key={b.batchId}
+                                  type="button"
+                                  onClick={() => {
+                                    if (admissionBatchFilter === b.batchId) {
+                                      setAdmissionBatchFilter("all");
+                                    } else {
+                                      setAdmissionBatchFilter(b.batchId);
+                                      setAdmissionCourseFilter("all");
+                                    }
+                                  }}
+                                  className={`w-full text-left p-3 rounded-xl border transition-all ${
+                                    isBatchSelected
+                                      ? "bg-[#1b2b25] text-white border-[#1b2b25] shadow-sm ring-2 ring-[#1b2b25]/20"
+                                      : "bg-white border-stone-200 hover:border-[#b5623b] text-[#1b2b25] shadow-2xs"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="font-bold text-xs truncate">
+                                      {b.batchName}
+                                    </span>
+                                    <span
+                                      className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full shrink-0 ${
+                                        isBatchSelected
+                                          ? "bg-white/20 text-white"
+                                          : b.isFull
+                                          ? "bg-rose-100 text-rose-800"
+                                          : "bg-amber-100 text-[#b5623b]"
+                                      }`}
+                                    >
+                                      {b.enrolled} / {b.totalSeats} विद्यार्थी
+                                    </span>
+                                  </div>
+                                  <div
+                                    className={`text-[10px] mt-0.5 truncate ${
+                                      isBatchSelected ? "text-stone-300" : "text-stone-500"
+                                    }`}
+                                  >
+                                    {b.days} • {b.time}
+                                  </div>
+
+                                  {/* Progress bar */}
+                                  <div className="mt-2 h-1.5 w-full rounded-full bg-stone-100 overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full transition-all duration-300 ${
+                                        isBatchSelected
+                                          ? "bg-[#fedb41]"
+                                          : pct >= 100
+                                          ? "bg-rose-500"
+                                          : pct >= 75
+                                          ? "bg-amber-500"
+                                          : "bg-emerald-500"
+                                      }`}
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+
+                                  <div className="mt-1.5 flex items-center justify-between text-[10px]">
+                                    <span
+                                      className={
+                                        isBatchSelected ? "text-stone-300" : "text-stone-400"
+                                      }
+                                    >
+                                      {b.isFull ? "प्रवेश बंद (Full)" : `${b.remainingSeats} जागा शिल्लक`}
+                                    </span>
+                                    <span
+                                      className={`font-bold flex items-center gap-0.5 ${
+                                        isBatchSelected ? "text-[#fedb41]" : "text-[#b5623b]"
+                                      }`}
+                                    >
+                                      {isBatchSelected ? "Selected ✓" : "विद्यार्थी पहा →"}
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Batch Seats Cards (Collapsible) */}
+              {/* Batch Seats Cards (Collapsible Seat Controller) */}
               {showBatchSeatsManager && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-5 bg-stone-100/60 rounded-3xl border border-stone-200 animate-in fade-in duration-200">
                   {batchSeatsList.map((b) => {
@@ -1301,14 +1559,17 @@ export default function AdminDashboard() {
                     />
                   </div>
 
-                  {/* Filter Pills */}
+                  {/* Filter Controls */}
                   <div className="flex items-center gap-2 flex-wrap">
                     {/* Course Filter Pills */}
                     <div className="inline-flex rounded-xl bg-stone-100 p-1 text-xs gap-1">
                       {["all", "japanese", "german", "french", "english"].map((c) => (
                         <button
                           key={c}
-                          onClick={() => setAdmissionCourseFilter(c)}
+                          onClick={() => {
+                            setAdmissionCourseFilter(c);
+                            if (c !== "all") setAdmissionBatchFilter("all");
+                          }}
                           className={`px-3 py-1.5 rounded-lg font-bold capitalize transition ${
                             admissionCourseFilter === c
                               ? "bg-white text-[#1b2b25] shadow-xs"
@@ -1319,6 +1580,23 @@ export default function AdminDashboard() {
                         </button>
                       ))}
                     </div>
+
+                    {/* Batch Filter Dropdown */}
+                    <select
+                      value={admissionBatchFilter}
+                      onChange={(e) => {
+                        setAdmissionBatchFilter(e.target.value);
+                        if (e.target.value !== "all") setAdmissionCourseFilter("all");
+                      }}
+                      className="px-3 py-2 border border-stone-200 bg-stone-50 rounded-xl text-xs font-semibold outline-none max-w-[210px] truncate"
+                    >
+                      <option value="all">सर्व बॅचेस (All Batches)</option>
+                      {batchSeatsList.map((b) => (
+                        <option key={b.batchId} value={b.batchId}>
+                          {b.flag} {b.courseName} - {b.batchName} ({b.enrolled} विद्यार्थी)
+                        </option>
+                      ))}
+                    </select>
 
                     {/* Status Filter */}
                     <select
@@ -1331,6 +1609,25 @@ export default function AdminDashboard() {
                       <option value="pending">Pending</option>
                       <option value="failed">Rejected</option>
                     </select>
+
+                    {/* Clear Filters Button */}
+                    {(admissionBatchFilter !== "all" ||
+                      admissionCourseFilter !== "all" ||
+                      admissionStatusFilter !== "all" ||
+                      admissionsSearch.trim()) && (
+                      <button
+                        onClick={() => {
+                          setAdmissionBatchFilter("all");
+                          setAdmissionCourseFilter("all");
+                          setAdmissionStatusFilter("all");
+                          setAdmissionsSearch("");
+                        }}
+                        className="px-3 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold transition"
+                        title="Reset all filters"
+                      >
+                        Reset
+                      </button>
+                    )}
 
                     {/* Export CSV */}
                     <button
@@ -1408,22 +1705,36 @@ export default function AdminDashboard() {
                               </div>
                             </td>
 
-                            {/* Course / Program */}
+                            {/* Course / Program & Batch */}
                             <td className="px-4 py-3.5">
-                              <div className="flex items-center gap-2">
-                                <CountryFlagIcon
-                                  courseId={adm.program || "japanese"}
-                                  size="sm"
-                                />
-                                <div>
-                                  <span className="font-bold text-[#1b2b25] block truncate max-w-[160px]">
-                                    {adm.program || "Language Course"}
-                                  </span>
-                                  <span className="text-[11px] text-[#b5623b] font-semibold">
-                                    Fee: ₹{adm.amount || 100}
-                                  </span>
-                                </div>
-                              </div>
+                              {(() => {
+                                const bDetails = getAdmissionBatchDetails(adm);
+                                return (
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                      <CountryFlagIcon
+                                        courseId={bDetails.courseId}
+                                        size="sm"
+                                      />
+                                      <span className="font-bold text-[#1b2b25] block truncate max-w-[170px]">
+                                        {bDetails.courseName}
+                                      </span>
+                                    </div>
+                                    <div className="inline-flex items-center gap-1 bg-amber-50 text-[#b5623b] border border-amber-200/80 px-2 py-0.5 rounded-md text-[10px] font-bold">
+                                      <span>{bDetails.batchName}</span>
+                                      {bDetails.time && (
+                                        <span className="text-stone-500 font-normal">
+                                          ({bDetails.time})
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                                      <CheckCircle2 size={11} />
+                                      <span>Fee Paid: ₹{adm.amount || 100}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
                             </td>
 
                             {/* Education */}
@@ -1547,7 +1858,7 @@ export default function AdminDashboard() {
                       Students & PRN User Directory (नोंदणीकृत विद्यार्थी यादी)
                     </h3>
                     <p className="text-xs text-stone-500 mt-0.5">
-                      View all registered student users, assigned PRN identifiers, contact details, and their active courses.
+                      View all registered student users, assigned PRN identifiers, contact details, and their active course enrollment status.
                     </p>
                   </div>
 
@@ -1560,19 +1871,94 @@ export default function AdminDashboard() {
                   </button>
                 </div>
 
-                {/* Search Bar */}
-                <div className="my-5 relative max-w-md">
-                  <Search
-                    size={16}
-                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Search by student name, PRN, email, phone, city..."
-                    value={studentsSearch}
-                    onChange={(e) => setStudentsSearch(e.target.value)}
-                    className="w-full rounded-xl border border-stone-200 bg-stone-50 pl-10 pr-4 py-2.5 text-xs font-medium outline-none transition focus:border-emerald-600 focus:bg-white"
-                  />
+                {/* Separation Notice */}
+                <div className="mt-5 p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs flex items-center gap-2.5 text-stone-700">
+                  <Shield size={16} className="text-emerald-700 shrink-0" />
+                  <p>
+                    <strong>नोंदणी vs प्रत्यक्ष प्रवेश:</strong> येथे पोर्टलवर नोंदणी केलेली सर्व विद्यार्थी खाती (PRN Accounts) आहेत. ज्या विद्यार्थ्यांनी कोर्ससाठी प्रत्यक्ष फी भरून प्रवेश घेतला आहे त्यांना <strong>'🟢 कोर्स प्रवेशित'</strong> बॅज दिसेल आणि ज्यांनी फक्त खाते तयार केले आहे त्यांना <strong>'⚪ केवळ नोंदणी'</strong> बॅज दिसेल.
+                  </p>
+                </div>
+
+                {/* Search Bar & 3-Way Admission Status Filter */}
+                <div className="my-5 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+                  <div className="relative flex-1 max-w-md">
+                    <Search
+                      size={16}
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Search by student name, PRN, email, phone, city..."
+                      value={studentsSearch}
+                      onChange={(e) => setStudentsSearch(e.target.value)}
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 pl-10 pr-4 py-2.5 text-xs font-medium outline-none transition focus:border-emerald-600 focus:bg-white"
+                    />
+                  </div>
+
+                  {/* 3-way toggle filter */}
+                  <div className="inline-flex rounded-xl bg-stone-100 p-1 text-xs gap-1 flex-wrap self-start lg:self-auto">
+                    <button
+                      onClick={() => setStudentAdmissionFilter("all")}
+                      className={`px-3 py-1.5 rounded-lg font-bold transition ${
+                        studentAdmissionFilter === "all"
+                          ? "bg-white text-[#1b2b25] shadow-xs"
+                          : "text-stone-600 hover:text-[#1b2b25]"
+                      }`}
+                    >
+                      सर्व खाती ({students.length})
+                    </button>
+                    <button
+                      onClick={() => setStudentAdmissionFilter("enrolled")}
+                      className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                        studentAdmissionFilter === "enrolled"
+                          ? "bg-emerald-600 text-white shadow-xs"
+                          : "text-emerald-800 hover:bg-emerald-50"
+                      }`}
+                    >
+                      <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                      <span>
+                        कोर्स प्रवेशित (
+                        {
+                          students.filter((s) =>
+                            admissions.some(
+                              (a) =>
+                                (a.name && s.name && a.name.toLowerCase() === s.name.toLowerCase()) ||
+                                (a.email && s.email && a.email.toLowerCase() === s.email.toLowerCase()) ||
+                                (a.phone && s.phone && a.phone.includes(s.phone)) ||
+                                (a.message && s.prn && a.message.includes(s.prn))
+                            )
+                          ).length
+                        }
+                        )
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setStudentAdmissionFilter("registered_only")}
+                      className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                        studentAdmissionFilter === "registered_only"
+                          ? "bg-stone-700 text-white shadow-xs"
+                          : "text-stone-600 hover:bg-stone-200"
+                      }`}
+                    >
+                      <span className="h-2 w-2 rounded-full bg-stone-400" />
+                      <span>
+                        केवळ नोंदणी (
+                        {
+                          students.filter(
+                            (s) =>
+                              !admissions.some(
+                                (a) =>
+                                  (a.name && s.name && a.name.toLowerCase() === s.name.toLowerCase()) ||
+                                  (a.email && s.email && a.email.toLowerCase() === s.email.toLowerCase()) ||
+                                  (a.phone && s.phone && a.phone.includes(s.phone)) ||
+                                  (a.message && s.prn && a.message.includes(s.prn))
+                              )
+                          ).length
+                        }
+                        )
+                      </span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Students Table */}
@@ -1666,17 +2052,40 @@ export default function AdminDashboard() {
                                   : "-"}
                               </td>
 
-                              {/* Admissions count */}
+                              {/* Admissions status */}
                               <td className="px-4 py-3.5 text-center">
-                                <span
-                                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                    userAdmissions.length > 0
-                                      ? "bg-blue-100 text-blue-800 border border-blue-200"
-                                      : "bg-stone-100 text-stone-500"
-                                  }`}
-                                >
-                                  {userAdmissions.length} Applied
-                                </span>
+                                {userAdmissions.length > 0 ? (
+                                  <div className="space-y-1 inline-flex flex-col items-center">
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                      <CheckCircle2 size={11} className="text-emerald-600" />
+                                      <span>कोर्स प्रवेशित ({userAdmissions.length})</span>
+                                    </span>
+                                    <div
+                                      className="text-[10px] text-stone-500 font-medium truncate max-w-[150px]"
+                                      title={userAdmissions.map((ua) => ua.program).join(", ")}
+                                    >
+                                      {userAdmissions
+                                        .map((ua) => ua.program || "Language")
+                                        .slice(0, 2)
+                                        .join(", ")}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveTab("admissions");
+                                        setAdmissionsSearch(s.name);
+                                      }}
+                                      className="text-[10px] font-bold text-[#b5623b] hover:underline"
+                                    >
+                                      प्रवेश पहा →
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium bg-stone-100 text-stone-600 border border-stone-200">
+                                    <User size={10} className="text-stone-400" />
+                                    <span>केवळ नोंदणी (No Course)</span>
+                                  </span>
+                                )}
                               </td>
 
                               {/* Actions */}
@@ -2133,12 +2542,31 @@ export default function AdminDashboard() {
                   <h4 className="text-xl font-serif font-bold text-[#1b2b25]">
                     {selectedAdmission.name}
                   </h4>
-                  <div className="mt-1 flex items-center gap-2">
-                    <CountryFlagIcon courseId={selectedAdmission.program || "japanese"} size="sm" />
-                    <span className="text-xs font-bold text-[#b5623b]">
-                      {selectedAdmission.program || "Language Program"}
-                    </span>
-                  </div>
+                  {(() => {
+                    const bDetails = getAdmissionBatchDetails(selectedAdmission);
+                    return (
+                      <div className="space-y-1.5 mt-1">
+                        <div className="flex items-center gap-2">
+                          <CountryFlagIcon courseId={bDetails.courseId} size="sm" />
+                          <span className="text-xs font-bold text-[#b5623b]">
+                            {bDetails.courseName}
+                          </span>
+                        </div>
+                        <div className="inline-flex items-center gap-1.5 bg-amber-50 text-[#b5623b] border border-amber-200/80 px-2.5 py-1 rounded-lg text-xs font-bold">
+                          <span>{bDetails.batchName}</span>
+                          {bDetails.time && (
+                            <span className="text-stone-500 font-normal">
+                              ({bDetails.days ? `${bDetails.days}, ` : ""}{bDetails.time})
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-emerald-700 font-bold flex items-center gap-1">
+                          <CheckCircle2 size={13} />
+                          <span>Fee: ₹{selectedAdmission.amount || 100} Paid</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
                   <div className="mt-2 text-xs text-stone-500">
                     Status:{" "}
                     <select

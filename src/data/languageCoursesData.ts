@@ -605,12 +605,31 @@ export interface BatchSeatsStatus {
 export const matchAdmissionToBatchId = (admission: any): string | null => {
   if (!admission) return null;
 
+  // Filter out pure account registrations
+  const prog = (admission.program || "").trim().toUpperCase();
+  if (
+    prog === "STUDENT_REGISTRATION" ||
+    prog === "REGISTERED_ACCOUNT" ||
+    prog === "ACCOUNT_SIGNUP" ||
+    prog === "USER_REGISTRATION"
+  ) {
+    return null;
+  }
+
   // 1. Explicit batch ID fields
   const explicitId = admission.batchId || admission.batch_id;
   if (explicitId) {
     if (BATCH_SEATS_CONFIG[explicitId]) return explicitId;
     if (explicitId === "de-a1-weekend" || explicitId === "de-a1-mwf") return "de-a1-mwf";
     if (explicitId === "de-a2-weekend" || explicitId === "de-a2-tts") return "de-a2-tts";
+    // Check custom courses
+    for (const c of getStoredCourses()) {
+      for (const lvl of c.levels) {
+        for (const b of lvl.batches) {
+          if (b.id === explicitId) return b.id;
+        }
+      }
+    }
   }
 
   // 2. Parse text across all relevant fields
@@ -656,13 +675,36 @@ export const matchAdmissionToBatchId = (admission: any): string | null => {
     return "test-batch-01";
   }
 
+  // Dynamic matching for custom courses
+  for (const c of getStoredCourses()) {
+    if (text.includes(c.id.toLowerCase()) || text.includes(c.name.toLowerCase())) {
+      for (const lvl of c.levels) {
+        if (text.includes(lvl.level.toLowerCase()) || text.includes(lvl.id.toLowerCase())) {
+          return lvl.batches[0]?.id || null;
+        }
+      }
+      return c.levels[0]?.batches[0]?.id || null;
+    }
+  }
+
   return null;
 };
 
 export const getBatchSeatsInfo = (
   batchId: string
 ): { totalSeats: number; enrolled: number; remainingSeats: number; isFull: boolean; isManuallyFull?: boolean } => {
-  const config = BATCH_SEATS_CONFIG[batchId] || { totalSeats: 30, initialEnrolled: 0 };
+  let defaultSeats = 30;
+  for (const c of getStoredCourses()) {
+    for (const lvl of c.levels) {
+      for (const b of lvl.batches) {
+        if (b.id === batchId) {
+          defaultSeats = b.intake || 30;
+          break;
+        }
+      }
+    }
+  }
+  const config = BATCH_SEATS_CONFIG[batchId] || { totalSeats: defaultSeats, initialEnrolled: 0 };
   
   try {
     // 1. Check admin custom overrides

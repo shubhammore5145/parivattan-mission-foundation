@@ -128,6 +128,36 @@ export const createAdmission = async (
   return newAdmission;
 };
 
+export const isRealCourseAdmission = (row: any): boolean => {
+  if (!row) return false;
+  const prog = (row.program || "").trim().toUpperCase();
+  if (
+    prog === "STUDENT_REGISTRATION" ||
+    prog === "REGISTERED_ACCOUNT" ||
+    prog === "ACCOUNT_SIGNUP" ||
+    prog === "USER_REGISTRATION"
+  ) {
+    return false;
+  }
+  if (
+    row.education === "Registered Student User" &&
+    row.college_name === "Parivattan Student Portal" &&
+    !row.batchId &&
+    !row.batch_id
+  ) {
+    return false;
+  }
+  if (row.message && typeof row.message === "string" && row.message.trim().startsWith("{")) {
+    try {
+      const parsed = JSON.parse(row.message);
+      if (parsed.type === "registered_student" && !parsed.courseId && !parsed.program && !parsed.batchId) {
+        return false;
+      }
+    } catch {}
+  }
+  return true;
+};
+
 export const getAllAdmissions = async (): Promise<Admission[]> => {
   try {
     const { data, error } = await supabase
@@ -136,21 +166,23 @@ export const getAllAdmissions = async (): Promise<Admission[]> => {
       .order("created_at", { ascending: false });
 
     if (!error && data && data.length > 0) {
+      const realAdmissions = data.filter(isRealCourseAdmission);
       try {
-        recalculateBatchSeatsFromAdmissions(data);
+        recalculateBatchSeatsFromAdmissions(realAdmissions);
       } catch {}
-      return data;
+      return realAdmissions;
     }
   } catch (e) {
     console.warn("Supabase admissions fetch notice:", e);
   }
 
   try {
-    const local = JSON.parse(localStorage.getItem("parivattan_admissions") || "[]");
+    const local: any[] = JSON.parse(localStorage.getItem("parivattan_admissions") || "[]");
+    const realLocal = local.filter(isRealCourseAdmission);
     try {
-      recalculateBatchSeatsFromAdmissions(local);
+      recalculateBatchSeatsFromAdmissions(realLocal);
     } catch {}
-    return local;
+    return realLocal;
   } catch {
     return [];
   }
