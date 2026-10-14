@@ -317,8 +317,10 @@ export default function AdmissionsPage() {
       return;
     }
 
-    // 0. Mandatory Student PRN Verification Check
-    if (!isPrnVerified || !verifiedStudent) {
+    const isTestCourse = formCourse.id === "test-course";
+
+    // 0. Mandatory Student PRN Verification Check (Bypassed for ₹1 Live Test Course)
+    if (!isTestCourse && (!isPrnVerified || !verifiedStudent)) {
       toast.error("Please enter and verify your Student PRN number first before taking admission!");
       const prnElem = document.getElementById("prn-verification-section");
       if (prnElem) prnElem.scrollIntoView({ behavior: "smooth" });
@@ -339,34 +341,34 @@ export default function AdmissionsPage() {
       return;
     }
     if (!emailAddress.trim() || !emailAddress.includes("@")) {
-      toast.error("Please enter a valid email address.");
+      toast.error("Please enter a valid email address to receive your confirmation email.");
       return;
     }
-    if (!education.trim()) {
+    if (!isTestCourse && !education.trim()) {
       toast.error("Please specify your educational qualification.");
       return;
     }
-    if (!collegeName.trim()) {
+    if (!isTestCourse && !collegeName.trim()) {
       toast.error("Please enter your college or institute name.");
       return;
     }
 
-    // 2. Current Address Validation
-    if (!currentAddressLine.trim()) {
+    // 2. Current Address Validation (Simplified for ₹1 Test Course)
+    if (!currentAddressLine.trim() && !isTestCourse) {
       toast.error("Please enter your current residential address.");
       return;
     }
-    if (!currentCity.trim()) {
+    if (!currentCity.trim() && !isTestCourse) {
       toast.error("Please enter your current city.");
       return;
     }
-    if (!currentPincode.trim() || currentPincode.replace(/\D/g, "").length < 6) {
+    if ((!currentPincode.trim() || currentPincode.replace(/\D/g, "").length < 6) && !isTestCourse) {
       toast.error("Please enter a valid 6-digit current pincode.");
       return;
     }
 
     // 3. Permanent Address Validation (if different)
-    if (!isSameAddress) {
+    if (!isSameAddress && !isTestCourse) {
       if (!permAddressLine.trim()) {
         toast.error("Please enter your permanent address.");
         return;
@@ -381,32 +383,34 @@ export default function AdmissionsPage() {
       }
     }
 
-    // 4. Required Document Proofs Validation
-    if (!photoFile.dataUrl) {
-      toast.error("Please upload your passport size photograph.");
-      const docElem = document.getElementById("document-proofs-section");
-      if (docElem) docElem.scrollIntoView({ behavior: "smooth" });
-      return;
-    }
-    if (!idProofFile.dataUrl) {
-      toast.error("Please upload your Identity Proof (Aadhaar / Voter ID / Passport / PAN).");
-      const docElem = document.getElementById("document-proofs-section");
-      if (docElem) docElem.scrollIntoView({ behavior: "smooth" });
-      return;
-    }
-    if (!educationProofFile.dataUrl) {
-      toast.error("Please upload your Education Proof (Marksheet / Passing Certificate / Degree).");
-      const docElem = document.getElementById("document-proofs-section");
-      if (docElem) docElem.scrollIntoView({ behavior: "smooth" });
-      return;
-    }
+    // 4. Required Document Proofs Validation (Bypassed for ₹1 Live Test Course)
+    if (!isTestCourse) {
+      if (!photoFile.dataUrl) {
+        toast.error("Please upload your passport size photograph.");
+        const docElem = document.getElementById("document-proofs-section");
+        if (docElem) docElem.scrollIntoView({ behavior: "smooth" });
+        return;
+      }
+      if (!idProofFile.dataUrl) {
+        toast.error("Please upload your Identity Proof (Aadhaar / Voter ID / Passport / PAN).");
+        const docElem = document.getElementById("document-proofs-section");
+        if (docElem) docElem.scrollIntoView({ behavior: "smooth" });
+        return;
+      }
+      if (!educationProofFile.dataUrl) {
+        toast.error("Please upload your Education Proof (Marksheet / Passing Certificate / Degree).");
+        const docElem = document.getElementById("document-proofs-section");
+        if (docElem) docElem.scrollIntoView({ behavior: "smooth" });
+        return;
+      }
 
-    // 5. CASTE CERTIFICATE VALIDATION: Strictly required for Reserved Categories!
-    if (casteCategory !== "Open / General" && !casteCertFile.dataUrl) {
-      toast.error(`Caste Certificate is strictly mandatory for ${casteCategory} category candidates.`);
-      const docElem = document.getElementById("document-proofs-section");
-      if (docElem) docElem.scrollIntoView({ behavior: "smooth" });
-      return;
+      // 5. CASTE CERTIFICATE VALIDATION: Strictly required for Reserved Categories!
+      if (casteCategory !== "Open / General" && !casteCertFile.dataUrl) {
+        toast.error(`Caste Certificate is strictly mandatory for ${casteCategory} category candidates.`);
+        const docElem = document.getElementById("document-proofs-section");
+        if (docElem) docElem.scrollIntoView({ behavior: "smooth" });
+        return;
+      }
     }
 
     // Agreement Check
@@ -1052,7 +1056,7 @@ export default function AdmissionsPage() {
                   <label className="block text-xs font-semibold uppercase tracking-wider text-[#24312d] mb-1.5 font-sans">
                     Select Language <span className="text-red-500">*</span>
                   </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
                     {LANGUAGE_COURSES.map((course) => {
                       const isSelected = formLanguageId === course.id;
                       return (
@@ -1063,19 +1067,55 @@ export default function AdmissionsPage() {
                             setFormLanguageId(course.id);
                             setFormLevelId(course.levels[0].id);
                           }}
-                          className={`flex items-center gap-2.5 rounded-xl p-2.5 text-left transition border cursor-pointer ${
+                          className={`flex items-center gap-2 rounded-xl p-2.5 text-left transition border cursor-pointer ${
                             isSelected
                               ? "border-[#b5623b] bg-white ring-2 ring-[#b5623b]/20 font-bold shadow-xs"
                               : "border-[#e2e5dc] bg-white text-[#65706a] hover:border-[#b5623b] hover:bg-[#faf9f6]"
                           }`}
                         >
                           <CountryFlagIcon courseId={course.id} size="md" />
-                          <span className="text-xs font-course font-black text-[#24312d]">{course.name.replace(" Language", "")}</span>
+                          <span className="text-xs font-course font-black text-[#24312d] truncate">{course.name.replace(" Language", "")}</span>
                         </button>
                       );
                     })}
                   </div>
                 </div>
+
+                {/* ₹1 Test Mode Quick Banner */}
+                {formCourse.id === "test-course" && (
+                  <div className="rounded-2xl border-2 border-emerald-400 bg-emerald-50/70 p-4 text-xs text-emerald-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                    <div className="flex items-start gap-2.5">
+                      <span className="text-2xl shrink-0">🧪</span>
+                      <div>
+                        <strong className="text-sm font-bold text-emerald-900 block">
+                          ₹1 Live Admission Test Mode Active!
+                        </strong>
+                        <p className="text-xs text-emerald-800 mt-0.5">
+                          Total fee is strictly <strong>₹1</strong>. This will test live Razorpay checkout, live seat decrement (30 ➔ 29), and instant confirmation email dispatch.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFullName((prev) => prev || "Test Student");
+                        setMobileNumber((prev) => prev || "9876543210");
+                        setEmailAddress((prev) => prev || "student@parivattan.org");
+                        setCurrentAddressLine("FC Road, Deccan");
+                        setCurrentCity("Pune");
+                        setCurrentPincode("411004");
+                        setCollegeName("SPPU Pune");
+                        setAgreeRules(true);
+                        setAgreePolicy(true);
+                        toast.success("Test applicant details filled! You can type your own email to receive the confirmation email.");
+                      }}
+                      className="shrink-0 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-3.5 py-2 text-xs transition shadow-xs flex items-center gap-1.5"
+                    >
+                      <Sparkles size={13} />
+                      <span>Auto-Fill Test Info</span>
+                    </button>
+                  </div>
+                )}
 
                 {/* Level Selector */}
                 <div>

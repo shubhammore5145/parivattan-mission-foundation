@@ -2,6 +2,44 @@ import { Course } from "@/types/student";
 
 export const COURSES_DATA: Course[] = [
   {
+    id: "test-course-1rs",
+    code: "PMF-TEST-001",
+    title: "Live Test Course (₹1 Test Admission)",
+    marathiTitle: "लाईव्ह टेस्ट कोर्स (₹1 ॲडमिशन चाचणी)",
+    school: "Parivattan Mission Foundation - Test Lab",
+    category: "technology",
+    duration: "1 Day Test",
+    mode: "Live Online / Direct Test",
+    eligibility: "Open to everyone for ₹1 payment & email test",
+    batchStart: "Instant / Today",
+    seatsAvailable: 30,
+    totalFee: 1,
+    admissionFee: 1,
+    scholarshipSubsidy: 0,
+    finalPayable: 1,
+    rating: 5.0,
+    studentsEnrolled: 0,
+    badge: "₹1 Live Test 🧪",
+    shortDesc: "Complete ₹1 live admission to test Razorpay payment gateway, email receipt, and real-time seat update.",
+    marathiDesc: "पेमेंट गेटवे, सीट संख्या आणि ईमेल पडताळणीसाठी ₹1 चा लाईव्ह टेस्ट कोर्स.",
+    highlights: [
+      "Live Razorpay ₹1 payment test (UPI / QR / Cards)",
+      "Real-time seat count decrement (30 -> 29)",
+      "Automated branded confirmation email delivery",
+      "Instant Student PRN & receipt generation"
+    ],
+    syllabus: [
+      "Module 1: Razorpay Payment Gateway Verification (₹1)",
+      "Module 2: Real-time Database Admission Record Creation",
+      "Module 3: Instant Automated Confirmation Email Dispatch"
+    ],
+    careerProspects: [
+      "System Verification Complete",
+      "Payment & Email Delivery Confirmed"
+    ],
+    icon: "Sparkles"
+  },
+  {
     id: "tech-fullstack",
     code: "PTS-FS-101",
     title: "Full Stack Web & AI Application Development",
