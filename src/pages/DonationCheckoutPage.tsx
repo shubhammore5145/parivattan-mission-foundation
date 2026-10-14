@@ -27,6 +27,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { openRazorpayPayment, getRazorpayKeyId } from "@/lib/razorpay";
 import { createDonation } from "@/lib/supabase-admin";
+import { sendDonationReceiptEmail } from "@/lib/notificationEmailService";
 import { toast } from "sonner";
 
 interface UpcomingCause {
@@ -188,8 +189,20 @@ export default function DonationCheckoutPage() {
             }),
           });
 
+          // Automatically send official donation receipt and 80G confirmation email
+          sendDonationReceiptEmail({
+            donorName: fullName.trim(),
+            donorEmail: email.trim(),
+            amount: activeAmount,
+            cause: `${currentCauseObj.name} (${currentCauseObj.marathi})`,
+            paymentId: payId,
+            receiptNo,
+            donorPhone: phone.trim(),
+            pan: panNumber.trim() || undefined,
+          });
+
           setIsSubmitting(false);
-          toast.success("Payment successful! Thank you for supporting Parivattan.");
+          toast.success("Payment successful! Official receipt sent to your email.");
         },
         onDismiss: () => {
           setIsSubmitting(false);

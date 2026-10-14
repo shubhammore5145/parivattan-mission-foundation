@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   GraduationCap,
   Sparkles,
@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Course, CourseCategory } from "@/types/student";
 import { COURSES_DATA, COURSE_CATEGORIES } from "@/data/coursesData";
+import { getBatchSeatsInfo } from "@/data/languageCoursesData";
 
 interface CourseCatalogProps {
   selectedCourse: Course | null;
@@ -33,6 +34,45 @@ export const CourseCatalog: React.FC<CourseCatalogProps> = ({
   const [activeCategory, setActiveCategory] = useState<CourseCategory>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [syllabusModalCourse, setSyllabusModalCourse] = useState<Course | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Live seats listener
+  useEffect(() => {
+    const handleUpdate = () => setRefreshKey((k) => k + 1);
+    window.addEventListener("batch-seats-updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    return () => {
+      window.removeEventListener("batch-seats-updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
+  }, []);
+
+  const getCourseSeatsRemaining = (course: Course): number => {
+    if (course.id === "lang-japanese" || course.code.includes("JP")) {
+      return getBatchSeatsInfo("jp-n5-morning").remainingSeats;
+    }
+    if (course.id === "lang-german" || course.code.includes("DE")) {
+      return getBatchSeatsInfo("de-a1-mwf").remainingSeats;
+    }
+    if (course.id === "comm-english" || course.code.includes("EN")) {
+      return getBatchSeatsInfo("en-basic-evening").remainingSeats;
+    }
+
+    // Dynamic count for tech/career programs from registered student applications
+    try {
+      const studentApps = JSON.parse(localStorage.getItem("parivattan_student_admissions") || "[]");
+      const matching = Array.isArray(studentApps)
+        ? studentApps.filter((a: any) =>
+            a.courseId === course.id ||
+            a.courseCode === course.code ||
+            (a.courseTitle && a.courseTitle.toLowerCase().includes(course.title.toLowerCase()))
+          ).length
+        : 0;
+      return Math.max(0, course.seatsAvailable - matching);
+    } catch {
+      return course.seatsAvailable;
+    }
+  };
 
   const filteredCourses = COURSES_DATA.filter((course) => {
     const matchesCat =
@@ -213,9 +253,20 @@ export const CourseCatalog: React.FC<CourseCatalogProps> = ({
                     <span className="rounded-lg bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
                       Scholarship Applied
                     </span>
-                    <p className="text-[10px] text-[#65706a] mt-0.5">
-                      Seats Left: {course.seatsAvailable}
-                    </p>
+                    {(() => {
+                      const seatsLeft = getCourseSeatsRemaining(course);
+                      return (
+                        <p className={`text-[10px] mt-0.5 font-bold ${
+                          seatsLeft <= 0
+                            ? "text-rose-600"
+                            : seatsLeft <= 5
+                            ? "text-amber-700"
+                            : "text-[#65706a]"
+                        }`}>
+                          {seatsLeft <= 0 ? "Admission Full (0 Left)" : `Seats Remaining: ${seatsLeft}`}
+                        </p>
+                      );
+                    })()}
                   </div>
                 </div>
 
