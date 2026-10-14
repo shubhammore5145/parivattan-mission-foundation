@@ -45,6 +45,7 @@ import {
   ChevronRight,
   User,
   Calendar,
+  BookOpen,
 } from "lucide-react";
 import { StudentUser } from "@/types/student";
 import {
@@ -58,6 +59,7 @@ import {
   toggleBatchManualFull,
   resetBatchEnrollment,
   BatchSeatsStatus,
+  getStoredCourses,
 } from "@/data/languageCoursesData";
 import {
   getAllDonations,
@@ -85,14 +87,17 @@ import { CountryFlagIcon } from "@/components/common/CountryFlagIcon";
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import CourseManager from "@/components/admin/CourseManager";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
 
-  // Active Tab: "admissions" | "students" | "donations" | "contacts" | "visitors"
+  // Active Tab: "admissions" | "students" | "courses" | "donations" | "contacts" | "visitors"
   const [activeTab, setActiveTab] = useState<
-    "admissions" | "students" | "donations" | "contacts" | "visitors"
+    "admissions" | "students" | "courses" | "donations" | "contacts" | "visitors"
   >("admissions");
+
+  const [coursesCount, setCoursesCount] = useState<number>(() => getStoredCourses().length);
 
   // Core Data States
   const [loading, setLoading] = useState(true);
@@ -211,9 +216,13 @@ export default function AdminDashboard() {
     loadAllDashboardData();
 
     const handleBatchUpdate = () => loadBatchSeats();
+    const handleCoursesUpdate = () => setCoursesCount(getStoredCourses().length);
+
     window.addEventListener("batch-seats-updated", handleBatchUpdate);
+    window.addEventListener("courses-updated", handleCoursesUpdate);
     return () => {
       window.removeEventListener("batch-seats-updated", handleBatchUpdate);
+      window.removeEventListener("courses-updated", handleCoursesUpdate);
     };
   }, []);
 
@@ -765,7 +774,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* ==================== 2. EXECUTIVE KPI CARDS RIBBON ==================== */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5 sm:gap-4 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 sm:gap-4 mb-8">
             {/* Admissions KPI */}
             <button
               onClick={() => setActiveTab("admissions")}
@@ -845,6 +854,47 @@ export default function AdminDashboard() {
                 }`}
               >
                 Registered Student Accounts
+              </div>
+            </button>
+
+            {/* Courses Management KPI */}
+            <button
+              onClick={() => setActiveTab("courses")}
+              className={`rounded-2xl p-4 sm:p-5 text-left transition-all border ${
+                activeTab === "courses"
+                  ? "bg-[#1b2b25] text-white border-[#1b2b25] shadow-md ring-2 ring-[#1b2b25]/20"
+                  : "bg-white text-[#1b2b25] border-stone-200/80 hover:border-[#b5623b] shadow-xs"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div
+                  className={`h-9 w-9 rounded-xl flex items-center justify-center ${
+                    activeTab === "courses"
+                      ? "bg-white/10 text-emerald-300"
+                      : "bg-emerald-50 text-emerald-700"
+                  }`}
+                >
+                  <BookOpen size={18} />
+                </div>
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    activeTab === "courses"
+                      ? "bg-white/15 text-stone-200"
+                      : "bg-emerald-100 text-emerald-800"
+                  }`}
+                >
+                  Manage
+                </span>
+              </div>
+              <div className="text-2xl sm:text-3xl font-serif font-bold">
+                {coursesCount}
+              </div>
+              <div
+                className={`text-[11px] mt-1 font-medium ${
+                  activeTab === "courses" ? "text-stone-300" : "text-stone-500"
+                }`}
+              >
+                Courses, Levels & Batches
               </div>
             </button>
 
@@ -1005,6 +1055,22 @@ export default function AdminDashboard() {
                 <span>Students Directory</span>
                 <span className="px-2 py-0.5 rounded-full bg-stone-100 text-[11px] text-stone-700 font-mono">
                   {students.length}
+                </span>
+              </button>
+
+              {/* Tab Courses */}
+              <button
+                onClick={() => setActiveTab("courses")}
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
+                  activeTab === "courses"
+                    ? "bg-white text-[#1b2b25] shadow-sm font-extrabold"
+                    : "text-stone-600 hover:text-[#1b2b25] hover:bg-white/50"
+                }`}
+              >
+                <BookOpen size={15} />
+                <span>Courses & Batches</span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[11px] text-emerald-800 font-mono font-bold">
+                  {coursesCount}
                 </span>
               </button>
 
@@ -2004,6 +2070,13 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ==================== TAB COURSES: COURSE MANAGEMENT ==================== */}
+          {activeTab === "courses" && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              <CourseManager />
             </div>
           )}
         </div>

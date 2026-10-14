@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -9,6 +9,7 @@ import {
   LanguageCourse,
   CourseLevel,
   UPCOMING_COURSES,
+  getStoredCourses,
 } from "@/data/languageCoursesData";
 import {
   Sparkles,
@@ -31,6 +32,17 @@ import {
 export default function CoursesPage() {
   const navigate = useNavigate();
 
+  // Dynamic Courses List from Admin storage
+  const [coursesList, setCoursesList] = useState<LanguageCourse[]>(() => getStoredCourses());
+
+  useEffect(() => {
+    const handleCoursesUpdate = () => {
+      setCoursesList(getStoredCourses());
+    };
+    window.addEventListener("courses-updated", handleCoursesUpdate);
+    return () => window.removeEventListener("courses-updated", handleCoursesUpdate);
+  }, []);
+
   // Search and Category Filter
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<
@@ -49,8 +61,8 @@ export default function CoursesPage() {
   const filteredLanguages = useMemo(() => {
     if (selectedCategory === "upcoming") return [];
     const q = searchQuery.toLowerCase().trim();
-    if (!q) return LANGUAGE_COURSES;
-    return LANGUAGE_COURSES.filter(
+    if (!q) return coursesList;
+    return coursesList.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
         c.nativeName.toLowerCase().includes(q) ||
@@ -58,7 +70,7 @@ export default function CoursesPage() {
         c.levelsSummary.toLowerCase().includes(q) ||
         c.levels.some((lvl) => lvl.level.toLowerCase().includes(q))
     );
-  }, [searchQuery, selectedCategory]);
+  }, [searchQuery, selectedCategory, coursesList]);
 
   // Filtered Upcoming Courses
   const filteredUpcoming = useMemo(() => {

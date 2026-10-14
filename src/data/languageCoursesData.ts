@@ -50,7 +50,7 @@ export interface LanguageCourse {
   };
 }
 
-export const LANGUAGE_COURSES: LanguageCourse[] = [
+export const INITIAL_LANGUAGE_COURSES: LanguageCourse[] = [
   {
     id: "japanese",
     name: "Japanese Language",
@@ -432,13 +432,88 @@ export const LANGUAGE_COURSES: LanguageCourse[] = [
   },
 ];
 
+const STORAGE_KEY = "parivattan_custom_courses";
+
+export const getStoredCourses = (): LanguageCourse[] => {
+  if (typeof window === "undefined") return INITIAL_LANGUAGE_COURSES;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to read custom courses from localStorage:", err);
+  }
+  return INITIAL_LANGUAGE_COURSES;
+};
+
+// Exported array that mutates in place so any external references stay up to date
+export const LANGUAGE_COURSES: LanguageCourse[] = [...getStoredCourses()];
+
+export const refreshLanguageCoursesInMemory = (): LanguageCourse[] => {
+  const current = getStoredCourses();
+  LANGUAGE_COURSES.length = 0;
+  LANGUAGE_COURSES.push(...current);
+  return LANGUAGE_COURSES;
+};
+
+export const saveCustomCourse = (course: LanguageCourse): void => {
+  const list = [...getStoredCourses()];
+  const existingIdx = list.findIndex(c => c.id.toLowerCase() === course.id.toLowerCase());
+  if (existingIdx >= 0) {
+    list[existingIdx] = course;
+  } else {
+    list.push(course);
+  }
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    refreshLanguageCoursesInMemory();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("courses-updated"));
+      window.dispatchEvent(new Event("batch-seats-updated"));
+    }
+  } catch (err) {
+    console.error("Failed to save course:", err);
+  }
+};
+
+export const deleteCustomCourse = (courseId: string): void => {
+  const list = getStoredCourses().filter(c => c.id.toLowerCase() !== courseId.toLowerCase());
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    refreshLanguageCoursesInMemory();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("courses-updated"));
+      window.dispatchEvent(new Event("batch-seats-updated"));
+    }
+  } catch (err) {
+    console.error("Failed to delete course:", err);
+  }
+};
+
+export const resetCustomCourses = (): void => {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    refreshLanguageCoursesInMemory();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("courses-updated"));
+      window.dispatchEvent(new Event("batch-seats-updated"));
+    }
+  } catch (err) {
+    console.error("Failed to reset courses:", err);
+  }
+};
+
 // Helper to find a course or level
 export const getCourseById = (id: string): LanguageCourse | undefined => {
-  return LANGUAGE_COURSES.find(c => c.id.toLowerCase() === id.toLowerCase());
+  return getStoredCourses().find(c => c.id.toLowerCase() === id.toLowerCase());
 };
 
 export const getCourseLevelById = (levelId: string): { course: LanguageCourse; level: CourseLevel } | undefined => {
-  for (const course of LANGUAGE_COURSES) {
+  for (const course of getStoredCourses()) {
     const level = course.levels.find(l => l.id.toLowerCase() === levelId.toLowerCase());
     if (level) {
       return { course, level };
@@ -792,7 +867,7 @@ export const resetBatchEnrollment = (batchId: string): void => {
 
 export const getAllBatchesSeatsList = (): BatchSeatsStatus[] => {
   const list: BatchSeatsStatus[] = [];
-  LANGUAGE_COURSES.forEach((course) => {
+  getStoredCourses().forEach((course) => {
     course.levels.forEach((lvl) => {
       lvl.batches.forEach((b) => {
         const info = getBatchSeatsInfo(b.id);

@@ -11,6 +11,7 @@ import {
   getBatchSeatsInfo,
   incrementBatchEnrollment,
   recalculateBatchSeatsFromAdmissions,
+  getStoredCourses,
 } from "@/data/languageCoursesData";
 import { CountryFlagIcon } from "@/components/common/CountryFlagIcon";
 import {
@@ -161,15 +162,27 @@ export default function AdmissionsPage() {
     }
   }, [initialPrnParam]);
 
+  // Dynamic courses from admin storage
+  const [availableCourses, setAvailableCourses] = useState<LanguageCourse[]>(() => getStoredCourses());
+
+  useEffect(() => {
+    const handleCoursesSync = () => {
+      setAvailableCourses(getStoredCourses());
+    };
+    window.addEventListener("courses-updated", handleCoursesSync);
+    return () => window.removeEventListener("courses-updated", handleCoursesSync);
+  }, []);
+
   // Selected Language in form
   const [formLanguageId, setFormLanguageId] = useState<string>(initialLangParam);
 
   const formCourse: LanguageCourse = useMemo(() => {
     return (
-      LANGUAGE_COURSES.find((c) => c.id.toLowerCase() === formLanguageId.toLowerCase()) ||
+      availableCourses.find((c) => c.id.toLowerCase() === formLanguageId.toLowerCase()) ||
+      availableCourses[0] ||
       LANGUAGE_COURSES[0]
     );
-  }, [formLanguageId]);
+  }, [formLanguageId, availableCourses]);
 
   // Selected Level
   const [formLevelId, setFormLevelId] = useState<string>(
@@ -1057,7 +1070,7 @@ export default function AdmissionsPage() {
                     Select Language <span className="text-red-500">*</span>
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-                    {LANGUAGE_COURSES.map((course) => {
+                    {availableCourses.map((course) => {
                       const isSelected = formLanguageId === course.id;
                       return (
                         <button
