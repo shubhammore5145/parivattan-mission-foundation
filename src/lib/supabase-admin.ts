@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { recalculateBatchSeatsFromAdmissions } from "@/data/languageCoursesData";
 
 const supabaseUrl =
   import.meta.env.VITE_SUPABASE_URL ||
@@ -61,6 +62,8 @@ export interface Admission {
   message?: string;
   amount?: number;
   payment_id?: string;
+  batch_id?: string;
+  batchId?: string;
   status: "completed" | "failed" | "pending";
   created_at: string;
 }
@@ -101,6 +104,11 @@ export const createAdmission = async (
     console.warn("Could not save to localStorage:", e);
   }
 
+  // Recalculate batch seats immediately
+  try {
+    recalculateBatchSeatsFromAdmissions();
+  } catch {}
+
   // Attempt to save to Supabase if table is configured
   try {
     const { data, error } = await supabase
@@ -127,13 +135,22 @@ export const getAllAdmissions = async (): Promise<Admission[]> => {
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (!error && data && data.length > 0) return data;
+    if (!error && data && data.length > 0) {
+      try {
+        recalculateBatchSeatsFromAdmissions(data);
+      } catch {}
+      return data;
+    }
   } catch (e) {
     console.warn("Supabase admissions fetch notice:", e);
   }
 
   try {
-    return JSON.parse(localStorage.getItem("parivattan_admissions") || "[]");
+    const local = JSON.parse(localStorage.getItem("parivattan_admissions") || "[]");
+    try {
+      recalculateBatchSeatsFromAdmissions(local);
+    } catch {}
+    return local;
   } catch {
     return [];
   }
@@ -150,6 +167,7 @@ export const deleteAdmission = async (id: string): Promise<void> => {
     const list: Admission[] = JSON.parse(localStorage.getItem("parivattan_admissions") || "[]");
     const updated = list.filter((item) => item.id !== id);
     localStorage.setItem("parivattan_admissions", JSON.stringify(updated));
+    recalculateBatchSeatsFromAdmissions(updated);
   } catch (e) {
     console.warn("localStorage delete notice:", e);
   }

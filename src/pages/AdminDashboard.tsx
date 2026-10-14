@@ -234,6 +234,18 @@ export default function AdminDashboard() {
     setBatchSeatsList(getAllBatchesSeatsList());
   };
 
+  useEffect(() => {
+    const handleSeatsUpdated = () => {
+      setBatchSeatsList(getAllBatchesSeatsList());
+    };
+    window.addEventListener("batch-seats-updated", handleSeatsUpdated);
+    window.addEventListener("storage", handleSeatsUpdated);
+    return () => {
+      window.removeEventListener("batch-seats-updated", handleSeatsUpdated);
+      window.removeEventListener("storage", handleSeatsUpdated);
+    };
+  }, []);
+
   const loadDonationData = async () => {
     try {
       const [donationsData, statsData] = await Promise.all([
@@ -398,6 +410,7 @@ export default function AdminDashboard() {
       if (selectedAdmission && selectedAdmission.id === id) {
         setSelectedAdmission(null);
       }
+      setBatchSeatsList(getAllBatchesSeatsList());
       toast.success("Admission deleted.");
     } catch (err) {
       console.error("Error deleting admission:", err);

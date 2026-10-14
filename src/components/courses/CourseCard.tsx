@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { LanguageCourse, CourseLevel, getBatchSeatsInfo } from "@/data/languageCoursesData";
 import { Clock, Calendar, Users, Shield, ArrowRight, CheckCircle2, Sparkles, Info, AlertOctagon } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -12,11 +12,26 @@ interface CourseCardProps {
 
 export default function CourseCard({ course, onEnroll, onOpenDetails }: CourseCardProps) {
   const [selectedLevelId, setSelectedLevelId] = useState<string>(course.levels[0].id);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Live seat update subscriber
+  useEffect(() => {
+    const handleUpdate = () => setRefreshKey((k) => k + 1);
+    window.addEventListener("batch-seats-updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    return () => {
+      window.removeEventListener("batch-seats-updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
+  }, []);
+
   const activeLevel = course.levels.find(l => l.id === selectedLevelId) || course.levels[0];
 
   // Check seat capacity for the first batch or across batches
   const primaryBatch = activeLevel.batches[0];
-  const primarySeats = primaryBatch ? getBatchSeatsInfo(primaryBatch.id) : { totalSeats: 30, enrolled: 25, remainingSeats: 5, isFull: false };
+  const primarySeats = primaryBatch
+    ? getBatchSeatsInfo(primaryBatch.id)
+    : { totalSeats: 30, enrolled: 0, remainingSeats: 30, isFull: false };
   const allBatchesFull = activeLevel.batches.every(b => getBatchSeatsInfo(b.id).isFull);
 
   return (
@@ -126,7 +141,7 @@ export default function CourseCard({ course, onEnroll, onOpenDetails }: CourseCa
                       </span>
                     ) : (
                       <span className="rounded bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                        Seats Left: {seats.remainingSeats}/{seats.totalSeats}
+                        Seats Remaining: {seats.remainingSeats}/{seats.totalSeats}
                       </span>
                     )}
                   </div>

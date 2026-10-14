@@ -10,6 +10,7 @@ import {
   COURSE_FAQS,
   getBatchSeatsInfo,
   incrementBatchEnrollment,
+  recalculateBatchSeatsFromAdmissions,
 } from "@/data/languageCoursesData";
 import { CountryFlagIcon } from "@/components/common/CountryFlagIcon";
 import {
@@ -494,6 +495,8 @@ export default function AdmissionsPage() {
       language: formCourse.name,
       level: formLevel.level,
       batch: formBatch?.name || "Standard Batch",
+      batchId: formBatch?.id,
+      batch_id: formBatch?.id,
       preferredTiming: formTiming || formBatch?.time,
       days: formBatch?.days || "Scheduled Days",
       duration: formLevel.duration,
@@ -560,15 +563,22 @@ export default function AdmissionsPage() {
         caste_certificate: casteCertFile.dataUrl || undefined,
         caste_certificate_name: casteCertFile.name || undefined,
         program: `${admissionRecord.language} (${admissionRecord.level}) - ${admissionRecord.batch}`,
-        message: `Gender: ${gender} | Timing: ${admissionRecord.preferredTiming} | PRN: ${studentPrn} | Duration: ${admissionRecord.duration} | Caste: ${casteCategory} | Txn: ${paymentRef}`,
+        message: `Batch ID: ${formBatch?.id || ""} | Gender: ${gender} | Timing: ${admissionRecord.preferredTiming} | PRN: ${studentPrn} | Duration: ${admissionRecord.duration} | Caste: ${casteCategory} | Txn: ${paymentRef}`,
         amount: admissionRecord.totalAmount,
         payment_id: paymentRef,
+        batchId: formBatch?.id,
+        batch_id: formBatch?.id,
         status: "completed",
       });
 
       // Save to local admissions history
       const stored = JSON.parse(localStorage.getItem("parivattan_admissions_records") || "[]");
       localStorage.setItem("parivattan_admissions_records", JSON.stringify([admissionRecord, ...stored]));
+
+      // Synchronize live batch seats
+      try {
+        recalculateBatchSeatsFromAdmissions();
+      } catch {}
 
       // Automatically send course admission confirmation email via Google Apps Script
       sendCourseAdmissionEmail({
@@ -877,7 +887,7 @@ export default function AdmissionsPage() {
                     </span>
                   ) : (
                     <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 text-xs font-bold flex items-center gap-1">
-                      <Users size={13} /> {batchSeats.remainingSeats <= 4 ? `Only ${batchSeats.remainingSeats} Seats Left!` : `${batchSeats.remainingSeats} Seats Available`}
+                      <Users size={13} /> {batchSeats.remainingSeats <= 4 ? `Only ${batchSeats.remainingSeats} Seats Left!` : `${batchSeats.remainingSeats} Seats Remaining`}
                     </span>
                   )}
                 </div>
@@ -1108,7 +1118,7 @@ export default function AdmissionsPage() {
                         const s = getBatchSeatsInfo(b.id);
                         return (
                           <option key={b.id} value={b.id}>
-                            {b.name} ({b.days}) {s.isFull ? "— [ADMISSION FULL]" : `— [${s.remainingSeats} Seats Available]`}
+                            {b.name} ({b.days}) {s.isFull ? "— [ADMISSION FULL (0 Left)]" : `— [${s.remainingSeats} Seats Remaining / ${s.totalSeats}]`}
                           </option>
                         );
                       })}

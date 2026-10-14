@@ -4,6 +4,9 @@ import {
   LanguageCourse,
   CourseLevel,
   BatchSchedule,
+  getBatchSeatsInfo,
+  incrementBatchEnrollment,
+  recalculateBatchSeatsFromAdmissions,
 } from "@/data/languageCoursesData";
 import { CountryFlagIcon } from "@/components/common/CountryFlagIcon";
 import {
@@ -88,6 +91,22 @@ export default function RegistrationForm({
     (b) => b.id === selectedBatchId
   ) || activeLevel.batches[0];
 
+  // Re-read live seats when an admission is placed or admin updates capacity
+  const [seatsRefreshKey, setSeatsRefreshKey] = useState(0);
+  useEffect(() => {
+    const handleUpdate = () => setSeatsRefreshKey((k) => k + 1);
+    window.addEventListener("batch-seats-updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    return () => {
+      window.removeEventListener("batch-seats-updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
+  }, []);
+
+  const activeBatchSeats = activeBatch
+    ? getBatchSeatsInfo(activeBatch.id)
+    : { totalSeats: 30, enrolled: 0, remainingSeats: 30, isFull: false };
+
   // Preferred timing field
   const [preferredTiming, setPreferredTiming] = useState(activeBatch?.time || "");
   useEffect(() => {
@@ -151,6 +170,11 @@ export default function RegistrationForm({
       return;
     }
 
+    if (activeBatchSeats.isFull) {
+      toast.error(`Admissions are currently full for ${activeBatch?.name}. Please select an alternate batch or timing.`);
+      return;
+    }
+
     setIsSubmitting(true);
     const registrationId = `REG-${Date.now().toString().slice(-6)}`;
 
@@ -162,6 +186,8 @@ export default function RegistrationForm({
       language: currentLanguage.name,
       level: activeLevel.level,
       batch: activeBatch?.name || "Standard Batch",
+      batchId: activeBatch?.id,
+      batch_id: activeBatch?.id,
       preferredTiming: preferredTiming || activeBatch?.time,
       days: activeBatch?.days || "As scheduled",
       duration: activeLevel.duration,
@@ -178,6 +204,11 @@ export default function RegistrationForm({
     };
 
     try {
+      // Decrement seats intake immediately
+      if (activeBatch?.id) {
+        incrementBatchEnrollment(activeBatch.id);
+      }
+
       // Store in admissions records for database compatibility
       await createAdmission({
         name: payload.fullName,
@@ -187,8 +218,10 @@ export default function RegistrationForm({
         college_name: payload.collegeName,
         address: payload.address,
         program: `${payload.language} (${payload.level}) - ${payload.batch}`,
-        message: `Timing: ${payload.preferredTiming} | Duration: ${payload.duration} | Total Fee: ₹${payload.totalAmount}`,
+        message: `Batch ID: ${activeBatch?.id || ""} | Timing: ${payload.preferredTiming} | Duration: ${payload.duration} | Total Fee: ₹${payload.totalAmount}`,
         amount: payload.totalAmount,
+        batchId: activeBatch?.id,
+        batch_id: activeBatch?.id,
         status: "completed",
       });
 
@@ -216,6 +249,11 @@ export default function RegistrationForm({
         "parivattan_course_registrations",
         JSON.stringify([payload, ...existing])
       );
+
+      // Recalculate batch intake map across all records
+      try {
+        recalculateBatchSeatsFromAdmissions();
+      } catch {}
 
       // Automatically send course admission confirmation email to the student
       sendCourseAdmissionEmail({
@@ -591,12 +629,28 @@ export default function RegistrationForm({
                     onChange={(e) => setSelectedBatchId(e.target.value)}
                     className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 px-3.5 text-sm focus:border-[#b5623b] focus:bg-white focus:outline-none transition"
                   >
-                    {activeLevel.batches.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name} ({b.days})
-                      </option>
-                    ))}
+                    {activeLevel.batches.map((b) => {
+                      const s = getBatchSeatsInfo(b.id);
+                      return (
+                        <option key={b.id} value={b.id}>
+                          {b.name} ({b.days}) {s.isFull ? "— [ADMISSION FULL (0 Left)]" : `— [${s.remainingSeats} Seats Remaining / ${s.totalSeats}]`}
+                        </option>
+                      );
+                    })}
                   </select>
+                  {activeBatch && (
+                    <div className="mt-2 flex items-center justify-between text-xs">
+                      <span className={`px-2.5 py-1 rounded-full font-bold text-[11px] ${
+                        activeBatchSeats.isFull
+                          ? "bg-red-100 text-red-800 border border-red-200"
+                          : "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                      }`}>
+                        {activeBatchSeats.isFull
+                          ? "Admission Full (0 Seats Left)"
+                          : `Seats Remaining: ${activeBatchSeats.remainingSeats} / ${activeBatchSeats.totalSeats}`}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Preferred Timing */}

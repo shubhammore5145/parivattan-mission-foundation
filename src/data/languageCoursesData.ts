@@ -447,7 +447,9 @@ export const BATCH_SEATS_CONFIG: Record<string, { totalSeats: number; initialEnr
   "jp-n5-evening": { totalSeats: 30, initialEnrolled: 0 },
   "jp-n4-evening": { totalSeats: 25, initialEnrolled: 0 },
   "jp-n3-regular": { totalSeats: 20, initialEnrolled: 0 },
+  "de-a1-mwf": { totalSeats: 25, initialEnrolled: 0 },
   "de-a1-weekend": { totalSeats: 25, initialEnrolled: 0 },
+  "de-a2-tts": { totalSeats: 25, initialEnrolled: 0 },
   "de-a2-weekend": { totalSeats: 25, initialEnrolled: 0 },
   "en-basic-evening": { totalSeats: 30, initialEnrolled: 0 },
   "fr-a1-evening": { totalSeats: 25, initialEnrolled: 0 },
@@ -469,6 +471,61 @@ export interface BatchSeatsStatus {
   isManuallyFull?: boolean;
 }
 
+/**
+ * Intelligent matcher to associate any admission record to its exact batch ID.
+ */
+export const matchAdmissionToBatchId = (admission: any): string | null => {
+  if (!admission) return null;
+
+  // 1. Explicit batch ID fields
+  const explicitId = admission.batchId || admission.batch_id;
+  if (explicitId) {
+    if (BATCH_SEATS_CONFIG[explicitId]) return explicitId;
+    if (explicitId === "de-a1-weekend" || explicitId === "de-a1-mwf") return "de-a1-mwf";
+    if (explicitId === "de-a2-weekend" || explicitId === "de-a2-tts") return "de-a2-tts";
+  }
+
+  // 2. Parse text across all relevant fields
+  const text = `${admission.program || ""} ${admission.message || ""} ${admission.batch || ""} ${admission.batchPreference || ""} ${admission.courseTitle || ""} ${admission.courseCode || ""} ${admission.language || ""} ${admission.level || ""}`.toLowerCase();
+
+  // Japanese
+  if (text.includes("japan") || text.includes("jp-") || text.includes("jlpt") || text.includes("pfls-ja")) {
+    if (text.includes("n5") || text.includes("basic")) {
+      if (text.includes("evening") || text.includes("7:00") || text.includes("night") || text.includes("jp-n5-evening")) {
+        return "jp-n5-evening";
+      }
+      return "jp-n5-morning"; // Default for N5
+    }
+    if (text.includes("n4") || text.includes("medium")) {
+      return "jp-n4-evening";
+    }
+    if (text.includes("n3") || text.includes("advanced")) {
+      return "jp-n3-regular";
+    }
+    return "jp-n5-morning";
+  }
+
+  // German
+  if (text.includes("german") || text.includes("deutsch") || text.includes("pfls-de") || text.includes("de-")) {
+    if (text.includes("a2") || text.includes("de-a2")) {
+      return "de-a2-tts";
+    }
+    return "de-a1-mwf";
+  }
+
+  // English
+  if (text.includes("english") || text.includes("pfls-en") || text.includes("en-")) {
+    return "en-basic-evening";
+  }
+
+  // French
+  if (text.includes("french") || text.includes("français") || text.includes("pfls-fr") || text.includes("fr-")) {
+    return "fr-a1-evening";
+  }
+
+  return null;
+};
+
 export const getBatchSeatsInfo = (
   batchId: string
 ): { totalSeats: number; enrolled: number; remainingSeats: number; isFull: boolean; isManuallyFull?: boolean } => {
@@ -487,19 +544,37 @@ export const getBatchSeatsInfo = (
     let registeredCount = 0;
     try {
       const storedMap = JSON.parse(localStorage.getItem("parivattan_batch_intake_map") || "{}");
-      registeredCount = Number(storedMap[batchId]) || 0;
-      
-      // Also cross-check stored admissions if intake map was cleared
-      const admissions = JSON.parse(localStorage.getItem("parivattan_admissions") || "[]");
-      if (Array.isArray(admissions) && admissions.length > 0) {
-        const admissionsMatchingBatch = admissions.filter((a: any) => {
-          const prog = (a.program || "").toLowerCase();
-          const msg = (a.message || "").toLowerCase();
-          const bId = batchId.toLowerCase();
-          return prog.includes(bId) || msg.includes(bId) || (a.batch && a.batch.toLowerCase().includes(bId));
-        }).length;
-        registeredCount = Math.max(registeredCount, admissionsMatchingBatch);
+      const manualIntake = Number(storedMap[batchId]) || 0;
+
+      // Also gather all unique admissions across storage keys
+      const allAdmissions: any[] = [];
+      const seenIds = new Set<string>();
+
+      const addAdmissions = (list: any[]) => {
+        if (!Array.isArray(list)) return;
+        for (const item of list) {
+          if (!item) continue;
+          const id = item.id || item.paymentId || item.payment_id || item.email || item.phone || JSON.stringify(item);
+          if (!seenIds.has(id)) {
+            seenIds.add(id);
+            allAdmissions.push(item);
+          }
+        }
+      };
+
+      try { addAdmissions(JSON.parse(localStorage.getItem("parivattan_admissions") || "[]")); } catch {}
+      try { addAdmissions(JSON.parse(localStorage.getItem("parivattan_admissions_records") || "[]")); } catch {}
+      try { addAdmissions(JSON.parse(localStorage.getItem("parivattan_student_admissions") || "[]")); } catch {}
+      try { addAdmissions(JSON.parse(localStorage.getItem("parivattan_course_registrations") || "[]")); } catch {}
+
+      let matchingCount = 0;
+      for (const adm of allAdmissions) {
+        if (matchAdmissionToBatchId(adm) === batchId) {
+          matchingCount++;
+        }
       }
+
+      registeredCount = Math.max(manualIntake, matchingCount);
     } catch {
       // ignore
     }
@@ -536,6 +611,68 @@ export const incrementBatchEnrollment = (batchId: string): void => {
     }
   } catch (e) {
     console.warn("Could not save batch intake count", e);
+  }
+};
+
+export const decrementBatchEnrollment = (batchId: string): void => {
+  try {
+    const stored = JSON.parse(localStorage.getItem("parivattan_batch_intake_map") || "{}");
+    stored[batchId] = Math.max(0, (Number(stored[batchId]) || 0) - 1);
+    localStorage.setItem("parivattan_batch_intake_map", JSON.stringify(stored));
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("batch-seats-updated"));
+    }
+  } catch (e) {
+    console.warn("Could not decrement batch intake count", e);
+  }
+};
+
+/**
+ * Re-synchronizes batch intake map with actual current admissions list
+ */
+export const recalculateBatchSeatsFromAdmissions = (admissionsList?: any[]): void => {
+  try {
+    const allAdmissions: any[] = [];
+    const seenIds = new Set<string>();
+
+    const addAdmissions = (list: any[]) => {
+      if (!Array.isArray(list)) return;
+      for (const item of list) {
+        if (!item) continue;
+        const id = item.id || item.paymentId || item.payment_id || item.email || item.phone || JSON.stringify(item);
+        if (!seenIds.has(id)) {
+          seenIds.add(id);
+          allAdmissions.push(item);
+        }
+      }
+    };
+
+    if (Array.isArray(admissionsList) && admissionsList.length > 0) {
+      addAdmissions(admissionsList);
+    }
+    try { addAdmissions(JSON.parse(localStorage.getItem("parivattan_admissions") || "[]")); } catch {}
+    try { addAdmissions(JSON.parse(localStorage.getItem("parivattan_admissions_records") || "[]")); } catch {}
+    try { addAdmissions(JSON.parse(localStorage.getItem("parivattan_student_admissions") || "[]")); } catch {}
+    try { addAdmissions(JSON.parse(localStorage.getItem("parivattan_course_registrations") || "[]")); } catch {}
+
+    const newMap: Record<string, number> = {};
+    for (const batchKey of Object.keys(BATCH_SEATS_CONFIG)) {
+      newMap[batchKey] = 0;
+    }
+
+    for (const adm of allAdmissions) {
+      const bId = matchAdmissionToBatchId(adm);
+      if (bId) {
+        newMap[bId] = (newMap[bId] || 0) + 1;
+      }
+    }
+
+    localStorage.setItem("parivattan_batch_intake_map", JSON.stringify(newMap));
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("batch-seats-updated"));
+    }
+  } catch (e) {
+    console.warn("Could not recalculate batch seats", e);
   }
 };
 
