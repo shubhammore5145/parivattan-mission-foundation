@@ -1235,14 +1235,14 @@ export default function AdminDashboard() {
                 <div className="flex items-start sm:items-center gap-2.5">
                   <Shield className="text-[#b5623b] shrink-0 mt-0.5 sm:mt-0" size={18} />
                   <p className="text-stone-700">
-                    <strong>कोर्स प्रवेश यादी (Verified Course Admissions):</strong> येथे फक्त ज्या विद्यार्थ्यांनी प्रत्यक्ष कोर्ससाठी फी भरून प्रवेश (Admission) घेतला आहे तेच विद्यार्थी दाखवले आहेत. केवळ पोर्टल खाते नोंदणी (Student PRN Account Registration) केलेले युजर्स <strong>'Students Directory'</strong> टॅबमध्ये पाहू शकता.
+                    <strong>Verified Course Admissions:</strong> This table displays only students who have completed payment and enrolled in a course. Users who only registered a student account (Student PRN Account Registration) can be viewed under the <strong>'Students Directory'</strong> tab.
                   </p>
                 </div>
                 <button
                   onClick={() => setActiveTab("students")}
                   className="px-3.5 py-1.5 rounded-xl bg-white border border-stone-200 text-[#1b2b25] font-bold shrink-0 hover:bg-stone-50 transition shadow-2xs self-start sm:self-auto"
                 >
-                  Students Directory पहा →
+                  View Students Directory →
                 </button>
               </div>
 
@@ -1256,14 +1256,14 @@ export default function AdminDashboard() {
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="font-serif font-bold text-lg text-[#1b2b25]">
-                          कोर्स व बॅचनुसार प्रवेश संख्या (Course & Batch Enrollment Matrix)
+                          Course & Batch Live Enrollment Matrix
                         </h3>
                         <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
                           Live Sync
                         </span>
                       </div>
                       <p className="text-xs text-stone-500 mt-0.5">
-                        कोणत्या कोर्समध्ये आणि कोणत्या बॅचमध्ये किती विद्यार्थ्यांनी प्रवेश घेतला आहे याचा तपशील. बॅचवर क्लिक करून खालील यादी फिल्टर करा.
+                        Real-time breakdown of students enrolled in each course and batch. Click any batch card to filter the admissions table below.
                       </p>
                     </div>
                   </div>
@@ -1278,7 +1278,7 @@ export default function AdminDashboard() {
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold transition shrink-0"
                       >
                         <X size={13} />
-                        <span>फिल्टर काढा (Show All)</span>
+                        <span>Clear Filter (Show All)</span>
                       </button>
                     )}
 
@@ -1287,7 +1287,7 @@ export default function AdminDashboard() {
                       className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-xs font-bold text-[#1b2b25] transition shadow-2xs shrink-0"
                     >
                       <SlidersHorizontal size={13} />
-                      <span>{showBatchSeatsManager ? "Hide Seat Settings" : "बॅच जागा बदला (Settings)"}</span>
+                      <span>{showBatchSeatsManager ? "Hide Seat Settings" : "Batch Seat Settings"}</span>
                     </button>
                   </div>
                 </div>
@@ -1328,7 +1328,7 @@ export default function AdminDashboard() {
                                 </span>
                               </div>
                               <span className="inline-block text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                                एकूण प्रवेशित
+                                Total Enrolled
                               </span>
                             </div>
                           </div>
@@ -1373,7 +1373,7 @@ export default function AdminDashboard() {
                                           : "bg-amber-100 text-[#b5623b]"
                                       }`}
                                     >
-                                      {b.enrolled} / {b.totalSeats} विद्यार्थी
+                                      {b.enrolled} / {b.totalSeats} Students
                                     </span>
                                   </div>
                                   <div
@@ -1406,14 +1406,14 @@ export default function AdminDashboard() {
                                         isBatchSelected ? "text-stone-300" : "text-stone-400"
                                       }
                                     >
-                                      {b.isFull ? "प्रवेश बंद (Full)" : `${b.remainingSeats} जागा शिल्लक`}
+                                      {b.isFull ? "Admission Full" : `${b.remainingSeats} Seats Available`}
                                     </span>
                                     <span
                                       className={`font-bold flex items-center gap-0.5 ${
                                         isBatchSelected ? "text-[#fedb41]" : "text-[#b5623b]"
                                       }`}
                                     >
-                                      {isBatchSelected ? "Selected ✓" : "विद्यार्थी पहा →"}
+                                      {isBatchSelected ? "Selected ✓" : "View Students →"}
                                     </span>
                                   </div>
                                 </button>
@@ -1448,7 +1448,7 @@ export default function AdminDashboard() {
                             </span>
                             {b.isFull ? (
                               <span className="text-[10px] font-bold bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full border border-rose-200">
-                                FULL (प्रवेश बंद)
+                                FULL (Closed)
                               </span>
                             ) : (
                               <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200">
@@ -1590,10 +1590,10 @@ export default function AdminDashboard() {
                       }}
                       className="px-3 py-2 border border-stone-200 bg-stone-50 rounded-xl text-xs font-semibold outline-none max-w-[210px] truncate"
                     >
-                      <option value="all">सर्व बॅचेस (All Batches)</option>
+                      <option value="all">All Batches</option>
                       {batchSeatsList.map((b) => (
                         <option key={b.batchId} value={b.batchId}>
-                          {b.flag} {b.courseName} - {b.batchName} ({b.enrolled} विद्यार्थी)
+                          {b.flag} {b.courseName} - {b.batchName} ({b.enrolled} students)
                         </option>
                       ))}
                     </select>
@@ -1855,7 +1855,7 @@ export default function AdminDashboard() {
                       Centralized Student Registry
                     </span>
                     <h3 className="text-xl font-serif font-bold text-[#1b2b25] mt-1">
-                      Students & PRN User Directory (नोंदणीकृत विद्यार्थी यादी)
+                      Students & PRN User Directory
                     </h3>
                     <p className="text-xs text-stone-500 mt-0.5">
                       View all registered student users, assigned PRN identifiers, contact details, and their active course enrollment status.
@@ -1875,7 +1875,7 @@ export default function AdminDashboard() {
                 <div className="mt-5 p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs flex items-center gap-2.5 text-stone-700">
                   <Shield size={16} className="text-emerald-700 shrink-0" />
                   <p>
-                    <strong>नोंदणी vs प्रत्यक्ष प्रवेश:</strong> येथे पोर्टलवर नोंदणी केलेली सर्व विद्यार्थी खाती (PRN Accounts) आहेत. ज्या विद्यार्थ्यांनी कोर्ससाठी प्रत्यक्ष फी भरून प्रवेश घेतला आहे त्यांना <strong>'🟢 कोर्स प्रवेशित'</strong> बॅज दिसेल आणि ज्यांनी फक्त खाते तयार केले आहे त्यांना <strong>'⚪ केवळ नोंदणी'</strong> बॅज दिसेल.
+                    <strong>Registration vs Direct Admission:</strong> This directory contains all student accounts registered on the portal (PRN Accounts). Students who paid fees and enrolled in a course have a <strong>'🟢 Course Enrolled'</strong> badge, while students who have only registered their account have a <strong>'⚪ Registered Only'</strong> badge.
                   </p>
                 </div>
 
@@ -1905,7 +1905,7 @@ export default function AdminDashboard() {
                           : "text-stone-600 hover:text-[#1b2b25]"
                       }`}
                     >
-                      सर्व खाती ({students.length})
+                      All Accounts ({students.length})
                     </button>
                     <button
                       onClick={() => setStudentAdmissionFilter("enrolled")}
@@ -1917,7 +1917,7 @@ export default function AdminDashboard() {
                     >
                       <span className="h-2 w-2 rounded-full bg-emerald-400" />
                       <span>
-                        कोर्स प्रवेशित (
+                        Course Enrolled (
                         {
                           students.filter((s) =>
                             admissions.some(
@@ -1942,7 +1942,7 @@ export default function AdminDashboard() {
                     >
                       <span className="h-2 w-2 rounded-full bg-stone-400" />
                       <span>
-                        केवळ नोंदणी (
+                        Registered Only (
                         {
                           students.filter(
                             (s) =>
@@ -2058,7 +2058,7 @@ export default function AdminDashboard() {
                                   <div className="space-y-1 inline-flex flex-col items-center">
                                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
                                       <CheckCircle2 size={11} className="text-emerald-600" />
-                                      <span>कोर्स प्रवेशित ({userAdmissions.length})</span>
+                                      <span>Course Enrolled ({userAdmissions.length})</span>
                                     </span>
                                     <div
                                       className="text-[10px] text-stone-500 font-medium truncate max-w-[150px]"
@@ -2077,13 +2077,13 @@ export default function AdminDashboard() {
                                       }}
                                       className="text-[10px] font-bold text-[#b5623b] hover:underline"
                                     >
-                                      प्रवेश पहा →
+                                      View Admission →
                                     </button>
                                   </div>
                                 ) : (
                                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium bg-stone-100 text-stone-600 border border-stone-200">
                                     <User size={10} className="text-stone-400" />
-                                    <span>केवळ नोंदणी (No Course)</span>
+                                    <span>Registered Only (No Course)</span>
                                   </span>
                                 )}
                               </td>
@@ -2321,7 +2321,7 @@ export default function AdminDashboard() {
                       Website Messages & Leads
                     </span>
                     <h3 className="text-xl font-serif font-bold text-[#1b2b25] mt-1">
-                      Inquiries & Feedback (वेबसाईट संपर्क संदेश)
+                      Inquiries & Feedback
                     </h3>
                     <p className="text-xs text-stone-500 mt-0.5">
                       Messages submitted by students, donors, and parents via the website contact form.

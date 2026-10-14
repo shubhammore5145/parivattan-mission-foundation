@@ -30,7 +30,7 @@ const upcomingCauses: UpcomingCause[] = [
   {
     id: 'languages',
     name: 'Foreign Language School',
-    marathi: 'विदेशी भाषा प्रशिक्षण',
+    marathi: 'Global Language Proficiency',
     icon: Globe2,
     desc: 'Japanese (JLPT) & German coaching for youth to access global careers.',
     tag: 'Global Careers',
@@ -38,7 +38,7 @@ const upcomingCauses: UpcomingCause[] = [
   {
     id: 'technology',
     name: 'Parivattan Tech School',
-    marathi: 'टेक व कोडिंग शिक्षण',
+    marathi: 'Tech & Coding Academy',
     icon: Laptop,
     desc: 'Hands-on laptop bootcamps, Python programming & full stack web development.',
     tag: 'Digital Future',
@@ -46,7 +46,7 @@ const upcomingCauses: UpcomingCause[] = [
   {
     id: 'girls-scholarship',
     name: 'Savitribai Girls Higher Ed',
-    marathi: 'मुलींचे उच्च शिक्षण निधी',
+    marathi: 'Girls Higher Education Grant',
     icon: BookOpen,
     desc: 'Direct college tuition support & hostel assistance for rural girls.',
     tag: 'Women Empowerment',
@@ -54,7 +54,7 @@ const upcomingCauses: UpcomingCause[] = [
   {
     id: 'general',
     name: 'Foundational Education',
-    marathi: 'मूलभूत शिक्षण साहित्य',
+    marathi: 'Essential Learning Kits',
     icon: GraduationCap,
     desc: 'Textbooks, study kits & inclusive learning centers for first-generation learners.',
     tag: 'Foundational',
@@ -78,14 +78,14 @@ const Donate: React.FC = () => {
         <div className="text-center max-w-3xl mx-auto mb-14">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#b5623b]/10 border border-[#b5623b]/30 text-[#b5623b] text-xs md:text-sm font-semibold tracking-wide uppercase shadow-sm mb-4">
             <Sparkles size={15} className="animate-spin text-amber-600" style={{ animationDuration: '6s' }} />
-            <span>देणगी मोहीम • Donation Campaign</span>
+            <span>Donation Campaign</span>
           </div>
 
           <h2 className="text-3xl md:text-5xl font-serif font-bold text-[#24312d] leading-tight tracking-tight">
-            शिक्षणातून परिवर्तन, <span className="text-[#b5623b] underline decoration-[#e5a37f]/50 decoration-wavy underline-offset-8">उज्ज्वल भविष्यासाठी!</span>
+            Empower Through Education, <span className="text-[#b5623b] underline decoration-[#e5a37f]/50 decoration-wavy underline-offset-8">For a Brighter Future!</span>
           </h2>
           <p className="mt-4 text-base md:text-lg text-slate-600 leading-relaxed font-sans">
-            ग्रामीण व गरजू विद्यार्थ्यांच्या उज्ज्वल भविष्यासाठी आमची नवीन देणगी मोहीम लवकरच सुरू होत आहे.
+            Our comprehensive donation campaign to empower rural and underprivileged students will launch very soon.
           </p>
         </div>
 
@@ -100,7 +100,7 @@ const Donate: React.FC = () => {
             <div className="relative z-10 max-w-2xl mx-auto">
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/20 text-[#f2c5a8] text-xs font-bold uppercase tracking-wider mb-5 backdrop-blur-md">
                 <Clock size={14} className="animate-pulse text-amber-300" />
-                <span>Launching Soon • लवकरच येत आहे</span>
+                <span>Launching Soon</span>
               </div>
 
               <h3 className="text-3xl md:text-5xl font-serif font-bold text-white tracking-tight mb-4">
@@ -108,7 +108,7 @@ const Donate: React.FC = () => {
               </h3>
 
               <p className="text-stone-200 text-sm md:text-base leading-relaxed mb-6 font-sans">
-                आम्ही देणगी मोहिमेची संपूर्ण यंत्रणा अधिक पारदर्शक आणि सुलभ करत आहोत. नवीन शैक्षणिक उपक्रम, थेट विद्यार्थी मदत आणि अधिकृत पेमेंट पर्याय लवकरच या पानावर उपलब्ध होतील.
+                We are enhancing our campaign platform to bring full transparency and seamless giving. Targeted educational scholarships, direct student support, and certified online payment options will be available here soon.
               </p>
 
               <div className="inline-flex flex-wrap items-center justify-center gap-3 pt-2">
@@ -119,7 +119,7 @@ const Donate: React.FC = () => {
                   className="inline-flex items-center gap-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 text-sm font-bold shadow-lg transition-all duration-300 hover:scale-105"
                 >
                   <MessageCircle size={17} />
-                  <span>मोहिमेबद्दल जाणून घ्या (WhatsApp)</span>
+                  <span>Inquire on WhatsApp</span>
                 </a>
 
                 <a
@@ -127,7 +127,7 @@ const Donate: React.FC = () => {
                   className="inline-flex items-center gap-2 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 px-6 py-3 text-sm font-semibold backdrop-blur-sm transition-all duration-300"
                 >
                   <Phone size={15} />
-                  <span>आमच्याशी संपर्क साधा</span>
+                  <span>Contact Our Team</span>
                 </a>
               </div>
             </div>
@@ -140,10 +140,10 @@ const Donate: React.FC = () => {
                 Upcoming Causes
               </span>
               <h4 className="font-serif text-2xl font-bold text-[#24312d] mt-1">
-                मोहिमेद्वारे कोणत्या उपक्रमांना मदत होईल?
+                Initiatives Supported By This Campaign
               </h4>
               <p className="text-xs md:text-sm text-slate-500 mt-1.5">
-                नवीन देणगी मोहिमेद्वारे खालील मुख्य उपक्रमांसाठी निधी संकलित केला जाईल:
+                Funds raised will directly empower underprivileged learners across the following flagship programs:
               </p>
             </div>
 
@@ -171,7 +171,7 @@ const Donate: React.FC = () => {
 
                     <div className="mt-4 pt-3 border-t border-stone-100 flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700">
                       <CheckCircle2 size={13} className="text-emerald-600" />
-                      <span>प्रस्तावित उपक्रम</span>
+                      <span>Upcoming Initiative</span>
                     </div>
                   </div>
                 );

@@ -157,7 +157,7 @@ export default function ApplicationOpenSection() {
             Foreign Language Courses
           </h3>
           <p className="mt-2 text-xs sm:text-sm text-[#73827a]">
-            जपानी, जर्मन, फ्रेंच व इंग्रजी भाषांचे अधिकृत व प्रात्यक्षिक शिक्षण • मर्यादित जागा उपलब्ध!
+            Certified instruction in Japanese, German, French, and English • Limited intake per batch!
           </p>
 
           {/* Quick Action to View/Download Full Poster */}
@@ -167,7 +167,7 @@ export default function ApplicationOpenSection() {
               className="inline-flex items-center gap-1.5 text-xs font-bold text-[#b5623b] hover:text-[#8f4523] bg-[#fbf5f1] hover:bg-[#f6eae2] px-3.5 py-1.5 rounded-full border border-[#f0ded3] transition shadow-xs"
             >
               <Eye size={13} />
-              <span>अधिकृत पोस्टर पहा (View Official Poster)</span>
+              <span>View Official Poster</span>
             </button>
           </div>
         </div>
@@ -248,7 +248,7 @@ export default function ApplicationOpenSection() {
         <div className="mt-10 rounded-3xl bg-[#1b2b25] text-white p-6 sm:p-8 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="max-w-xl text-center md:text-left">
             <span className="text-xs font-bold uppercase tracking-wider text-[#fedb41]">
-              Limited Seats Available • मर्यादित प्रवेश क्षमता
+              Limited Seats Available • Early Bird Intake
             </span>
             <h4 className="mt-1 text-xl sm:text-2xl font-serif font-bold text-white">
               Ready to learn a foreign language?
@@ -264,7 +264,7 @@ export default function ApplicationOpenSection() {
               className="inline-flex items-center gap-2 rounded-full bg-[#b5623b] hover:bg-[#9d502d] text-white px-6 py-3 text-xs sm:text-sm font-bold shadow-md transition hover:scale-[1.02]"
             >
               <GraduationCap size={16} />
-              <span>Apply for Admission (प्रवेश अर्ज भरा)</span>
+              <span>Apply for Admission</span>
               <ArrowRight size={15} />
             </Link>
 
@@ -336,7 +336,7 @@ export default function ApplicationOpenSection() {
                 className="inline-flex items-center gap-2 text-xs font-bold text-[#1b2b25] hover:text-[#b5623b] transition"
               >
                 <Download size={15} />
-                <span>Download Poster Image (डाउनलोड करा)</span>
+                <span>Download Poster Image</span>
               </a>
 
               <Link

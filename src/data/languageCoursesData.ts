@@ -382,7 +382,7 @@ export const INITIAL_LANGUAGE_COURSES: LanguageCourse[] = [
     id: "test-course",
     name: "Live Test Course (₹1)",
     flag: "🧪",
-    nativeName: "चाचणी कोर्स (₹1)",
+    nativeName: "Test Course (₹1)",
     tagline: "Live ₹1 Admission Test for Razorpay, 30->29 Real-Time Seat Decrement & Email Notifications",
     shortDesc: "Complete a real ₹1 admission test to verify live Razorpay payment, live seat decrement (30 -> 29 remaining), and instant branded confirmation email.",
     levelsSummary: "Live Test Level (₹1)",
@@ -671,7 +671,7 @@ export const matchAdmissionToBatchId = (admission: any): string | null => {
   }
 
   // Live Test Course (₹1)
-  if (text.includes("test") || text.includes("1rs") || text.includes("चाचणी") || text.includes("pmf-test")) {
+  if (text.includes("test") || text.includes("1rs") || text.includes("pmf-test")) {
     return "test-batch-01";
   }
 

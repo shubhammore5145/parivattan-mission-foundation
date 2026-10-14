@@ -273,7 +273,7 @@ export default function CourseManager() {
   // Remove Level
   const handleRemoveLevel = (lvlIndex: number) => {
     if (formData.levels.length <= 1) {
-      toast.error("प्रत्येक कोर्समध्ये किमान एक स्तर (Level) असणे आवश्यक आहे.");
+      toast.error("Each course must have at least one level.");
       return;
     }
     setFormData((prev) => ({
@@ -311,7 +311,7 @@ export default function CourseManager() {
   // Remove Batch from Level
   const handleRemoveBatch = (lvlIndex: number, batchIndex: number) => {
     if (formData.levels[lvlIndex].batches.length <= 1) {
-      toast.error("प्रत्येक स्तरासाठी किमान एक बॅच असणे आवश्यक आहे.");
+      toast.error("Each level must have at least one batch.");
       return;
     }
     setFormData((prev) => {
@@ -329,17 +329,17 @@ export default function CourseManager() {
     e.preventDefault();
 
     if (!formData.name.trim()) {
-      toast.error("कृपया कोर्सचे नाव प्रविष्ट करा.");
+      toast.error("Please enter a course name.");
       return;
     }
 
     if (!formData.id.trim()) {
-      toast.error("कृपया कोर्स ID प्रविष्ट करा.");
+      toast.error("Please enter a course ID.");
       return;
     }
 
     if (formData.levels.length === 0) {
-      toast.error("कृपया किमान एक स्तर (Level) जोडा.");
+      toast.error("Please add at least one level.");
       return;
     }
 
@@ -403,8 +403,8 @@ export default function CourseManager() {
 
     toast.success(
       editingCourse
-        ? `"${finalCourse.name}" कोर्स यशस्वीरीत्या अपडेट करण्यात आला!`
-        : `नवीन कोर्स "${finalCourse.name}" यशस्वीरीत्या जोडला गेला!`
+        ? `"${finalCourse.name}" course updated successfully!`
+        : `New course "${finalCourse.name}" added successfully!`
     );
   };
 
@@ -413,7 +413,7 @@ export default function CourseManager() {
     if (!deletingCourse) return;
     deleteCustomCourse(deletingCourse.id);
     setCourses(getStoredCourses());
-    toast.success(`"${deletingCourse.name}" कोर्स यशस्वीरीत्या हटवण्यात आला.`);
+    toast.success(`"${deletingCourse.name}" course removed successfully.`);
     setDeletingCourse(null);
   };
 
@@ -422,7 +422,7 @@ export default function CourseManager() {
     resetCustomCourses();
     setCourses(getStoredCourses());
     setResetConfirmOpen(false);
-    toast.success("सर्व कोर्सेस डीफॉल्ट स्थितीत पूर्ववत करण्यात आले आहेत.");
+    toast.success("All courses have been reset to defaults.");
   };
 
   return (
@@ -436,13 +436,13 @@ export default function CourseManager() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-1 text-xs font-bold uppercase tracking-widest text-[#f2c5a8] border border-white/10 mb-3">
               <Sparkles size={14} className="text-[#f2c5a8]" />
-              <span>कोर्स व्यवस्थापन • Course Management System</span>
+              <span>Course Management System</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-serif font-bold text-white tracking-tight">
-              कोर्सेस, स्तर व बॅचेस व्यवस्थापन
+              Courses, Levels & Batches Management
             </h2>
             <p className="text-xs sm:text-sm text-stone-300 mt-1 max-w-2xl leading-relaxed">
-              येथून तुम्ही थेट नवीन कोर्स जोडू शकता, अस्तित्वातील कोर्सच्या फी व बॅचेस संपादित (Edit) करू शकता, किंवा नको असलेले कोर्सेस हटवू (Delete) शकता.
+              Add new courses, configure curriculum fees and batch timings, or delete inactive courses directly.
             </p>
           </div>
 
@@ -452,7 +452,7 @@ export default function CourseManager() {
               className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 px-5 py-3 text-xs sm:text-sm font-bold text-white shadow-lg hover:from-emerald-500 hover:to-teal-500 transition-all hover:-translate-y-0.5 active:scale-95"
             >
               <Plus size={18} strokeWidth={2.5} />
-              <span>नवीन कोर्स जोडा (Add New Course)</span>
+              <span>Add New Course</span>
             </button>
 
             <button
@@ -461,7 +461,7 @@ export default function CourseManager() {
               className="inline-flex items-center gap-1.5 rounded-2xl bg-white/10 px-4 py-3 text-xs sm:text-sm font-semibold text-stone-300 hover:bg-white/20 hover:text-white transition"
             >
               <RotateCcw size={15} />
-              <span className="hidden sm:inline">डिफॉल्ट कोर्सेस पूर्ववत</span>
+              <span className="hidden sm:inline">Reset to Defaults</span>
             </button>
           </div>
         </div>
@@ -469,17 +469,17 @@ export default function CourseManager() {
         {/* Quick Numbers Bar */}
         <div className="relative z-10 mt-6 pt-6 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-            <p className="text-[11px] uppercase tracking-wider text-stone-400 font-semibold">एकूण कोर्सेस (Active)</p>
+            <p className="text-[11px] uppercase tracking-wider text-stone-400 font-semibold">Active Courses</p>
             <p className="text-2xl sm:text-3xl font-serif font-bold text-white mt-1">{courses.length}</p>
           </div>
           <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-            <p className="text-[11px] uppercase tracking-wider text-stone-400 font-semibold">एकूण स्तर (Levels)</p>
+            <p className="text-[11px] uppercase tracking-wider text-stone-400 font-semibold">Total Levels</p>
             <p className="text-2xl sm:text-3xl font-serif font-bold text-[#f2c5a8] mt-1">
               {courses.reduce((acc, c) => acc + (c.levels?.length || 0), 0)}
             </p>
           </div>
           <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-            <p className="text-[11px] uppercase tracking-wider text-stone-400 font-semibold">सक्रिय बॅचेस (Batches)</p>
+            <p className="text-[11px] uppercase tracking-wider text-stone-400 font-semibold">Active Batches</p>
             <p className="text-2xl sm:text-3xl font-serif font-bold text-emerald-400 mt-1">
               {courses.reduce(
                 (acc, c) => acc + c.levels.reduce((bAcc, lvl) => bAcc + (lvl.batches?.length || 0), 0),
@@ -488,7 +488,7 @@ export default function CourseManager() {
             </p>
           </div>
           <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-            <p className="text-[11px] uppercase tracking-wider text-stone-400 font-semibold">प्रवेश पोर्टल (Admissions)</p>
+            <p className="text-[11px] uppercase tracking-wider text-stone-400 font-semibold">Admissions Portal</p>
             <p className="text-2xl sm:text-3xl font-serif font-bold text-sky-400 mt-1">Live Online</p>
           </div>
         </div>
@@ -502,7 +502,7 @@ export default function CourseManager() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="कोर्स नाव, ID किंवा स्तर शोधा..."
+            placeholder="Search course name, ID, or level..."
             className="w-full rounded-2xl border border-stone-200 bg-white pl-11 pr-4 py-2.5 text-xs sm:text-sm text-stone-800 placeholder-stone-400 focus:border-[#b5623b] focus:outline-none focus:ring-2 focus:ring-[#b5623b]/20 shadow-xs"
           />
           {searchQuery && (
@@ -516,8 +516,8 @@ export default function CourseManager() {
         </div>
 
         <div className="text-xs text-stone-500 font-medium text-right">
-          दाखवत आहे: <span className="font-bold text-stone-800">{filteredCourses.length}</span> पैकी{" "}
-          <span className="font-bold text-stone-800">{courses.length}</span> कोर्सेस
+          Showing <span className="font-bold text-stone-800">{filteredCourses.length}</span> of{" "}
+          <span className="font-bold text-stone-800">{courses.length}</span> courses
         </div>
       </div>
 
@@ -573,7 +573,7 @@ export default function CourseManager() {
                       className="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 px-3.5 py-2 text-xs font-bold text-stone-700 transition active:scale-95 shadow-2xs"
                     >
                       <Pencil size={14} className="text-[#b5623b]" />
-                      <span>संपादित करा (Edit)</span>
+                      <span>Edit Course</span>
                     </button>
 
                     <button
@@ -582,7 +582,7 @@ export default function CourseManager() {
                       title="Delete Course"
                     >
                       <Trash2 size={14} />
-                      <span>हटवा (Delete)</span>
+                      <span>Delete</span>
                     </button>
                   </div>
                 </div>
@@ -591,22 +591,22 @@ export default function CourseManager() {
                 <div className="mt-5 pt-4 border-t border-stone-100 flex flex-wrap items-center gap-3">
                   <div className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-700">
                     <Layers size={13} className="text-[#b5623b]" />
-                    <span>{course.levels?.length || 0} स्तर (Levels)</span>
+                    <span>{course.levels?.length || 0} Levels</span>
                   </div>
 
                   <div className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-700">
                     <Clock size={13} className="text-[#b5623b]" />
-                    <span>कालावधी: {course.durationSummary || "6 Months"}</span>
+                    <span>Duration: {course.durationSummary || "6 Months"}</span>
                   </div>
 
                   <div className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-700">
                     <Users size={13} className="text-emerald-600" />
-                    <span>{totalBatches} बॅचेस उपलब्ध</span>
+                    <span>{totalBatches} Batches Available</span>
                   </div>
 
                   {course.levelsSummary && (
                     <div className="text-xs text-stone-500 font-medium hidden md:inline-block">
-                      अभ्यासक्रम: {course.levelsSummary}
+                      Curriculum: {course.levelsSummary}
                     </div>
                   )}
 
@@ -614,7 +614,7 @@ export default function CourseManager() {
                     onClick={() => setExpandedCourseId(isExpanded ? null : course.id)}
                     className="ml-auto inline-flex items-center gap-1 text-xs font-bold text-[#b5623b] hover:underline"
                   >
-                    <span>{isExpanded ? "तपशील लपवा (Hide Details)" : "स्तर व बॅचेस पहा (View Levels & Batches)"}</span>
+                    <span>{isExpanded ? "Hide Details" : "View Levels & Batches"}</span>
                     {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                   </button>
                 </div>
@@ -624,7 +624,7 @@ export default function CourseManager() {
               {isExpanded && (
                 <div className="mt-6 pt-5 border-t border-stone-200/80 space-y-4 animate-in fade-in duration-200">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-stone-500">
-                    या कोर्समधील स्तर (Levels) व बॅच वेळापत्रक:
+                    Levels & Batch Schedule for this Course:
                   </h4>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -646,16 +646,16 @@ export default function CourseManager() {
                           {/* Fee Breakdown */}
                           <div className="space-y-1 text-xs bg-white rounded-xl p-3 border border-stone-200/70 mb-3">
                             <div className="flex justify-between text-stone-600">
-                              <span>कोर्स फी:</span>
+                              <span>Course Fee:</span>
                               <span className="font-bold text-stone-800">₹{lvl.courseFee.toLocaleString()}</span>
                             </div>
                             <div className="flex justify-between text-stone-600">
-                              <span>प्लॅटफॉर्म फी:</span>
+                              <span>Platform Fee:</span>
                               <span className="text-stone-800">₹{lvl.platformFee || 100}</span>
                             </div>
                             {lvl.hasSecurityDeposit && (
                               <div className="flex justify-between text-amber-700 font-medium">
-                                <span>सुरक्षा ठेव (Deposit):</span>
+                                <span>Security Deposit:</span>
                                 <span>₹{(lvl.securityDeposit || 0).toLocaleString()} (Refundable)</span>
                               </div>
                             )}
@@ -664,7 +664,7 @@ export default function CourseManager() {
                           {/* Batches in this Level */}
                           <div>
                             <p className="text-[11px] font-bold uppercase tracking-wider text-stone-500 mb-1.5">
-                              बॅचेस ({lvl.batches?.length || 0}):
+                              Batches ({lvl.batches?.length || 0}):
                             </p>
                             <div className="space-y-1.5">
                               {lvl.batches.map((b) => (
@@ -679,7 +679,7 @@ export default function CourseManager() {
                                     </p>
                                   </div>
                                   <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
-                                    {b.intake || 30} जागा
+                                    {b.intake || 30} Seats
                                   </span>
                                 </div>
                               ))}
@@ -698,15 +698,15 @@ export default function CourseManager() {
         {filteredCourses.length === 0 && (
           <div className="rounded-3xl border border-dashed border-stone-300 p-12 text-center bg-stone-50">
             <BookOpen size={40} className="mx-auto text-stone-400 mb-3" />
-            <h3 className="font-serif font-bold text-lg text-stone-700">कोणताही कोर्स आढळला नाही</h3>
+            <h3 className="font-serif font-bold text-lg text-stone-700">No courses found</h3>
             <p className="text-xs sm:text-sm text-stone-500 mt-1 max-w-sm mx-auto">
-              दिलेल्या शोध शब्दांशी जुळणारा कोर्स सापडला नाही. कृपया शोध शब्द बदला किंवा नवीन कोर्स जोडा.
+              No courses match your search criteria. Try a different query or add a new course.
             </p>
             <button
               onClick={handleOpenAdd}
               className="mt-4 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition"
             >
-              <Plus size={16} /> नवीन कोर्स जोडा
+              <Plus size={16} /> Add New Course
             </button>
           </div>
         )}
@@ -724,10 +724,10 @@ export default function CourseManager() {
                 </div>
                 <div>
                   <h3 className="text-lg font-serif font-bold text-white">
-                    {editingCourse ? "कोर्स संपादित करा (Edit Course)" : "नवीन कोर्स जोडा (Add New Course)"}
+                    {editingCourse ? "Edit Course" : "Add New Course"}
                   </h3>
                   <p className="text-xs text-stone-300">
-                    कोर्सची सर्व माहिती, फी आणि बॅच वेळापत्रक काळजीपूर्वक भरा.
+                    Configure complete course details, fees, levels, and batch schedules.
                   </p>
                 </div>
               </div>
@@ -746,14 +746,14 @@ export default function CourseManager() {
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wider text-[#b5623b] mb-4 flex items-center gap-2">
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#b5623b]/10 text-xs font-bold">1</span>
-                  प्राथमिक माहिती (Basic Course Details)
+                  Basic Course Details
                 </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {/* Course Name */}
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-bold text-stone-700 mb-1">
-                      कोर्सचे नाव (Course Name) <span className="text-red-500">*</span>
+                      Course Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -767,7 +767,7 @@ export default function CourseManager() {
                           id: editingCourse ? prev.id : name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
                         }));
                       }}
-                      placeholder="उदा. Spanish Language, Python & AI Tech"
+                      placeholder="e.g. Spanish Language, Python & AI Tech"
                       className="w-full rounded-xl border border-stone-200 px-3.5 py-2 text-xs sm:text-sm focus:border-[#b5623b] focus:outline-none focus:ring-1 focus:ring-[#b5623b]"
                     />
                   </div>
@@ -775,14 +775,14 @@ export default function CourseManager() {
                   {/* Course ID */}
                   <div>
                     <label className="block text-xs font-bold text-stone-700 mb-1">
-                      कोर्स ID / Slug <span className="text-red-500">*</span>
+                      Course ID / Slug <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       required
                       value={formData.id}
                       onChange={(e) => setFormData((prev) => ({ ...prev, id: e.target.value }))}
-                      placeholder="उदा. spanish, python-ai"
+                      placeholder="e.g. spanish, python-ai"
                       className="w-full rounded-xl border border-stone-200 px-3.5 py-2 text-xs sm:text-sm font-mono focus:border-[#b5623b] focus:outline-none focus:ring-1 focus:ring-[#b5623b]"
                     />
                   </div>
@@ -790,13 +790,13 @@ export default function CourseManager() {
                   {/* Native / Local Script */}
                   <div>
                     <label className="block text-xs font-bold text-stone-700 mb-1">
-                      मराठी किंवा स्थानिक नाव (Native Script)
+                      Alternative / Native Script Name
                     </label>
                     <input
                       type="text"
                       value={formData.nativeName}
                       onChange={(e) => setFormData((prev) => ({ ...prev, nativeName: e.target.value }))}
-                      placeholder="उदा. Español, स्पॅनिश भाषा"
+                      placeholder="e.g. Español, Deutsch"
                       className="w-full rounded-xl border border-stone-200 px-3.5 py-2 text-xs sm:text-sm focus:border-[#b5623b] focus:outline-none focus:ring-1 focus:ring-[#b5623b]"
                     />
                   </div>
@@ -804,7 +804,7 @@ export default function CourseManager() {
                   {/* Flag / Icon Emoji */}
                   <div>
                     <label className="block text-xs font-bold text-stone-700 mb-1">
-                      चिन्ह / ध्वज इमोजी (Flag Emoji)
+                      Flag Emoji / Icon
                     </label>
                     <div className="flex items-center gap-2">
                       <input
@@ -831,13 +831,13 @@ export default function CourseManager() {
                   {/* Duration Summary */}
                   <div>
                     <label className="block text-xs font-bold text-stone-700 mb-1">
-                      कालावधी सारांश (Duration Summary)
+                      Duration Summary
                     </label>
                     <input
                       type="text"
                       value={formData.durationSummary}
                       onChange={(e) => setFormData((prev) => ({ ...prev, durationSummary: e.target.value }))}
-                      placeholder="उदा. 3 – 6 Months"
+                      placeholder="e.g. 3 – 6 Months"
                       className="w-full rounded-xl border border-stone-200 px-3.5 py-2 text-xs sm:text-sm focus:border-[#b5623b] focus:outline-none focus:ring-1 focus:ring-[#b5623b]"
                     />
                   </div>
@@ -845,13 +845,13 @@ export default function CourseManager() {
                   {/* Tagline */}
                   <div className="sm:col-span-3">
                     <label className="block text-xs font-bold text-stone-700 mb-1">
-                      टॅगलाईन (Tagline / Subtitle)
+                      Tagline / Subtitle
                     </label>
                     <input
                       type="text"
                       value={formData.tagline}
                       onChange={(e) => setFormData((prev) => ({ ...prev, tagline: e.target.value }))}
-                      placeholder="उदा. Master international DELE certified Spanish fluency and examination readiness"
+                      placeholder="e.g. Master international DELE certified Spanish fluency and examination readiness"
                       className="w-full rounded-xl border border-stone-200 px-3.5 py-2 text-xs sm:text-sm focus:border-[#b5623b] focus:outline-none focus:ring-1 focus:ring-[#b5623b]"
                     />
                   </div>
@@ -859,13 +859,13 @@ export default function CourseManager() {
                   {/* Short Description */}
                   <div className="sm:col-span-3">
                     <label className="block text-xs font-bold text-stone-700 mb-1">
-                      थोडक्यात माहिती (Short Description)
+                      Short Description
                     </label>
                     <textarea
                       rows={2}
                       value={formData.shortDesc}
                       onChange={(e) => setFormData((prev) => ({ ...prev, shortDesc: e.target.value }))}
-                      placeholder="कोर्सच्या उद्दिष्टांबद्दल थोडक्यात माहिती..."
+                      placeholder="Brief description of the course and career opportunities..."
                       className="w-full rounded-xl border border-stone-200 px-3.5 py-2 text-xs sm:text-sm focus:border-[#b5623b] focus:outline-none focus:ring-1 focus:ring-[#b5623b]"
                     />
                   </div>
@@ -873,7 +873,7 @@ export default function CourseManager() {
                   {/* Color Theme Selector */}
                   <div className="sm:col-span-3">
                     <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                      रंग थीम (Theme Color)
+                      Theme Color
                     </label>
                     <div className="flex flex-wrap gap-2">
                       {PRESET_COLORS.map((preset, idx) => (
@@ -904,7 +904,7 @@ export default function CourseManager() {
                 <div className="flex items-center justify-between mb-4">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-[#b5623b] flex items-center gap-2">
                     <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#b5623b]/10 text-xs font-bold">2</span>
-                    स्तर व बॅचेस संरचना (Levels & Batches Builder)
+                    Levels & Batches Builder
                   </h4>
 
                   <button
@@ -912,7 +912,7 @@ export default function CourseManager() {
                     onClick={handleAddLevel}
                     className="inline-flex items-center gap-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 px-3 py-1.5 text-xs font-bold text-stone-800 transition"
                   >
-                    <Plus size={14} /> नवीन स्तर जोडा (Add Level)
+                    <Plus size={14} /> Add Level
                   </button>
                 </div>
 
@@ -939,7 +939,7 @@ export default function CourseManager() {
                             onClick={() => handleRemoveLevel(lvlIdx)}
                             className="text-xs text-red-600 hover:text-red-700 font-bold flex items-center gap-1"
                           >
-                            <Trash2 size={13} /> स्तर हटवा (Remove Level)
+                            <Trash2 size={13} /> Remove Level
                           </button>
                         )}
                       </div>
@@ -948,7 +948,7 @@ export default function CourseManager() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                         <div>
                           <label className="block text-[11px] font-bold text-stone-600 mb-1">
-                            स्तराचे नाव (Level Name) *
+                            Level Name *
                           </label>
                           <input
                             type="text"
@@ -963,14 +963,14 @@ export default function CourseManager() {
                                 return { ...prev, levels: updated };
                               });
                             }}
-                            placeholder="उदा. A1, N5, Basic"
+                            placeholder="e.g. A1, N5, Basic"
                             className="w-full rounded-lg border border-stone-200 px-3 py-1.5 text-xs focus:border-[#b5623b] focus:outline-none"
                           />
                         </div>
 
                         <div>
                           <label className="block text-[11px] font-bold text-stone-600 mb-1">
-                            कालावधी (Duration)
+                            Duration
                           </label>
                           <input
                             type="text"
@@ -983,14 +983,14 @@ export default function CourseManager() {
                                 return { ...prev, levels: updated };
                               });
                             }}
-                            placeholder="उदा. 3 Months, 6 Months"
+                            placeholder="e.g. 3 Months, 6 Months"
                             className="w-full rounded-lg border border-stone-200 px-3 py-1.5 text-xs focus:border-[#b5623b] focus:outline-none"
                           />
                         </div>
 
                         <div>
                           <label className="block text-[11px] font-bold text-stone-600 mb-1">
-                            कोर्स फी ₹ (Course Fee) *
+                            Course Fee (₹) *
                           </label>
                           <input
                             type="number"
@@ -1011,7 +1011,7 @@ export default function CourseManager() {
 
                         <div>
                           <label className="block text-[11px] font-bold text-stone-600 mb-1">
-                            सुरक्षा ठेव ₹ (Security Deposit)
+                            Security Deposit (₹)
                           </label>
                           <input
                             type="number"
@@ -1032,7 +1032,7 @@ export default function CourseManager() {
 
                         <div className="sm:col-span-2 lg:col-span-4">
                           <label className="block text-[11px] font-bold text-stone-600 mb-1">
-                            स्तराची माहिती (Description)
+                            Level Description
                           </label>
                           <input
                             type="text"
@@ -1045,7 +1045,7 @@ export default function CourseManager() {
                                 return { ...prev, levels: updated };
                               });
                             }}
-                            placeholder="या स्तरामध्ये काय शिकवले जाईल..."
+                            placeholder="Curriculum and skills covered in this level..."
                             className="w-full rounded-lg border border-stone-200 px-3 py-1.5 text-xs focus:border-[#b5623b] focus:outline-none"
                           />
                         </div>
@@ -1055,14 +1055,14 @@ export default function CourseManager() {
                       <div className="pt-3 border-t border-stone-200/80">
                         <div className="flex items-center justify-between mb-2">
                           <p className="text-[11px] font-bold uppercase tracking-wider text-stone-600">
-                            या स्तराच्या बॅचेस (Batches):
+                            Batches for this Level:
                           </p>
                           <button
                             type="button"
                             onClick={() => handleAddBatch(lvlIdx)}
                             className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
                           >
-                            <Plus size={13} /> बॅच जोडा (+ Batch)
+                            <Plus size={13} /> + Add Batch
                           </button>
                         </div>
 
@@ -1074,7 +1074,7 @@ export default function CourseManager() {
                             >
                               <div>
                                 <label className="block text-[10px] text-stone-500 font-bold mb-0.5">
-                                  बॅच नाव
+                                  Batch Name
                                 </label>
                                 <input
                                   type="text"
@@ -1087,14 +1087,14 @@ export default function CourseManager() {
                                       return { ...prev, levels: updated };
                                     });
                                   }}
-                                  placeholder="उदा. Regular Morning"
+                                  placeholder="e.g. Regular Morning"
                                   className="w-full rounded border border-stone-200 px-2 py-1 text-xs"
                                 />
                               </div>
 
                               <div>
                                 <label className="block text-[10px] text-stone-500 font-bold mb-0.5">
-                                  वार (Days)
+                                  Days
                                 </label>
                                 <input
                                   type="text"
@@ -1107,14 +1107,14 @@ export default function CourseManager() {
                                       return { ...prev, levels: updated };
                                     });
                                   }}
-                                  placeholder="उदा. Mon, Wed & Fri"
+                                  placeholder="e.g. Mon, Wed & Fri"
                                   className="w-full rounded border border-stone-200 px-2 py-1 text-xs"
                                 />
                               </div>
 
                               <div>
                                 <label className="block text-[10px] text-stone-500 font-bold mb-0.5">
-                                  वेळ (Time)
+                                  Time
                                 </label>
                                 <input
                                   type="text"
@@ -1127,7 +1127,7 @@ export default function CourseManager() {
                                       return { ...prev, levels: updated };
                                     });
                                   }}
-                                  placeholder="उदा. 10:00 AM – 11:30 AM"
+                                  placeholder="e.g. 10:00 AM – 11:30 AM"
                                   className="w-full rounded border border-stone-200 px-2 py-1 text-xs"
                                 />
                               </div>
@@ -1135,7 +1135,7 @@ export default function CourseManager() {
                               <div className="flex items-center gap-2">
                                 <div className="flex-1">
                                   <label className="block text-[10px] text-stone-500 font-bold mb-0.5">
-                                    जागा (Seats)
+                                    Seats
                                   </label>
                                   <input
                                     type="number"
@@ -1158,7 +1158,7 @@ export default function CourseManager() {
                                     type="button"
                                     onClick={() => handleRemoveBatch(lvlIdx, bIdx)}
                                     className="p-1.5 text-red-500 hover:text-red-700 mt-3"
-                                    title="बॅच हटवा"
+                                    title="Delete Batch"
                                   >
                                     <Trash2 size={14} />
                                   </button>
@@ -1180,7 +1180,7 @@ export default function CourseManager() {
                   onClick={() => setIsModalOpen(false)}
                   className="rounded-xl border border-stone-200 px-5 py-2.5 text-xs font-bold text-stone-600 hover:bg-stone-50 transition"
                 >
-                  रद्द करा (Cancel)
+                  Cancel
                 </button>
 
                 <button
@@ -1188,7 +1188,7 @@ export default function CourseManager() {
                   className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-2.5 text-xs font-bold text-white shadow-md hover:from-emerald-500 hover:to-teal-500 transition active:scale-95 flex items-center gap-2"
                 >
                   <CheckCircle2 size={16} />
-                  <span>{editingCourse ? "कोर्स अपडेट करा (Update Course)" : "कोर्स सेव्ह करा (Save Course)"}</span>
+                  <span>{editingCourse ? "Update Course" : "Save Course"}</span>
                 </button>
               </div>
             </form>
@@ -1206,10 +1206,10 @@ export default function CourseManager() {
 
             <div>
               <h3 className="text-lg font-serif font-bold text-stone-900">
-                हा कोर्स काढून टाकायचा आहे का?
+                Are you sure you want to delete this course?
               </h3>
               <p className="text-xs text-stone-600 mt-1 leading-relaxed">
-                तुम्ही खरोखर <strong className="text-stone-900">"{deletingCourse.name}"</strong> हा कोर्स वेबसाइट आणि ॲडमिशन पोर्टलवरून काढून टाकू इच्छिता? ही कृती पूर्ववत करता येणार नाही.
+                Are you sure you want to remove <strong className="text-stone-900">"{deletingCourse.name}"</strong> from the website and admissions portal? This action cannot be undone.
               </p>
             </div>
 
@@ -1219,7 +1219,7 @@ export default function CourseManager() {
                 onClick={() => setDeletingCourse(null)}
                 className="rounded-xl border border-stone-200 px-4 py-2 text-xs font-bold text-stone-600 hover:bg-stone-50 transition"
               >
-                रद्द करा (Cancel)
+                Cancel
               </button>
 
               <button
@@ -1227,7 +1227,7 @@ export default function CourseManager() {
                 onClick={handleDeleteConfirm}
                 className="rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white hover:bg-red-700 transition active:scale-95 shadow-sm"
               >
-                होय, कोर्स हटवा (Delete Course)
+                Yes, Delete Course
               </button>
             </div>
           </div>
@@ -1244,10 +1244,10 @@ export default function CourseManager() {
 
             <div>
               <h3 className="text-lg font-serif font-bold text-stone-900">
-                डिफॉल्ट कोर्सेस पूर्ववत करायचे आहेत का?
+                Reset to Default Courses?
               </h3>
               <p className="text-xs text-stone-600 mt-1 leading-relaxed">
-                या कृतीमुळे तुम्ही जोडलेले सर्व कस्टम कोर्सेस निघून जातील आणि फाउंडेशनचे मूळ कोर्सेस (जपानी, जर्मन, इंग्रजी, फ्रेंच आणि टेस्ट कोर्स) पुनर्संचयित केले जातील.
+                This action will remove all custom courses you added and restore the Foundation's default courses (Japanese, German, English, French, and Test Course).
               </p>
             </div>
 
@@ -1257,7 +1257,7 @@ export default function CourseManager() {
                 onClick={() => setResetConfirmOpen(false)}
                 className="rounded-xl border border-stone-200 px-4 py-2 text-xs font-bold text-stone-600 hover:bg-stone-50 transition"
               >
-                रद्द करा
+                Cancel
               </button>
 
               <button
@@ -1265,7 +1265,7 @@ export default function CourseManager() {
                 onClick={handleResetConfirm}
                 className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700 transition active:scale-95 shadow-sm"
               >
-                होय, पूर्ववत करा (Reset)
+                Yes, Reset to Defaults
               </button>
             </div>
           </div>

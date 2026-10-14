@@ -505,7 +505,7 @@ export const loginWithGoogle = async (): Promise<StudentUser | null> => {
       } catch (redirectErr: any) {
         console.warn("Redirect fallback also failed:", redirectErr);
         throw new Error(
-          "Browser ने Google Sign-In पॉप-अप ब्लॉक केला आहे. कृपया ॲड्रेस बारमधील (URL bar) पॉप-अप चिन्हावर क्लिक करून 'Always allow' निवडा, किंवा खाली Email आणि Password ने थेट लॉगिन करा."
+          "Your browser blocked the Google Sign-In pop-up. Please click the pop-up icon in the address bar (URL bar) and select 'Always allow', or log in directly with Email and Password below."
         );
       }
     }

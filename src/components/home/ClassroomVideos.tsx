@@ -15,7 +15,7 @@ export const YOUTUBE_SHORTS: YouTubeShortItem[] = [
     id: "_EEthfJ3nqM",
     badge: "Session 01",
     title: "Classroom Energy & Language Fundamentals",
-    marathiTitle: "प्रत्यक्ष वर्गानुभव व विद्यार्थी संवाद",
+    marathiTitle: "Live Classroom Experience & Student Interaction",
     description: "Real glimpses from our classroom sessions showing students enthusiastically learning language phonetics and foundation skills.",
     url: "https://youtube.com/shorts/_EEthfJ3nqM",
   },
@@ -23,7 +23,7 @@ export const YOUTUBE_SHORTS: YouTubeShortItem[] = [
     id: "aoG4lvsm5Lw",
     badge: "Session 02",
     title: "Foreign Language Speaking & Confidence",
-    marathiTitle: "परकीय भाषा संभाषण व आत्मविश्वास सराव",
+    marathiTitle: "Foreign Language Speaking & Confidence Drills",
     description: "Students building spoken fluency through live interactive dialogue, group conversation, and practical speaking drills.",
     url: "https://youtube.com/shorts/aoG4lvsm5Lw",
   },
@@ -31,7 +31,7 @@ export const YOUTUBE_SHORTS: YouTubeShortItem[] = [
     id: "2qEHNtsCrR4",
     badge: "Session 03",
     title: "Interactive Workshop & Peer Learning",
-    marathiTitle: "परस्परसंवादी शिक्षण व युवा सहभाग",
+    marathiTitle: "Interactive Learning & Youth Engagement",
     description: "Dynamic classroom engagement where first-generation learners practice together in a supportive community environment.",
     url: "https://youtube.com/shorts/2qEHNtsCrR4",
   },
@@ -39,7 +39,7 @@ export const YOUTUBE_SHORTS: YouTubeShortItem[] = [
     id: "L5l16Lq6sYY",
     badge: "Session 04",
     title: "Global Careers & JLPT / Language Guidance",
-    marathiTitle: "जागतिक करिअर संधी व परदेशी मार्गदर्शन",
+    marathiTitle: "Global Career Pathways & Overseas Guidance",
     description: "Guidance on international higher education, certification tests (JLPT / Goethe), and verified overseas career mobility.",
     url: "https://youtube.com/shorts/L5l16Lq6sYY",
   },
@@ -47,7 +47,7 @@ export const YOUTUBE_SHORTS: YouTubeShortItem[] = [
     id: "G6pjOW4Njnk",
     badge: "Session 05",
     title: "Parivattan Movement & Student Stories",
-    marathiTitle: "परिवर्तन चळवळ व विद्यार्थ्यांचा प्रेरणादायी प्रवास",
+    marathiTitle: "Parivattan Movement & Inspiring Journeys",
     description: "Inspiring student journey and grassroots impact of Parivattan Mission Foundation across Maharashtra.",
     url: "https://youtube.com/shorts/G6pjOW4Njnk",
   },
@@ -86,7 +86,7 @@ export default function ClassroomVideos({ idPrefix = "home", className = "" }: C
         <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-16">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-red-600/20 text-red-300 text-xs sm:text-sm font-semibold tracking-wide uppercase mb-4 border border-red-500/30">
             <Youtube className="w-4 h-4 text-red-400" />
-            <span>YouTube Shorts · प्रत्यक्ष वर्गानुभव</span>
+            <span>YouTube Shorts · Live Classroom Moments</span>
           </div>
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold text-white tracking-tight">
             Watch Our Students In Action

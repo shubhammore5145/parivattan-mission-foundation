@@ -299,7 +299,7 @@ export default function AdmissionsPage() {
     if (!file) return;
 
     if (file.size > 1 * 1024 * 1024) {
-      toast.error(`${label} size must be less than 1MB (कमाल मर्यादा 1 MB आहे).`);
+      toast.error(`${label} size must be less than 1MB.`);
       return;
     }
 

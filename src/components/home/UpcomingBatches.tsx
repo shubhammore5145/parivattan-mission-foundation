@@ -184,7 +184,7 @@ export default function UpcomingBatches() {
                     <div className="mt-2 flex items-center justify-between text-[11px]">
                       {isFull ? (
                         <span className="font-bold text-red-600 flex items-center gap-1">
-                          <AlertCircle size={11} /> Admission Full (प्रवेश पूर्ण)
+                          <AlertCircle size={11} /> Batch Full (Admissions Closed)
                         </span>
                       ) : isAlmostFull ? (
                         <span className="font-bold text-amber-700 flex items-center gap-1">

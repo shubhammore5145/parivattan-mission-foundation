@@ -165,13 +165,12 @@ export const StudentAuthCard: React.FC<StudentAuthCardProps> = ({
         err?.code === "auth/popup-blocked" ||
         (err?.message && (
           err.message.toLowerCase().includes("popup-blocked") ||
-          err.message.includes("पॉप-अप") ||
           err.message.includes("Pop-up")
         ));
 
       if (isPopupBlocked) {
         setPopupBlocked(true);
-        toast.error("Browser ने Pop-up ब्लॉक केला आहे! कृपया ॲड्रेस बारमध्ये 'Always allow' करा किंवा खालील बटणावर क्लिक करा.", { duration: 8000 });
+        toast.error("Your browser blocked the login popup. Please click 'Always allow pop-ups' in your browser address bar or use the redirect button below.", { duration: 8000 });
       } else {
         const msg = err?.message || "Google sign-in could not be completed.";
         toast.error(msg, { duration: 6000 });
@@ -435,9 +434,9 @@ export const StudentAuthCard: React.FC<StudentAuthCardProps> = ({
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-bold text-amber-300">Browser ने Google Login Pop-up ब्लॉक केला आहे</p>
+                    <p className="font-bold text-amber-300">Browser Blocked the Google Sign-In Popup</p>
                     <p className="text-[11px] text-amber-100/90 mt-0.5">
-                      Chrome / Edge च्या ॲड्रेस बारच्या (URL bar) उजव्या कोपऱ्यात <strong>पॉप-अप ब्लॉक आयकॉनवर</strong> क्लिक करून <strong>"Always allow pop-ups"</strong> निवडा.
+                      In Chrome / Edge, click the <strong>popup blocked icon</strong> on the right side of the URL bar and select <strong>"Always allow pop-ups"</strong>.
                     </p>
                   </div>
                 </div>
@@ -633,9 +632,9 @@ export const StudentAuthCard: React.FC<StudentAuthCardProps> = ({
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-bold text-amber-300">Browser ने Google Login Pop-up ब्लॉक केला आहे</p>
+                    <p className="font-bold text-amber-300">Browser Blocked the Google Sign-In Popup</p>
                     <p className="text-[11px] text-amber-100/90 mt-0.5">
-                      Chrome / Edge च्या ॲड्रेस बारच्या (URL bar) उजव्या कोपऱ्यात <strong>पॉप-अप ब्लॉक आयकॉनवर</strong> क्लिक करून <strong>"Always allow pop-ups"</strong> निवडा.
+                      In Chrome / Edge, click the <strong>popup blocked icon</strong> on the right side of the URL bar and select <strong>"Always allow pop-ups"</strong>.
                     </p>
                   </div>
                 </div>

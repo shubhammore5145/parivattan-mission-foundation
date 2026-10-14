@@ -43,7 +43,7 @@ const upcomingCauses: UpcomingCause[] = [
   {
     id: "general",
     name: "Rural Youth Education & Coaching",
-    marathi: "शिक्षणातून सामाजिक परिवर्तन निधी",
+    marathi: "Social Transformation Through Education",
     icon: GraduationCap,
     desc: "Direct support for Japanese & German language coaching, computer literacy and higher education access.",
     tag: "Education",
@@ -51,7 +51,7 @@ const upcomingCauses: UpcomingCause[] = [
   {
     id: "languages",
     name: "Foreign Language School",
-    marathi: "विदेशी भाषा प्रशिक्षण निधी",
+    marathi: "Foreign Language Training Fund",
     icon: Globe2,
     desc: "Coaching and JLPT/Goethe certification scholarships for Japanese and German language learners.",
     tag: "Global Opportunities",
@@ -59,7 +59,7 @@ const upcomingCauses: UpcomingCause[] = [
   {
     id: "technology",
     name: "Parivattan Tech School",
-    marathi: "तंत्रज्ञान व कोडिंग शिक्षण",
+    marathi: "Technology & Coding Skills Fund",
     icon: Laptop,
     desc: "Equipping rural youth with laptops, programming bootcamps in Python, and full-stack web development.",
     tag: "Digital Empowerment",
@@ -67,7 +67,7 @@ const upcomingCauses: UpcomingCause[] = [
   {
     id: "girls-scholarship",
     name: "Savitribai Girls Higher Education",
-    marathi: "मुलींचे उच्च शिक्षण अनुदान",
+    marathi: "Higher Education Grant for Rural Girls",
     icon: BookOpen,
     desc: "Direct college tuition scholarships and hostel fees assistance for deserving rural girls.",
     tag: "Women Empowerment",
@@ -261,10 +261,10 @@ export default function DonationCheckoutPage() {
                   <span className="text-[#b5623b]">Future Today.</span>
                 </h1>
 
-                {/* Marathi Subheading with Terracotta Left Accent */}
+                {/* Subheading with Terracotta Left Accent */}
                 <div className="mt-4 border-l-[3px] border-[#b5623b] pl-3.5 py-0.5">
                   <p className="font-serif text-lg sm:text-xl font-bold text-[#1b2b25]">
-                    शिक्षणातून सामाजिक परिवर्तन घडवा.
+                    Transforming Lives Through Education & Skills.
                   </p>
                 </div>
 
@@ -310,10 +310,10 @@ export default function DonationCheckoutPage() {
                   <CheckCircle2 size={36} />
                 </div>
                 <span className="text-xs font-bold uppercase tracking-widest text-emerald-700">
-                  Payment Confirmed • देणगी यशस्वी
+                  Payment Confirmed • Donation Successful
                 </span>
                 <h2 className="mt-2 text-3xl font-serif text-[#24312d]">
-                  धन्यवाद, {receipt.donorName}!
+                  Thank You, {receipt.donorName}!
                 </h2>
                 <p className="mt-2 text-sm text-[#65706a]">
                   Your contribution of <strong className="text-[#24312d]">₹{receipt.amount.toLocaleString("en-IN")}</strong> has been received with gratitude by Parivattan Mission Foundation.
@@ -370,7 +370,7 @@ export default function DonationCheckoutPage() {
                     className="inline-flex items-center gap-2 rounded-full bg-[#24312d] px-6 py-3 text-xs font-bold text-white hover:bg-[#344540] transition"
                   >
                     <Download size={14} />
-                    <span>Print Receipt / पावती प्रिंट करा</span>
+                    <span>Print Receipt</span>
                   </button>
 
                   <a
@@ -389,7 +389,7 @@ export default function DonationCheckoutPage() {
                     onClick={() => setReceipt(null)}
                     className="inline-flex items-center gap-2 rounded-full border border-stone-300 bg-white px-6 py-3 text-xs font-bold text-[#24312d] hover:bg-stone-50 transition"
                   >
-                    <span>नवीन देणगी द्या (New Contribution)</span>
+                    <span>Make Another Donation</span>
                   </button>
                 </div>
               </div>
@@ -676,13 +676,13 @@ export default function DonationCheckoutPage() {
           <div className="rounded-3xl border border-[#e2e5dc] bg-white p-7 md:p-10 shadow-sm mb-10">
             <div className="text-center max-w-2xl mx-auto mb-10">
               <span className="text-xs font-bold uppercase tracking-wider text-[#b5623b]">
-                What We Support • आमचे उपक्रम
+                What We Support • Key Initiatives
               </span>
               <h2 className="mt-2 text-2xl md:text-3xl font-serif text-[#24312d]">
-                संस्थेद्वारे राबवले जाणारे प्रमुख शैक्षणिक प्रकल्प
+                Key Educational Initiatives Driven by the Foundation
               </h2>
               <p className="mt-2 text-xs md:text-sm text-[#65706a]">
-                या देणगीचा प्रत्येक रुपया थेट गरजू विद्यार्थ्यांच्या शिक्षणासाठी व प्रशिक्षणासाठी वापरला जातो.
+                Every single rupee of your donation is deployed directly toward underprivileged students' education and skill training.
               </p>
             </div>
 
@@ -716,7 +716,7 @@ export default function DonationCheckoutPage() {
 
                     <div className="mt-5 pt-3 border-t border-[#e2e5dc] flex items-center gap-2 text-xs font-semibold text-emerald-700">
                       <CheckCircle2 size={15} className="text-emerald-600" />
-                      <span>Active Program • देणगी स्वीकारली जात आहे</span>
+                      <span>Active Program • Accepting Contributions</span>
                     </div>
                   </div>
                 );
@@ -733,10 +733,10 @@ export default function DonationCheckoutPage() {
                   Direct Inquiries
                 </span>
                 <h3 className="mt-1 text-xl font-serif text-[#24312d]">
-                  देणगी किंवा सहकार्यासाठी संपर्क
+                  Contact for Donations & Partnerships
                 </h3>
                 <p className="mt-2 text-xs text-[#65706a] leading-relaxed">
-                  तुम्हाला संस्थेच्या उपक्रमांमध्ये थेट देणगीदार, मेंटॉर किंवा भागीदार म्हणून सहभागी व्हायचे असल्यास आमच्याशी थेट संपर्क साधा.
+                  If you would like to participate directly as a donor, mentor, or institutional partner, please reach out to us.
                 </p>
 
                 <div className="mt-6 space-y-3.5 text-xs text-[#24312d]">
@@ -781,7 +781,7 @@ export default function DonationCheckoutPage() {
                   to="/"
                   className="inline-flex items-center gap-1.5 text-xs font-bold text-[#b5623b] hover:underline"
                 >
-                  मुखपृष्ठावर परत जा (Back to Home) <ArrowRight size={13} />
+                  Back to Home <ArrowRight size={13} />
                 </Link>
               </div>
             </div>
@@ -793,7 +793,7 @@ export default function DonationCheckoutPage() {
                   Trust & Governance
                 </span>
                 <h3 className="mt-1 text-xl font-serif text-[#24312d]">
-                  पारदर्शकता आणि अधिकृत मान्यता
+                  Transparency & Official Recognition
                 </h3>
 
                 <div className="mt-5 space-y-3.5 text-xs text-[#65706a]">
