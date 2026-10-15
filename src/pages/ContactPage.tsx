@@ -178,103 +178,11 @@ export default function ContactPage() {
                 Connect directly with our Dharashiv administrative office or reach our grassroots educational initiative helpline.
               </p>
             </div>
-
-            {/* Photo Showcase Viewport - Handles all photo ratios without cutting heads/bodies */}
-            <div
-              className="relative w-full h-[380px] sm:h-[460px] md:h-[520px] rounded-3xl overflow-hidden bg-[#18221f] flex items-center justify-center border border-stone-200/60 shadow-xl group"
-              onMouseEnter={() => setIsAutoPlaying(false)}
-              onMouseLeave={() => setIsAutoPlaying(true)}
-            >
-              {/* Ambient Blurred Background Layer (smoothly fills any letterbox space) */}
-              {COMMUNITY_SLIDES.map((slide, index) => (
-                <div
-                  key={`bg-${slide.id}`}
-                  className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-                    index === currentSlide ? "opacity-35" : "opacity-0 pointer-events-none"
-                  }`}
-                >
-                  <img
-                    src={slide.image}
-                    alt=""
-                    aria-hidden="true"
-                    className="w-full h-full object-cover blur-3xl scale-125"
-                  />
-                  <div className="absolute inset-0 bg-black/25 pointer-events-none" />
-                </div>
-              ))}
-
-              {/* Sharp Centered Slide Image (object-contain ensures complete, uncropped photo) */}
-              {COMMUNITY_SLIDES.map((slide, index) => (
-                <div
-                  key={slide.id}
-                  className={`absolute inset-0 p-3 sm:p-5 flex items-center justify-center transition-opacity duration-1000 ease-in-out ${
-                    index === currentSlide ? "opacity-100 z-10" : "opacity-0 pointer-events-none"
-                  }`}
-                >
-                  <img
-                    src={slide.image}
-                    alt={slide.tagline}
-                    className="max-h-full max-w-full object-contain rounded-2xl shadow-2xl transition-all duration-700 select-none"
-                  />
-                </div>
-              ))}
-
-              {/* Slider Navigation Arrows */}
-              <div className="absolute top-1/2 -translate-y-1/2 inset-x-3 sm:inset-x-5 flex justify-between z-20 pointer-events-none">
-                <button
-                  type="button"
-                  onClick={handlePrevSlide}
-                  className="pointer-events-auto w-10 h-10 rounded-full bg-black/50 hover:bg-[#b5623b] backdrop-blur-md border border-white/20 text-white flex items-center justify-center transition-all duration-200 shadow-md hover:scale-105 cursor-pointer"
-                  aria-label="Previous photo"
-                >
-                  <ChevronLeft size={20} />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleNextSlide}
-                  className="pointer-events-auto w-10 h-10 rounded-full bg-black/50 hover:bg-[#b5623b] backdrop-blur-md border border-white/20 text-white flex items-center justify-center transition-all duration-200 shadow-md hover:scale-105 cursor-pointer"
-                  aria-label="Next photo"
-                >
-                  <ChevronRight size={20} />
-                </button>
-              </div>
-
-              {/* Slide Counter Badge (Top Right) */}
-              <div className="absolute top-4 right-4 z-20">
-                <span className="px-3 py-1 rounded-full text-xs font-mono font-bold backdrop-blur-md bg-black/60 text-white border border-white/20">
-                  {currentSlide + 1} / {COMMUNITY_SLIDES.length}
-                </span>
-              </div>
-            </div>
-
-            {/* Clean Tagline Bar directly below the photo */}
-            <div className="mt-3.5 rounded-2xl bg-[#24312d] text-white py-3.5 px-5 sm:px-7 shadow-md border border-stone-800 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-                <p className="font-serif italic text-sm sm:text-base text-stone-100 font-medium truncate">
-                  “{COMMUNITY_SLIDES[currentSlide].tagline}”
-                </p>
-              </div>
-              {/* Dots */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                {COMMUNITY_SLIDES.map((_, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setCurrentSlide(idx)}
-                    className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
-                      idx === currentSlide ? "w-6 bg-[#e5a37f]" : "w-2 bg-white/40 hover:bg-white/70"
-                    }`}
-                    aria-label={`Go to photo ${idx + 1}`}
-                  />
-                ))}
-              </div>
-            </div>
           </div>
         </section>
 
         {/* Antara Style: Main Contact Content */}
-        <section className="py-12 md:py-20">
+        <section className="py-8 md:py-8">
           <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-6xl">
             {/* Row 1: Location & Map (Left) + Contact Details (Right) */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 mb-16 md:mb-24 items-stretch">

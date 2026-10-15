@@ -40,38 +40,38 @@ const PROGRAMMES: Programme[] = [
     tagColor: "bg-amber-50 text-amber-800 border-amber-200",
     link: "/initiatives#languages",
   },
-  {
-    id: "tech-education",
-    title: "TECH & CODING SCHOOL",
-    description: "Hands-on coding bootcamps, full stack development, Python AI literacy, and technical career skills for youth.",
-    initiatives: [
-      "Full Stack Web Development",
-      "Python, Data & AI Literacy",
-      "Bilingual Overseas IT Pathways",
-    ],
-    icon: Briefcase,
-    blobColor: "bg-[#ffedd5]",
-    iconColor: "#c2410c",
-    textColor: "text-[#c2410c]",
-    tagColor: "bg-orange-50 text-orange-800 border-orange-200",
-    link: "/admissions",
-  },
-  {
-    id: "libraries",
-    title: "SAU STUDY LIBRARIES",
-    description: "Free village study centers, competitive exam libraries, and digital academic hubs across Maharashtra.",
-    initiatives: [
-      "Sau Community Library Network",
-      "MPSC & UPSC Free Book Banks",
-      "Digital Classrooms & WiFi Study Pods",
-    ],
-    icon: Sprout,
-    blobColor: "bg-[#dcfce7]",
-    iconColor: "#15803d",
-    textColor: "text-[#15803d]",
-    tagColor: "bg-emerald-50 text-emerald-800 border-emerald-200",
-    link: "/about",
-  },
+  // {
+  //   id: "tech-education",
+  //   title: "TECH & CODING SCHOOL",
+  //   description: "Hands-on coding bootcamps, full stack development, Python AI literacy, and technical career skills for youth.",
+  //   initiatives: [
+  //     "Full Stack Web Development",
+  //     "Python, Data & AI Literacy",
+  //     "Bilingual Overseas IT Pathways",
+  //   ],
+  //   icon: Briefcase,
+  //   blobColor: "bg-[#ffedd5]",
+  //   iconColor: "#c2410c",
+  //   textColor: "text-[#c2410c]",
+  //   tagColor: "bg-orange-50 text-orange-800 border-orange-200",
+  //   link: "/admissions",
+  // },
+  // {
+  //   id: "libraries",
+  //   title: "SAU STUDY LIBRARIES",
+  //   description: "Free village study centers, competitive exam libraries, and digital academic hubs across Maharashtra.",
+  //   initiatives: [
+  //     "Sau Community Library Network",
+  //     "MPSC & UPSC Free Book Banks",
+  //     "Digital Classrooms & WiFi Study Pods",
+  //   ],
+  //   icon: Sprout,
+  //   blobColor: "bg-[#dcfce7]",
+  //   iconColor: "#15803d",
+  //   textColor: "text-[#15803d]",
+  //   tagColor: "bg-emerald-50 text-emerald-800 border-emerald-200",
+  //   link: "/about",
+  // },
 ];
 
 export default function OurProgrammes() {
@@ -94,7 +94,7 @@ export default function OurProgrammes() {
         </div>
 
         {/* 3 Programmes Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-1 gap-6">
           {PROGRAMMES.map((item) => {
             const Icon = item.icon;
             return (

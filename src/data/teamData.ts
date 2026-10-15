@@ -20,6 +20,7 @@ export interface TeamMember {
   order: number;
 }
 
+
 export const TEAM_MEMBERS: TeamMember[] = [
   {
     id: "kishor-bhagat",
@@ -52,8 +53,8 @@ export const TEAM_MEMBERS: TeamMember[] = [
     quote: "Building technology with purpose—making quality global education accessible to every aspiring learner.",
     tags: ["Full Stack Development", "React & Node.js", "System Architecture"],
     initials: "DA",
-    image: "/img/team/dishant-arak.jpeg",
-    fallbackImage: "/img/team image/dishant aarak.jpeg",
+    image: "/img/team/dishant-aarak.jpeg",
+    fallbackImage: "/img/team/dishant-aarak.jpeg",
     colorScheme: {
       badgeBg: "bg-blue-100 border-blue-300",
       badgeText: "text-blue-900",
@@ -152,8 +153,8 @@ export const TEAM_MEMBERS: TeamMember[] = [
     quote: "Mastering Japanese opens life-changing international academic and career opportunities for our dedicated students.",
     tags: ["Japanese (JLPT)", "Language Trainer", "Kanji & Conversation"],
     initials: "KS",
-    image: "/img/team/kalpana-sardar.jpeg",
-    fallbackImage: "/img/team image/Kalpana Sardar.jpeg",
+    image: "/img/team/placeholder-img.jpg",
+    fallbackImage: "/img/team image/placeholder-img.jpg",
     colorScheme: {
       badgeBg: "bg-red-100 border-red-300",
       badgeText: "text-red-900",
