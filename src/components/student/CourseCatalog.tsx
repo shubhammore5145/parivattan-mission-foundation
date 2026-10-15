@@ -21,6 +21,7 @@ import {
 import { Course, CourseCategory } from "@/types/student";
 import { COURSES_DATA, COURSE_CATEGORIES } from "@/data/coursesData";
 import { getBatchSeatsInfo } from "@/data/languageCoursesData";
+import { syncBatchSeatsFromCloud } from "@/lib/batch-seats-sync";
 
 interface CourseCatalogProps {
   selectedCourse: Course | null;
@@ -38,6 +39,7 @@ export const CourseCatalog: React.FC<CourseCatalogProps> = ({
 
   // Live seats listener
   useEffect(() => {
+    syncBatchSeatsFromCloud();
     const handleUpdate = () => setRefreshKey((k) => k + 1);
     window.addEventListener("batch-seats-updated", handleUpdate);
     window.addEventListener("storage", handleUpdate);

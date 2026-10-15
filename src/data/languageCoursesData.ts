@@ -1,3 +1,5 @@
+import { saveBatchOverridesToCloud } from "@/lib/batch-seats-sync";
+
 export interface BatchSchedule {
   id: string;
   name: string; // e.g. "Morning Batch", "Evening Batch", "Regular Batch"
@@ -605,13 +607,28 @@ export interface BatchSeatsStatus {
 export const matchAdmissionToBatchId = (admission: any): string | null => {
   if (!admission) return null;
 
+  // Filter out system configuration rows
+  if (
+    admission.id === "00000000-0000-0000-0000-000000000001" ||
+    admission.name === "SYSTEM_BATCH_OVERRIDES" ||
+    admission.program === "SYSTEM_BATCH_SETTINGS"
+  ) {
+    return null;
+  }
+
+  // Filter out cancelled or failed
+  if (admission.status === "failed" || admission.status === "cancelled") {
+    return null;
+  }
+
   // Filter out pure account registrations
   const prog = (admission.program || "").trim().toUpperCase();
   if (
     prog === "STUDENT_REGISTRATION" ||
     prog === "REGISTERED_ACCOUNT" ||
     prog === "ACCOUNT_SIGNUP" ||
-    prog === "USER_REGISTRATION"
+    prog === "USER_REGISTRATION" ||
+    prog === "SYSTEM_BATCH_SETTINGS"
   ) {
     return null;
   }
@@ -620,13 +637,27 @@ export const matchAdmissionToBatchId = (admission: any): string | null => {
   const explicitId = admission.batchId || admission.batch_id;
   if (explicitId) {
     if (BATCH_SEATS_CONFIG[explicitId]) return explicitId;
-    if (explicitId === "de-a1-weekend" || explicitId === "de-a1-mwf") return "de-a1-mwf";
-    if (explicitId === "de-a2-weekend" || explicitId === "de-a2-tts") return "de-a2-tts";
     // Check custom courses
     for (const c of getStoredCourses()) {
       for (const lvl of c.levels) {
         for (const b of lvl.batches) {
           if (b.id === explicitId) return b.id;
+        }
+      }
+    }
+  }
+
+  // 1b. Check message for Batch ID: ...
+  if (admission.message && typeof admission.message === "string") {
+    const match = admission.message.match(/Batch ID:\s*([a-zA-Z0-9_-]+)/i);
+    if (match && match[1]) {
+      const bId = match[1].trim();
+      if (BATCH_SEATS_CONFIG[bId]) return bId;
+      for (const c of getStoredCourses()) {
+        for (const lvl of c.levels) {
+          for (const b of lvl.batches) {
+            if (b.id === bId) return b.id;
+          }
         }
       }
     }
@@ -655,8 +686,10 @@ export const matchAdmissionToBatchId = (admission: any): string | null => {
   // German
   if (text.includes("german") || text.includes("deutsch") || text.includes("pfls-de") || text.includes("de-")) {
     if (text.includes("a2") || text.includes("de-a2")) {
+      if (text.includes("weekend")) return "de-a2-weekend";
       return "de-a2-tts";
     }
+    if (text.includes("weekend")) return "de-a1-weekend";
     return "de-a1-mwf";
   }
 
@@ -834,6 +867,15 @@ export const recalculateBatchSeatsFromAdmissions = (admissionsList?: any[]): voi
     for (const batchKey of Object.keys(BATCH_SEATS_CONFIG)) {
       newMap[batchKey] = 0;
     }
+    for (const c of getStoredCourses()) {
+      for (const lvl of c.levels) {
+        for (const b of lvl.batches) {
+          if (!(b.id in newMap)) {
+            newMap[b.id] = 0;
+          }
+        }
+      }
+    }
 
     for (const adm of allAdmissions) {
       const bId = matchAdmissionToBatchId(adm);
@@ -863,6 +905,7 @@ export const updateBatchSeatCapacity = (batchId: string, newTotalSeats: number):
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("batch-seats-updated"));
     }
+    saveBatchOverridesToCloud(overrides).catch(() => {});
   } catch (e) {
     console.warn("Could not update batch seat capacity", e);
   }
@@ -880,6 +923,7 @@ export const toggleBatchManualFull = (batchId: string): boolean => {
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("batch-seats-updated"));
     }
+    saveBatchOverridesToCloud(overrides).catch(() => {});
     return !current;
   } catch (e) {
     console.warn("Could not toggle batch full status", e);
@@ -902,6 +946,7 @@ export const resetBatchEnrollment = (batchId: string): void => {
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("batch-seats-updated"));
     }
+    saveBatchOverridesToCloud(overrides).catch(() => {});
   } catch (e) {
     console.warn("Could not reset batch enrollment", e);
   }

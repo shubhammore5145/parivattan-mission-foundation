@@ -11,6 +11,8 @@ import {
   UPCOMING_COURSES,
   getStoredCourses,
 } from "@/data/languageCoursesData";
+import { syncBatchSeatsFromCloud } from "@/lib/batch-seats-sync";
+import { CountryFlagIcon } from "@/components/common/CountryFlagIcon";
 import {
   Sparkles,
   ArrowRight,
@@ -36,6 +38,9 @@ export default function CoursesPage() {
   const [coursesList, setCoursesList] = useState<LanguageCourse[]>(() => getStoredCourses());
 
   useEffect(() => {
+    // Sync seats live from cloud immediately on visit
+    syncBatchSeatsFromCloud();
+
     const handleCoursesUpdate = () => {
       setCoursesList(getStoredCourses());
     };
@@ -424,8 +429,8 @@ export default function CoursesPage() {
                   <div>
                     {/* Top Bar with Flag and Coming Soon Badge */}
                     <div className="flex items-start justify-between gap-3 mb-4">
-                      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fbfaf7] border border-[#e2e5dc] text-3xl shadow-xs">
-                        {upcoming.flag}
+                      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fbfaf7] border border-[#e2e5dc] p-2.5 shadow-xs overflow-hidden">
+                        <CountryFlagIcon courseId={upcoming.id} size="fill" className="w-full h-full rounded-md shadow-xs" />
                       </span>
                       <span
                         className="rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider shadow-2xs"

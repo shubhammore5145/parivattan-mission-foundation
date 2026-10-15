@@ -9,6 +9,7 @@ import {
   getCourseById,
   getCourseLevelById,
 } from "@/data/languageCoursesData";
+import { CountryFlagIcon } from "@/components/common/CountryFlagIcon";
 import {
   Calendar,
   Clock,
@@ -88,8 +89,8 @@ export default function CourseDetailPage() {
             <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-8">
               <div className="space-y-4 max-w-2xl">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#fbfaf7] border border-[#e2e5dc] text-4xl shadow-xs">
-                    {course.flag}
+                  <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#fbfaf7] border border-[#e2e5dc] p-3 shadow-xs overflow-hidden">
+                    <CountryFlagIcon courseId={course.id} size="fill" className="w-full h-full rounded-md shadow-xs" />
                   </span>
                   <div>
                     <div className="flex items-center gap-2">

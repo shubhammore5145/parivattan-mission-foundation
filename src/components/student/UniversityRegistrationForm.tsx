@@ -64,24 +64,24 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
   onSubmit,
 }) => {
   const [form, setForm] = useState<RegistrationFormData>({
-    fullName: student.name || "",
+    fullName: "",
     fatherName: "",
     motherName: "",
-    dob: "2003-05-15",
-    gender: "Male",
-    category: "General",
-    bloodGroup: "O+",
-    email: student.email || "",
-    phone: student.phone || "",
+    dob: "",
+    gender: "",
+    category: "",
+    bloodGroup: "",
+    email: "",
+    phone: "",
     address: "",
-    city: student.city || "Pune",
-    district: "Pune",
-    pincode: "411001",
-    qualification: "12th Pass",
+    city: "",
+    district: "",
+    pincode: "",
+    qualification: "",
     collegeName: "",
-    passingYear: "2024",
-    percentage: "78.5%",
-    batchPreference: "Morning Batch (08:00 AM - 10:00 AM)",
+    passingYear: "",
+    percentage: "",
+    batchPreference: "",
     learningMode: course.mode || "Hybrid Classroom",
     photoUrl: "",
     idProofUrl: "",
@@ -90,15 +90,15 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
   });
 
   // Current & Permanent Addresses
-  const [isSameAddress, setIsSameAddress] = useState(true);
+  const [isSameAddress, setIsSameAddress] = useState(false);
   const [currentAddressLine, setCurrentAddressLine] = useState("");
-  const [currentCity, setCurrentCity] = useState(student.city || "Pune");
-  const [currentDistrict, setCurrentDistrict] = useState("Pune");
-  const [currentPincode, setCurrentPincode] = useState("411001");
+  const [currentCity, setCurrentCity] = useState("");
+  const [currentDistrict, setCurrentDistrict] = useState("");
+  const [currentPincode, setCurrentPincode] = useState("");
   const [permAddressLine, setPermAddressLine] = useState("");
-  const [permCity, setPermCity] = useState(student.city || "Pune");
-  const [permDistrict, setPermDistrict] = useState("Pune");
-  const [permPincode, setPermPincode] = useState("411001");
+  const [permCity, setPermCity] = useState("");
+  const [permDistrict, setPermDistrict] = useState("");
+  const [permPincode, setPermPincode] = useState("");
 
   const [declarationAgreed, setDeclarationAgreed] = useState(false);
 
@@ -138,20 +138,48 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
       toast.error("Please enter father's or guardian's name.");
       return;
     }
+    if (!form.dob) {
+      toast.error("Please enter date of birth.");
+      return;
+    }
+    if (!form.gender) {
+      toast.error("Please select gender.");
+      return;
+    }
+    if (!form.category) {
+      toast.error("Please select category.");
+      return;
+    }
     if (!form.phone.trim()) {
       toast.error("Please enter a valid contact phone number.");
+      return;
+    }
+    if (!form.email.trim()) {
+      toast.error("Please enter email address.");
       return;
     }
     if (!currentAddressLine.trim()) {
       toast.error("Please enter current residential address.");
       return;
     }
+    if (!currentCity.trim()) {
+      toast.error("Please enter current city.");
+      return;
+    }
     if (!isSameAddress && !permAddressLine.trim()) {
       toast.error("Please enter permanent hometown address.");
       return;
     }
+    if (!form.qualification) {
+      toast.error("Please select highest qualification.");
+      return;
+    }
     if (!form.collegeName.trim()) {
       toast.error("Please enter school or college name.");
+      return;
+    }
+    if (!form.batchPreference) {
+      toast.error("Please select a batch timing preference.");
       return;
     }
 
@@ -335,6 +363,7 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
                   onChange={(e) => updateField("gender", e.target.value)}
                   className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 px-3 text-sm text-[#24312d] focus:border-[#b5623b] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#b5623b]/20 transition"
                 >
+                  <option value="">Select Gender</option>
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
                   <option value="Other">Other</option>
@@ -350,6 +379,7 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
                   onChange={(e) => updateField("category", e.target.value)}
                   className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 px-3 text-sm text-[#24312d] focus:border-[#b5623b] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#b5623b]/20 transition"
                 >
+                  <option value="">Select Category</option>
                   <option value="General">General / Open</option>
                   <option value="OBC">OBC</option>
                   <option value="SC">SC</option>
@@ -551,6 +581,7 @@ export const UniversityRegistrationForm: React.FC<UniversityRegistrationFormProp
                 onChange={(e) => updateField("qualification", e.target.value)}
                 className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 px-3 text-sm text-[#24312d] focus:border-[#b5623b] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#b5623b]/20 transition"
               >
+                <option value="">Select Highest Qualification</option>
                 <option value="10th Pass (SSC)">10th Pass (SSC)</option>
                 <option value="12th Pass">12th Pass (HSC - Arts / Commerce / Science)</option>
                 <option value="Diploma Engineering">Polytechnic Diploma</option>

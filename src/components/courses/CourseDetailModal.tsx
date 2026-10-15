@@ -1,4 +1,5 @@
 import { LanguageCourse, CourseLevel } from "@/data/languageCoursesData";
+import { CountryFlagIcon } from "@/components/common/CountryFlagIcon";
 import { X, Calendar, Clock, Users, Shield, CheckCircle2, ArrowRight, BookOpen, AlertCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -33,8 +34,8 @@ export default function CourseDetailModal({
 
         {/* Header */}
         <div className="flex items-center gap-3.5 pr-8">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fbfaf7] border border-[#e2e5dc] text-3xl shadow-xs">
-            {course.flag}
+          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fbfaf7] border border-[#e2e5dc] p-2.5 shadow-xs overflow-hidden">
+            <CountryFlagIcon courseId={course.id} size="fill" className="w-full h-full rounded-md shadow-xs" />
           </span>
           <div>
             <div className="flex items-center gap-2">

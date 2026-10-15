@@ -27,7 +27,7 @@ export default function OurTeamSection() {
 
   const filterMap: Record<DepartmentFilter, (member: TeamMember) => boolean> = {
     "All": () => true,
-    "Leadership & Ops": (m) => m.department === "Leadership" || m.department === "Administration",
+    "Leadership & Ops": (m) => m.department === "Leadership" || m.department === "Administration" || m.id === "devidas-kadam",
     "Language Faculty": (m) => m.department === "Language Faculty",
     "Tech & Creative": (m) => m.department === "Tech & Creative",
     "Media & Outreach": (m) => m.department === "Media & Outreach",

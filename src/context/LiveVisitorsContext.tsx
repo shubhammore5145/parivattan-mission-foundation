@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase-admin";
+import { initBatchSeatsRealtimeSync } from "@/lib/batch-seats-sync";
 
 interface LiveVisitorsContextValue {
   count: number;
@@ -11,6 +12,14 @@ export const LiveVisitorsProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [count, setCount] = useState(0);
+
+  // Initialize global real-time batch seats synchronization
+  useEffect(() => {
+    const cleanupSeatsSync = initBatchSeatsRealtimeSync();
+    return () => {
+      cleanupSeatsSync();
+    };
+  }, []);
 
   useEffect(() => {
     const presenceKey = crypto.randomUUID();

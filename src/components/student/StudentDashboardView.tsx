@@ -28,6 +28,11 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowRight,
+  Bell,
+  FileText,
+  Eye,
+  AlertCircle,
+  X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -51,9 +56,12 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
   onViewReceipt,
   onLogout,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<"courses" | "idcard" | "receipts" | "schedule">("courses");
+  const [activeSubTab, setActiveSubTab] = useState<
+    "courses" | "idcard" | "receipts" | "schedule" | "notifications"
+  >("courses");
   const [copiedPrn, setCopiedPrn] = useState(false);
   const [expandedSyllabusId, setExpandedSyllabusId] = useState<string | null>(null);
+  const [previewPdf, setPreviewPdf] = useState<{ url: string; title: string; subtitle?: string } | null>(null);
 
   const handleCopyPrn = () => {
     navigator.clipboard.writeText(student.prn);
@@ -252,6 +260,22 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
         >
           <Clock size={16} />
           <span>Class Schedule & Timings</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSubTab("notifications")}
+          className={`rounded-2xl px-4 py-2.5 text-xs sm:text-sm font-bold transition flex items-center gap-2 relative ${
+            activeSubTab === "notifications"
+              ? "bg-[#24312d] text-white shadow"
+              : "bg-white text-[#65706a] hover:bg-[#fbfaf7] border border-[#e2e5dc]"
+          }`}
+        >
+          <Bell size={16} className={activeSubTab === "notifications" ? "text-amber-400" : "text-[#b5623b]"} />
+          <span>Notifications & Circulars</span>
+          <span className="rounded-full bg-amber-500 text-white text-[10px] font-extrabold px-2 py-0.5 shadow-2xs">
+            2 PDFs
+          </span>
         </button>
       </div>
 
@@ -658,6 +682,271 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
             <p className="text-[11px]">
               A minimum of 75% attendance is required to qualify for university and foundation accredited course completion certificates.
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* ================= TAB 5: NOTIFICATIONS & CIRCULARS (PDFS) ================= */}
+      {activeSubTab === "notifications" && (
+        <div className="space-y-6">
+          {/* Header Banner */}
+          <div className="rounded-3xl border border-[#e2e5dc] bg-gradient-to-br from-white via-[#fcfbfa] to-[#f7f5ef] p-6 sm:p-8 shadow-sm relative overflow-hidden">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 text-amber-900 border border-amber-200 px-3 py-1 text-xs font-bold">
+                  <Bell size={13} className="text-amber-600" />
+                  <span>Academic Session 2026-27 · Official Student Notice Board</span>
+                </div>
+                <h3 className="font-serif text-xl sm:text-2xl font-bold text-[#24312d] pt-1">
+                  Notifications, Circulars & Study Guidelines
+                </h3>
+                <p className="text-xs sm:text-sm text-[#65706a]">
+                  Official notices, course prospectuses, and academic circulars. Click below to preview or download the documents.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 px-3.5 py-2 text-xs font-bold shadow-2xs">
+                  <FileCheck size={15} /> 2 Verified Documents
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 2 PDF Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* PDF 1: PFLS English.pdf */}
+            <div className="rounded-3xl border border-[#e2e5dc] bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between group">
+              <div className="space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500/15 to-emerald-600/25 text-emerald-700 flex items-center justify-center font-bold text-xl shrink-0 group-hover:scale-105 transition-transform">
+                    <FileText size={24} />
+                  </div>
+                  <span className="rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold px-3 py-1 border border-emerald-200">
+                    English Edition · 28.9 MB
+                  </span>
+                </div>
+
+                <div>
+                  <h4 className="text-base sm:text-lg font-serif font-bold text-[#24312d] leading-snug">
+                    PFLS Academic Prospectus & Guidelines
+                  </h4>
+                  <p className="text-xs font-semibold text-[#b5623b] mt-0.5">
+                    Parivattan Foreign Language School (English Edition)
+                  </p>
+                </div>
+
+                <p className="text-xs text-[#525f59] leading-relaxed">
+                  Official comprehensive handbook detailing language courses, syllabus breakdown, admission procedures, examination structure, attendance criteria, and global career pathways.
+                </p>
+
+                {/* Metadata details */}
+                <div className="rounded-2xl bg-[#fbfaf7] border border-[#eceee7] p-3 text-[11px] text-[#65706a] space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <span>Document Authority:</span>
+                    <strong className="text-[#24312d]">Academic Directorate, PMF</strong>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>File Format:</span>
+                    <strong className="text-emerald-700 font-mono">PDF Document (.pdf)</strong>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>File Size:</span>
+                    <span className="text-[#24312d] font-medium font-mono">28.9 MB</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>Academic Cycle:</span>
+                    <span className="text-[#24312d] font-medium">Session 2026-27</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-5 mt-4 border-t border-[#f1f3ed] flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPreviewPdf({
+                      url: "/docs/PFLS-English.pdf",
+                      title: "PFLS Academic Prospectus & Guidelines",
+                      subtitle: "English Edition · Session 2026-27",
+                    })
+                  }
+                  className="flex-1 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 py-2.5 px-3 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Eye size={14} />
+                  <span>Quick Preview</span>
+                </button>
+
+                <a
+                  href="/docs/PFLS-English.pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-xl border border-gray-300 hover:border-gray-400 text-gray-700 hover:bg-gray-50 py-2.5 px-3 text-xs font-semibold transition flex items-center justify-center gap-1.5"
+                  title="Open PDF in new browser tab"
+                >
+                  <ExternalLink size={14} />
+                  <span>Open Tab</span>
+                </a>
+
+                <a
+                  href="/docs/PFLS-English.pdf"
+                  download="PFLS-English.pdf"
+                  className="rounded-xl bg-[#b5623b] hover:bg-[#974a27] text-white py-2.5 px-4 text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs"
+                >
+                  <Download size={14} />
+                  <span>Download</span>
+                </a>
+              </div>
+            </div>
+
+            {/* PDF 2: PFLS Marathi.pdf */}
+            <div className="rounded-3xl border border-[#e2e5dc] bg-white p-6 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between group">
+              <div className="space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500/15 to-amber-600/25 text-amber-800 flex items-center justify-center font-bold text-xl shrink-0 group-hover:scale-105 transition-transform">
+                    <FileText size={24} />
+                  </div>
+                  <span className="rounded-full bg-amber-100 text-amber-900 text-[11px] font-bold px-3 py-1 border border-amber-200">
+                    Regional Edition · 25.1 MB
+                  </span>
+                </div>
+
+                <div>
+                  <h4 className="text-base sm:text-lg font-serif font-bold text-[#24312d] leading-snug">
+                    PFLS Course Prospectus & Information
+                  </h4>
+                  <p className="text-xs font-semibold text-[#b5623b] mt-0.5">
+                    Parivattan Foreign Language School (Marathi Edition)
+                  </p>
+                </div>
+
+                <p className="text-xs text-[#525f59] leading-relaxed">
+                  Official information handbook for students covering course curricula, fee structure, scholarship details, examination regulations, and student support services.
+                </p>
+
+                {/* Metadata details */}
+                <div className="rounded-2xl bg-[#fbfaf7] border border-[#eceee7] p-3 text-[11px] text-[#65706a] space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <span>Document Authority:</span>
+                    <strong className="text-[#24312d]">Board of Studies, PMF</strong>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>File Format:</span>
+                    <strong className="text-amber-800 font-mono">PDF Document (.pdf)</strong>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>File Size:</span>
+                    <span className="text-[#24312d] font-medium font-mono">25.1 MB</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>Eligibility:</span>
+                    <span className="text-[#24312d] font-medium">All Registered Students</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-5 mt-4 border-t border-[#f1f3ed] flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPreviewPdf({
+                      url: "/docs/PFLS-Marathi.pdf",
+                      title: "PFLS Course Prospectus & Information",
+                      subtitle: "Marathi Edition · Session 2026-27",
+                    })
+                  }
+                  className="flex-1 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 py-2.5 px-3 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Eye size={14} />
+                  <span>Quick Preview</span>
+                </button>
+
+                <a
+                  href="/docs/PFLS-Marathi.pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-xl border border-gray-300 hover:border-gray-400 text-gray-700 hover:bg-gray-50 py-2.5 px-3 text-xs font-semibold transition flex items-center justify-center gap-1.5"
+                  title="Open PDF in new browser tab"
+                >
+                  <ExternalLink size={14} />
+                  <span>Open Tab</span>
+                </a>
+
+                <a
+                  href="/docs/PFLS-Marathi.pdf"
+                  download="PFLS-Marathi.pdf"
+                  className="rounded-xl bg-[#b5623b] hover:bg-[#974a27] text-white py-2.5 px-4 text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs"
+                >
+                  <Download size={14} />
+                  <span>Download</span>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          {/* Helpdesk Note */}
+          <div className="rounded-2xl bg-[#fbfaf7] border border-[#e2e5dc] p-4 text-xs text-[#525f59] flex items-start gap-3">
+            <AlertCircle size={18} className="text-[#b5623b] shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-semibold text-[#24312d]">
+                Student Inquiries & Technical Support:
+              </p>
+              <p className="text-[11px] text-[#65706a]">
+                All circulars published on this portal are official documents of the Parivattan Mission Foundation. If you have any questions or experience difficulties downloading these files, please contact the student helpline at <strong>+91 7820831901</strong> or email <strong>contact@parivattan.org</strong>.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PDF Modal Viewer */}
+      {previewPdf && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl w-full max-w-4xl h-[85vh] shadow-2xl overflow-hidden flex flex-col border border-gray-200">
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-gradient-to-r from-[#24312d] to-[#151e1b] text-white flex items-center justify-between gap-4 shrink-0">
+              <div className="flex items-center gap-3 truncate">
+                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                  <FileText size={20} className="text-amber-400" />
+                </div>
+                <div className="truncate">
+                  <h4 className="font-serif font-bold text-base truncate">{previewPdf.title}</h4>
+                  {previewPdf.subtitle && (
+                    <p className="text-xs text-amber-300 truncate">{previewPdf.subtitle}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewPdf.url}
+                  download
+                  className="rounded-xl bg-[#b5623b] hover:bg-[#974a27] text-white px-3.5 py-1.5 text-xs font-bold transition flex items-center gap-1.5 shadow"
+                >
+                  <Download size={14} />
+                  <span>Download</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setPreviewPdf(null)}
+                  className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
+                  title="Close preview"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body: Embedded PDF / iFrame */}
+            <div className="flex-1 bg-gray-100 p-2 sm:p-4 overflow-hidden">
+              <iframe
+                src={previewPdf.url}
+                title={previewPdf.title}
+                className="w-full h-full rounded-2xl border border-gray-300 bg-white"
+              />
+            </div>
           </div>
         </div>
       )}

@@ -52,6 +52,7 @@ import {
 import { Link, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { createAdmission } from "@/lib/supabase-admin";
+import { syncBatchSeatsFromCloud } from "@/lib/batch-seats-sync";
 import { sendCourseAdmissionEmail } from "@/lib/courseEmailService";
 import { getRazorpayKeyId, loadRazorpay } from "@/lib/razorpay";
 import {
@@ -149,16 +150,10 @@ export default function AdmissionsPage() {
     }
   };
 
-  // Auto-verify if ?prn=... is in query or if student is currently logged in
+  // Auto-verify ONLY if ?prn=... is explicitly provided in the URL query
   useEffect(() => {
     if (initialPrnParam) {
       handleVerifyPrn(initialPrnParam);
-    } else {
-      const active = getCurrentStudent();
-      if (active) {
-        setPrnInput(active.prn);
-        handleVerifyPrn(active.prn);
-      }
     }
   }, [initialPrnParam]);
 
@@ -217,6 +212,7 @@ export default function AdmissionsPage() {
   // Live Batch Seats Capacity & Full Check
   const [seatsRefreshKey, setSeatsRefreshKey] = useState(0);
   useEffect(() => {
+    syncBatchSeatsFromCloud();
     const handler = () => setSeatsRefreshKey((k) => k + 1);
     window.addEventListener("batch-seats-updated", handler);
     window.addEventListener("storage", handler);
@@ -241,29 +237,29 @@ export default function AdmissionsPage() {
 
   // ================= 1. APPLICANT DETAILS =================
   const [fullName, setFullName] = useState("");
-  const [gender, setGender] = useState<"Male" | "Female" | "Other">("Male");
+  const [gender, setGender] = useState<"Male" | "Female" | "Other" | "">("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [emailAddress, setEmailAddress] = useState("");
-  const [education, setEducation] = useState("Graduation (Bachelor Degree)");
+  const [education, setEducation] = useState("");
   const [educationStream, setEducationStream] = useState("");
   const [collegeName, setCollegeName] = useState("");
 
   // ================= 2. ADDRESS INFORMATION (CURRENT & PERMANENT) =================
   const [currentAddressLine, setCurrentAddressLine] = useState("");
-  const [currentCity, setCurrentCity] = useState("Pune");
-  const [currentDistrict, setCurrentDistrict] = useState("Pune");
-  const [currentState, setCurrentState] = useState("Maharashtra");
+  const [currentCity, setCurrentCity] = useState("");
+  const [currentDistrict, setCurrentDistrict] = useState("");
+  const [currentState, setCurrentState] = useState("");
   const [currentPincode, setCurrentPincode] = useState("");
 
-  const [isSameAddress, setIsSameAddress] = useState(true);
+  const [isSameAddress, setIsSameAddress] = useState(false);
   const [permAddressLine, setPermAddressLine] = useState("");
-  const [permCity, setPermCity] = useState("Pune");
-  const [permDistrict, setPermDistrict] = useState("Pune");
-  const [permState, setPermState] = useState("Maharashtra");
+  const [permCity, setPermCity] = useState("");
+  const [permDistrict, setPermDistrict] = useState("");
+  const [permState, setPermState] = useState("");
   const [permPincode, setPermPincode] = useState("");
 
   // ================= 3. CASTE & CATEGORY DETAILS (REQUESTED) =================
-  const [casteCategory, setCasteCategory] = useState("Open / General");
+  const [casteCategory, setCasteCategory] = useState("");
   const [subCaste, setSubCaste] = useState("");
   const [casteCertFile, setCasteCertFile] = useState<FileUploadData>(emptyUploadData);
 
@@ -418,6 +414,12 @@ export default function AdmissionsPage() {
       }
 
       // 5. CASTE CERTIFICATE VALIDATION: Strictly required for Reserved Categories!
+      if (!casteCategory) {
+        toast.error("Please select your caste category.");
+        const docElem = document.getElementById("caste-category-section");
+        if (docElem) docElem.scrollIntoView({ behavior: "smooth" });
+        return;
+      }
       if (casteCategory !== "Open / General" && !casteCertFile.dataUrl) {
         toast.error(`Caste Certificate is strictly mandatory for ${casteCategory} category candidates.`);
         const docElem = document.getElementById("document-proofs-section");
@@ -627,24 +629,24 @@ export default function AdmissionsPage() {
     setPrnInput("");
     setPrnVerifyError("");
     setFullName("");
-    setGender("Male");
+    setGender("");
     setMobileNumber("");
     setEmailAddress("");
-    setEducation("Graduation (Bachelor Degree)");
+    setEducation("");
     setEducationStream("");
     setCollegeName("");
     setCurrentAddressLine("");
-    setCurrentCity("Pune");
-    setCurrentDistrict("Pune");
-    setCurrentState("Maharashtra");
+    setCurrentCity("");
+    setCurrentDistrict("");
+    setCurrentState("");
     setCurrentPincode("");
-    setIsSameAddress(true);
+    setIsSameAddress(false);
     setPermAddressLine("");
-    setPermCity("Pune");
-    setPermDistrict("Pune");
-    setPermState("Maharashtra");
+    setPermCity("");
+    setPermDistrict("");
+    setPermState("");
     setPermPincode("");
-    setCasteCategory("Open / General");
+    setCasteCategory("");
     setSubCaste("");
     setCasteCertFile(emptyUploadData);
     setPhotoFile(emptyUploadData);
@@ -1307,6 +1309,7 @@ export default function AdmissionsPage() {
                         onChange={(e) => setEducation(e.target.value)}
                         className="w-full rounded-xl border border-[#d5d9cf] bg-white py-2.5 px-3 text-xs sm:text-sm focus:border-[#b5623b] focus:outline-none transition"
                       >
+                        <option value="">Select Qualification / Education</option>
                         <option value="10th Pass (SSC)">10th Pass (SSC)</option>
                         <option value="12th Pass (HSC)">12th Pass (HSC)</option>
                         <option value="Polytechnic Diploma">Polytechnic Diploma</option>
@@ -1619,6 +1622,7 @@ export default function AdmissionsPage() {
                       onChange={(e) => setCasteCategory(e.target.value)}
                       className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 px-3.5 text-sm focus:border-[#b5623b] focus:bg-white focus:outline-none transition"
                     >
+                      <option value="">Select Caste Category</option>
                       <option value="Open / General">Open / General</option>
                       <option value="OBC">OBC (Other Backward Classes)</option>
                       <option value="SC">SC (Scheduled Castes)</option>
@@ -1644,7 +1648,7 @@ export default function AdmissionsPage() {
                 </div>
 
                 {/* Dynamic Category Requirement Banner */}
-                {casteCategory !== "Open / General" ? (
+                {casteCategory && casteCategory !== "Open / General" ? (
                   <div className="rounded-2xl bg-amber-50 border border-amber-300 p-4 text-xs text-amber-950 flex items-start gap-3">
                     <AlertTriangle size={18} className="shrink-0 text-amber-700 mt-0.5" />
                     <div>

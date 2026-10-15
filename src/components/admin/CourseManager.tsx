@@ -9,6 +9,7 @@ import {
   resetCustomCourses,
   INITIAL_LANGUAGE_COURSES,
 } from "@/data/languageCoursesData";
+import { CountryFlagIcon } from "@/components/common/CountryFlagIcon";
 import {
   BookOpen,
   Plus,
@@ -541,10 +542,10 @@ export default function CourseManager() {
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                   <div className="flex items-start gap-4">
                     <div
-                      className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl shadow-xs border border-stone-100"
+                      className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-xs border border-stone-100 p-2 overflow-hidden"
                       style={{ backgroundColor: `${course.colorScheme?.primary || "#b5623b"}12` }}
                     >
-                      {course.flag || "🎓"}
+                      <CountryFlagIcon courseId={course.id} size="fill" className="w-full h-full rounded-md shadow-xs" />
                     </div>
 
                     <div>

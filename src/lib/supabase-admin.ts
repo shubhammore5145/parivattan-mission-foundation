@@ -130,12 +130,19 @@ export const createAdmission = async (
 
 export const isRealCourseAdmission = (row: any): boolean => {
   if (!row) return false;
+  if (
+    row.id === "00000000-0000-0000-0000-000000000001" ||
+    row.name === "SYSTEM_BATCH_OVERRIDES"
+  ) {
+    return false;
+  }
   const prog = (row.program || "").trim().toUpperCase();
   if (
     prog === "STUDENT_REGISTRATION" ||
     prog === "REGISTERED_ACCOUNT" ||
     prog === "ACCOUNT_SIGNUP" ||
-    prog === "USER_REGISTRATION"
+    prog === "USER_REGISTRATION" ||
+    prog === "SYSTEM_BATCH_SETTINGS"
   ) {
     return false;
   }
@@ -165,9 +172,33 @@ export const getAllAdmissions = async (): Promise<Admission[]> => {
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (!error && data && data.length > 0) {
+    if (!error && Array.isArray(data)) {
+      // 1. Process cloud admin capacity overrides if present
+      const sysRow = data.find(
+        (r) =>
+          r.id === "00000000-0000-0000-0000-000000000001" ||
+          r.program === "SYSTEM_BATCH_SETTINGS" ||
+          r.name === "SYSTEM_BATCH_OVERRIDES"
+      );
+      if (sysRow && sysRow.message) {
+        try {
+          const cloudOverrides = JSON.parse(sysRow.message);
+          if (cloudOverrides && typeof cloudOverrides === "object") {
+            const localOverrides = JSON.parse(
+              localStorage.getItem("parivattan_admin_batch_overrides") || "{}"
+            );
+            const merged = { ...cloudOverrides, ...localOverrides };
+            localStorage.setItem(
+              "parivattan_admin_batch_overrides",
+              JSON.stringify(merged)
+            );
+          }
+        } catch {}
+      }
+
       const realAdmissions = data.filter(isRealCourseAdmission);
       try {
+        localStorage.setItem("parivattan_admissions", JSON.stringify(realAdmissions));
         recalculateBatchSeatsFromAdmissions(realAdmissions);
       } catch {}
       return realAdmissions;
@@ -223,6 +254,107 @@ export const updateAdmissionStatus = async (
     console.warn("localStorage update notice:", e);
   }
 };
+
+export const updateAdmission = async (
+  id: string,
+  updatedFields: Partial<Admission>
+): Promise<Admission> => {
+  // 1. Supabase update
+  try {
+    const { error } = await supabase.from("admissions").update(updatedFields).eq("id", id);
+    if (error) {
+      console.warn("Supabase admissions update notice:", error);
+    }
+  } catch (e) {
+    console.warn("Supabase admissions update exception:", e);
+  }
+
+  // 2. Update localStorage "parivattan_admissions"
+  let updatedRecord: Admission | null = null;
+  try {
+    const list: Admission[] = JSON.parse(localStorage.getItem("parivattan_admissions") || "[]");
+    const updated = list.map((item) => {
+      if (item.id === id) {
+        updatedRecord = { ...item, ...updatedFields };
+        return updatedRecord;
+      }
+      return item;
+    });
+    localStorage.setItem("parivattan_admissions", JSON.stringify(updated));
+    try {
+      recalculateBatchSeatsFromAdmissions(updated);
+    } catch {}
+  } catch (e) {
+    console.warn("localStorage parivattan_admissions update notice:", e);
+  }
+
+  // 3. Update localStorage "parivattan_admissions_records"
+  try {
+    const recs: any[] = JSON.parse(localStorage.getItem("parivattan_admissions_records") || "[]");
+    const updatedRecs = recs.map((rec) => {
+      if (rec.id === id || rec.applicationNo === id) {
+        return {
+          ...rec,
+          studentName: updatedFields.name !== undefined ? updatedFields.name : rec.studentName,
+          studentEmail: updatedFields.email !== undefined ? updatedFields.email : rec.studentEmail,
+          studentPhone: updatedFields.phone !== undefined ? updatedFields.phone : rec.studentPhone,
+          qualification: updatedFields.education !== undefined ? updatedFields.education : rec.qualification,
+          collegeName: updatedFields.college_name !== undefined ? updatedFields.college_name : rec.collegeName,
+          address: updatedFields.address !== undefined ? updatedFields.address : rec.address,
+          currentAddress: updatedFields.current_address !== undefined ? updatedFields.current_address : rec.currentAddress,
+          permanentAddress: updatedFields.permanent_address !== undefined ? updatedFields.permanent_address : rec.permanentAddress,
+          gender: updatedFields.gender !== undefined ? updatedFields.gender : rec.gender,
+          courseTitle: updatedFields.program !== undefined ? updatedFields.program : rec.courseTitle,
+          status: updatedFields.status !== undefined ? updatedFields.status : rec.status,
+          amount: updatedFields.amount !== undefined ? updatedFields.amount : rec.amount,
+        };
+      }
+      return rec;
+    });
+    localStorage.setItem("parivattan_admissions_records", JSON.stringify(updatedRecs));
+  } catch (e) {
+    console.warn("localStorage parivattan_admissions_records update notice:", e);
+  }
+
+  // 4. Update localStorage "parivattan_student_admissions"
+  try {
+    const sApps: any[] = JSON.parse(localStorage.getItem("parivattan_student_admissions") || "[]");
+    const updatedSApps = sApps.map((app) => {
+      if (app.id === id || app.applicationNo === id) {
+        return {
+          ...app,
+          studentName: updatedFields.name !== undefined ? updatedFields.name : app.studentName,
+          studentEmail: updatedFields.email !== undefined ? updatedFields.email : app.studentEmail,
+          studentPhone: updatedFields.phone !== undefined ? updatedFields.phone : app.studentPhone,
+          qualification: updatedFields.education !== undefined ? updatedFields.education : app.qualification,
+          collegeName: updatedFields.college_name !== undefined ? updatedFields.college_name : app.collegeName,
+          address: updatedFields.address !== undefined ? updatedFields.address : app.address,
+          status: updatedFields.status !== undefined ? updatedFields.status : app.status,
+        };
+      }
+      return app;
+    });
+    localStorage.setItem("parivattan_student_admissions", JSON.stringify(updatedSApps));
+  } catch (e) {
+    console.warn("localStorage parivattan_student_admissions update notice:", e);
+  }
+
+  if (updatedRecord) {
+    return updatedRecord;
+  }
+
+  return {
+    id,
+    name: updatedFields.name || "",
+    education: updatedFields.education || "",
+    college_name: updatedFields.college_name || "",
+    address: updatedFields.address || "",
+    status: updatedFields.status || "completed",
+    created_at: new Date().toISOString(),
+    ...updatedFields,
+  } as Admission;
+};
+
 
 // Get all donations
 export const getAllDonations = async (): Promise<Donation[]> => {
@@ -576,4 +708,31 @@ export const getVisitorStats = async (): Promise<VisitorStats> => {
   ]);
 
   return { today, yesterday, thisWeek, thisMonth, total };
+};
+
+// Fetch visitor count for any specific calendar date
+export const getVisitorsForDate = async (targetDate: Date | string): Promise<number> => {
+  try {
+    const d = typeof targetDate === "string" ? new Date(targetDate) : targetDate;
+    if (isNaN(d.getTime())) return 0;
+
+    const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setDate(endOfDay.getDate() + 1);
+
+    const { count, error } = await supabase
+      .from("visitors")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", startOfDay.toISOString())
+      .lt("created_at", endOfDay.toISOString());
+
+    if (error) {
+      console.warn("Failed to get visitors for date:", error);
+      return 0;
+    }
+    return count || 0;
+  } catch (err) {
+    console.warn("Failed to get visitors for date:", err);
+    return 0;
+  }
 };

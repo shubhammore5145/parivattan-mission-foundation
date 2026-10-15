@@ -82,6 +82,7 @@ import {
   getAllAdmissions,
   deleteAdmission,
   updateAdmissionStatus,
+  updateAdmission,
   Admission,
   isRealCourseAdmission,
 } from "@/lib/supabase-admin";
@@ -156,6 +157,9 @@ export default function AdminDashboard() {
   const [admissionStatusFilter, setAdmissionStatusFilter] = useState<string>("all");
   const [studentAdmissionFilter, setStudentAdmissionFilter] = useState<"all" | "enrolled" | "registered_only">("all");
   const [selectedAdmission, setSelectedAdmission] = useState<Admission | null>(null);
+  const [editingAdmission, setEditingAdmission] = useState<Admission | null>(null);
+  const [admissionFormData, setAdmissionFormData] = useState<Partial<Admission>>({});
+  const [isSavingAdmission, setIsSavingAdmission] = useState(false);
   const [deletingAdmissionId, setDeletingAdmissionId] = useState<string | null>(null);
   const [viewingDoc, setViewingDoc] = useState<{
     title: string;
@@ -494,6 +498,79 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error("Error updating admission status:", err);
       toast.error("Could not update status.");
+    }
+  };
+
+  const handleOpenEditAdmission = (admission: Admission) => {
+    setEditingAdmission(admission);
+    const resolvedBatchId =
+      admission.batch_id ||
+      admission.batchId ||
+      matchAdmissionToBatchId(admission) ||
+      "";
+    setAdmissionFormData({
+      name: admission.name || "",
+      email: admission.email || "",
+      phone: admission.phone || "",
+      gender: admission.gender || "",
+      program: admission.program || "",
+      batch_id: resolvedBatchId,
+      batchId: resolvedBatchId,
+      education: admission.education || "",
+      college_name: admission.college_name || "",
+      address: admission.address || "",
+      current_address: admission.current_address || "",
+      permanent_address: admission.permanent_address || "",
+      amount: admission.amount !== undefined ? admission.amount : 100,
+      payment_id: admission.payment_id || "",
+      status: admission.status || "completed",
+    });
+  };
+
+  const handleSaveAdmissionEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAdmission) return;
+
+    if (!admissionFormData.name?.trim()) {
+      toast.error("Applicant name is required.");
+      return;
+    }
+
+    setIsSavingAdmission(true);
+    try {
+      const finalBatchId = admissionFormData.batch_id || admissionFormData.batchId || "";
+      await updateAdmission(editingAdmission.id, {
+        ...admissionFormData,
+        batch_id: finalBatchId,
+        batchId: finalBatchId,
+      });
+
+      setAdmissions((prev) =>
+        prev.map((a) =>
+          a.id === editingAdmission.id
+            ? { ...a, ...admissionFormData, batch_id: finalBatchId, batchId: finalBatchId }
+            : a
+        )
+      );
+
+      if (selectedAdmission && selectedAdmission.id === editingAdmission.id) {
+        setSelectedAdmission((prev) =>
+          prev
+            ? { ...prev, ...admissionFormData, batch_id: finalBatchId, batchId: finalBatchId }
+            : null
+        );
+      }
+
+      setBatchSeatsList(getAllBatchesSeatsList());
+      toast.success(
+        `Admission application for "${admissionFormData.name || editingAdmission.name}" updated successfully!`
+      );
+      setEditingAdmission(null);
+    } catch (err: any) {
+      console.error("Error updating admission:", err);
+      toast.error(`Failed to update admission: ${err?.message || "Unknown error"}`);
+    } finally {
+      setIsSavingAdmission(false);
     }
   };
 
@@ -1814,15 +1891,22 @@ export default function AdminDashboard() {
                               <div className="flex items-center justify-center gap-1.5">
                                 <button
                                   onClick={() => setSelectedAdmission(adm)}
-                                  className="p-1.5 rounded-lg text-blue-700 hover:bg-blue-50 transition"
+                                  className="p-1.5 rounded-lg text-blue-700 hover:bg-blue-50 transition cursor-pointer"
                                   title="View Full Application Details"
                                 >
                                   <Eye size={16} />
                                 </button>
                                 <button
+                                  onClick={() => handleOpenEditAdmission(adm)}
+                                  className="p-1.5 rounded-lg text-amber-700 hover:bg-amber-50 transition cursor-pointer"
+                                  title="Edit Application Information"
+                                >
+                                  <Edit2 size={16} />
+                                </button>
+                                <button
                                   disabled={deletingAdmissionId === adm.id}
                                   onClick={() => handleDeleteAdmission(adm.id)}
-                                  className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition disabled:opacity-50"
+                                  className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition disabled:opacity-50 cursor-pointer"
                                   title="Delete Application"
                                 >
                                   <Trash2 size={16} />
@@ -2683,17 +2767,30 @@ export default function AdminDashboard() {
             <div className="p-4 px-6 border-t border-stone-200 flex justify-between items-center bg-stone-50">
               <button
                 onClick={() => handleDeleteAdmission(selectedAdmission.id)}
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 hover:text-rose-700"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 cursor-pointer"
               >
                 <Trash2 size={14} />
                 <span>Delete Application</span>
               </button>
-              <button
-                onClick={() => setSelectedAdmission(null)}
-                className="px-4 py-2 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-700 text-xs font-bold transition"
-              >
-                Close
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const adm = selectedAdmission;
+                    setSelectedAdmission(null);
+                    handleOpenEditAdmission(adm);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition shadow-xs cursor-pointer"
+                >
+                  <Edit2 size={14} />
+                  <span>Edit Information</span>
+                </button>
+                <button
+                  onClick={() => setSelectedAdmission(null)}
+                  className="px-4 py-2 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-700 text-xs font-bold transition cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -3123,6 +3220,430 @@ export default function AdminDashboard() {
             >
               Close
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 8. Edit Admission Application Modal */}
+      {editingAdmission && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[92vh] overflow-hidden flex flex-col border border-stone-200">
+            {/* Modal Header */}
+            <div className="p-5 px-6 border-b border-stone-200 flex justify-between items-center bg-white shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-amber-100 text-amber-800 font-bold flex items-center justify-center">
+                  <Edit2 size={20} />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-lg text-[#1b2b25]">
+                    Edit Course Admission Form
+                  </h3>
+                  <p className="text-[11px] font-mono text-stone-400">
+                    Application ID: {editingAdmission.id}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingAdmission(null)}
+                className="p-1.5 hover:bg-stone-100 rounded-full text-stone-500 transition cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body / Form */}
+            <form onSubmit={handleSaveAdmissionEdit} className="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
+              {/* Section 1: Personal & Contact Information */}
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#b5623b] mb-3 flex items-center gap-1.5">
+                  <User size={14} /> 1. Personal & Contact Information
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Student Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={admissionFormData.name || ""}
+                      onChange={(e) =>
+                        setAdmissionFormData({ ...admissionFormData, name: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900 font-medium"
+                      placeholder="Student full name"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      value={admissionFormData.email || ""}
+                      onChange={(e) =>
+                        setAdmissionFormData({ ...admissionFormData, email: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900"
+                      placeholder="email@example.com"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Mobile Number *
+                    </label>
+                    <input
+                      type="tel"
+                      value={admissionFormData.phone || ""}
+                      onChange={(e) =>
+                        setAdmissionFormData({ ...admissionFormData, phone: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900 font-mono"
+                      placeholder="10-digit mobile number"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Gender
+                    </label>
+                    <select
+                      value={admissionFormData.gender || ""}
+                      onChange={(e) =>
+                        setAdmissionFormData({ ...admissionFormData, gender: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900"
+                    >
+                      <option value="">Select Gender</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                      <option value="Prefer not to say">Prefer not to say</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Academic Details */}
+              <div className="pt-2 border-t border-stone-100">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#b5623b] mb-3 flex items-center gap-1.5">
+                  <GraduationCap size={14} /> 2. Academic & Education Details
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Education Qualification
+                    </label>
+                    <input
+                      type="text"
+                      value={admissionFormData.education || ""}
+                      onChange={(e) =>
+                        setAdmissionFormData({ ...admissionFormData, education: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900"
+                      placeholder="e.g. 12th HSC, B.E., B.Com, Diploma, Graduate"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      College / School / Institute Name
+                    </label>
+                    <input
+                      type="text"
+                      value={admissionFormData.college_name || ""}
+                      onChange={(e) =>
+                        setAdmissionFormData({ ...admissionFormData, college_name: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900"
+                      placeholder="College or university name"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: Course & Batch Enrollment */}
+              <div className="pt-2 border-t border-stone-100">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#b5623b] mb-3 flex items-center gap-1.5">
+                  <BookOpen size={14} /> 3. Course, Batch & Admission Status
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Select Batch Dropdown */}
+                  <div className="sm:col-span-2">
+                    <label className="block font-bold text-stone-700 mb-1 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Clock size={13} className="text-[#b5623b]" />
+                        <span>Select Batch * (बॅच निवडा)</span>
+                      </span>
+                      <span className="text-[11px] text-stone-500 font-normal">
+                        Choose from official batches
+                      </span>
+                    </label>
+                    <select
+                      value={admissionFormData.batch_id || admissionFormData.batchId || ""}
+                      onChange={(e) => {
+                        const bId = e.target.value;
+                        const matched = batchSeatsList.find((b) => b.batchId === bId);
+                        if (matched) {
+                          setAdmissionFormData({
+                            ...admissionFormData,
+                            batch_id: matched.batchId,
+                            batchId: matched.batchId,
+                            program: `${matched.courseName} - ${matched.levelName} - ${matched.batchName}`,
+                          });
+                        } else {
+                          setAdmissionFormData({
+                            ...admissionFormData,
+                            batch_id: bId,
+                            batchId: bId,
+                          });
+                        }
+                      }}
+                      className="w-full rounded-xl border-2 border-amber-300/80 bg-amber-50/40 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900 font-semibold text-xs shadow-xs cursor-pointer"
+                    >
+                      <option value="">-- Click to Select Course Batch --</option>
+                      {batchSeatsList.map((b) => (
+                        <option key={b.batchId} value={b.batchId}>
+                          {b.flag} {b.courseName} | {b.levelName} | {b.batchName} ({b.time || b.days || "Regular"})
+                        </option>
+                      ))}
+                      {admissionFormData.batch_id &&
+                        !batchSeatsList.some(
+                          (b) =>
+                            b.batchId ===
+                            (admissionFormData.batch_id || admissionFormData.batchId)
+                        ) && (
+                          <option
+                            value={admissionFormData.batch_id || admissionFormData.batchId}
+                          >
+                            Custom Batch: {admissionFormData.batch_id || admissionFormData.batchId}
+                          </option>
+                        )}
+                    </select>
+
+                    {/* Active Selected Batch Information Banner */}
+                    {(() => {
+                      const activeBId =
+                        admissionFormData.batch_id || admissionFormData.batchId;
+                      const matched = batchSeatsList.find((b) => b.batchId === activeBId);
+                      if (matched) {
+                        return (
+                          <div className="mt-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs flex flex-wrap items-center justify-between gap-2 shadow-2xs">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xl">{matched.flag}</span>
+                              <div>
+                                <span className="font-bold text-stone-900 block text-xs">
+                                  {matched.courseName} ({matched.levelName})
+                                </span>
+                                <span className="text-stone-600 font-medium text-[11px]">
+                                  {matched.batchName}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="block font-bold text-emerald-800 text-xs">
+                                {matched.days ? `${matched.days} · ` : ""}
+                                {matched.time}
+                              </span>
+                              <span className="text-[10px] text-stone-500 font-mono">
+                                Batch Key: {matched.batchId}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+
+                  {/* Course / Program Title */}
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Course / Program Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={admissionFormData.program || ""}
+                      onChange={(e) =>
+                        setAdmissionFormData({ ...admissionFormData, program: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900 font-semibold"
+                      placeholder="e.g. Japanese Language Course"
+                    />
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {getStoredCourses().map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => {
+                            const firstBatch = batchSeatsList.find((b) => b.courseId === c.id);
+                            setAdmissionFormData({
+                              ...admissionFormData,
+                              program: c.name || c.title,
+                              batch_id: firstBatch ? firstBatch.batchId : admissionFormData.batch_id,
+                              batchId: firstBatch ? firstBatch.batchId : admissionFormData.batchId,
+                            });
+                          }}
+                          className="text-[10px] bg-stone-100 hover:bg-stone-200 text-stone-700 px-2 py-0.5 rounded cursor-pointer transition"
+                        >
+                          {c.flag} {c.name || c.title}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Batch Key */}
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Batch Key (System ID)
+                    </label>
+                    <input
+                      type="text"
+                      value={admissionFormData.batch_id || admissionFormData.batchId || ""}
+                      onChange={(e) =>
+                        setAdmissionFormData({
+                          ...admissionFormData,
+                          batch_id: e.target.value,
+                          batchId: e.target.value,
+                        })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900 font-mono text-xs"
+                      placeholder="e.g. jp-n5-morning"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Admission Status *
+                    </label>
+                    <select
+                      value={admissionFormData.status || "completed"}
+                      onChange={(e) =>
+                        setAdmissionFormData({ ...admissionFormData, status: e.target.value as any })
+                      }
+                      className={`w-full rounded-xl border px-3.5 py-2.5 outline-none font-bold ${
+                        admissionFormData.status === "completed"
+                          ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                          : admissionFormData.status === "pending"
+                          ? "bg-amber-50 text-amber-800 border-amber-300"
+                          : "bg-rose-50 text-rose-800 border-rose-300"
+                      }`}
+                    >
+                      <option value="completed">Completed / Verified</option>
+                      <option value="pending">Pending</option>
+                      <option value="failed">Rejected / Incomplete</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Fee Amount Paid (₹)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={admissionFormData.amount !== undefined ? admissionFormData.amount : 100}
+                      onChange={(e) =>
+                        setAdmissionFormData({
+                          ...admissionFormData,
+                          amount: parseFloat(e.target.value) || 0,
+                        })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900 font-mono font-bold"
+                      placeholder="100"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Payment ID / Reference Number
+                    </label>
+                    <input
+                      type="text"
+                      value={admissionFormData.payment_id || ""}
+                      onChange={(e) =>
+                        setAdmissionFormData({ ...admissionFormData, payment_id: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900 font-mono text-xs"
+                      placeholder="e.g. pay_sandbox_123 or Razorpay payment ID"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 4: Address Information */}
+              <div className="pt-2 border-t border-stone-100">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#b5623b] mb-3 flex items-center gap-1.5">
+                  <MapPin size={14} /> 4. Address Details
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Residential / Local Address
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={admissionFormData.address || ""}
+                      onChange={(e) =>
+                        setAdmissionFormData({ ...admissionFormData, address: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900 resize-none leading-relaxed"
+                      placeholder="Enter residential address"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Permanent Address
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={admissionFormData.permanent_address || ""}
+                      onChange={(e) =>
+                        setAdmissionFormData({
+                          ...admissionFormData,
+                          permanent_address: e.target.value,
+                        })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900 resize-none leading-relaxed"
+                      placeholder="Enter permanent address (if different)"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="pt-4 border-t border-stone-200 flex justify-end gap-2.5 bg-white">
+                <button
+                  type="button"
+                  onClick={() => setEditingAdmission(null)}
+                  className="px-4 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingAdmission}
+                  className="px-6 py-2.5 rounded-xl bg-[#b5623b] hover:bg-[#9d502d] text-white font-bold transition shadow-xs disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                >
+                  {isSavingAdmission ? (
+                    <>
+                      <Clock size={15} className="animate-spin" />
+                      <span>Saving Changes...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={15} />
+                      <span>Save Changes</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

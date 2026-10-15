@@ -6,6 +6,8 @@ import {
   CourseLevel,
   getBatchSeatsInfo,
 } from "@/data/languageCoursesData";
+import { syncBatchSeatsFromCloud } from "@/lib/batch-seats-sync";
+import { CountryFlagIcon } from "@/components/common/CountryFlagIcon";
 import {
   Calendar,
   Clock,
@@ -23,6 +25,7 @@ export default function UpcomingBatches() {
 
   // Re-read live seats when an admission is placed or admin updates capacity
   React.useEffect(() => {
+    syncBatchSeatsFromCloud();
     const handleUpdate = () => setRefreshKey((k) => k + 1);
     window.addEventListener("batch-seats-updated", handleUpdate);
     window.addEventListener("storage", handleUpdate);
@@ -124,7 +127,7 @@ export default function UpcomingBatches() {
                   {/* Top Bar with Language Badge and Level */}
                   <div className="flex items-center justify-between gap-3 mb-4">
                     <div className="flex items-center gap-2">
-                      <span className="text-xl">{course.flag}</span>
+                      <CountryFlagIcon courseId={course.id} size="sm" />
                       <span className="text-xs font-bold uppercase tracking-wider text-[#24312d]">
                         {course.name}
                       </span>
