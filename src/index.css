@@ -289,6 +289,36 @@
 }
 
 /* =================================================================
+   SMOOTH CONTINUOUS RUNNING MARQUEE (MGM / UNIVERSITY STYLE)
+   ================================================================= */
+@keyframes pmfMarqueeScroll {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.pmf-marquee-track {
+  display: flex;
+  width: max-content;
+}
+
+.pmf-marquee-content {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  flex-shrink: 0;
+  animation: pmfMarqueeScroll 55s linear infinite;
+  will-change: transform;
+}
+
+.pmf-marquee-container:hover .pmf-marquee-content {
+  animation-play-state: paused;
+}
+
+/* =================================================================
    DEDICATED PRINT STYLES FOR CLEAN RECEIPTS & ID CARDS
    ================================================================= */
 @media print {

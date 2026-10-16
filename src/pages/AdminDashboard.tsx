@@ -46,6 +46,8 @@ import {
   User,
   Calendar,
   BookOpen,
+  Bell,
+  Newspaper,
 } from "lucide-react";
 import { StudentUser } from "@/types/student";
 import {
@@ -91,16 +93,21 @@ import { toast } from "sonner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CourseManager from "@/components/admin/CourseManager";
+import NewsAndAnnouncementsManager from "@/components/admin/NewsAndAnnouncementsManager";
+import { getStoredAnnouncements } from "@/data/newsAndAnnouncementsData";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
 
-  // Active Tab: "admissions" | "students" | "courses" | "donations" | "contacts" | "visitors"
+  // Active Tab: "admissions" | "students" | "courses" | "news" | "donations" | "contacts" | "visitors"
   const [activeTab, setActiveTab] = useState<
-    "admissions" | "students" | "courses" | "donations" | "contacts" | "visitors"
+    "admissions" | "students" | "courses" | "news" | "donations" | "contacts" | "visitors"
   >("admissions");
 
   const [coursesCount, setCoursesCount] = useState<number>(() => getStoredCourses().length);
+  const [announcementsCount, setAnnouncementsCount] = useState<number>(
+    () => getStoredAnnouncements().length
+  );
 
   // Core Data States
   const [loading, setLoading] = useState(true);
@@ -225,12 +232,15 @@ export default function AdminDashboard() {
 
     const handleBatchUpdate = () => loadBatchSeats();
     const handleCoursesUpdate = () => setCoursesCount(getStoredCourses().length);
+    const handleNewsUpdate = () => setAnnouncementsCount(getStoredAnnouncements().length);
 
     window.addEventListener("batch-seats-updated", handleBatchUpdate);
     window.addEventListener("courses-updated", handleCoursesUpdate);
+    window.addEventListener("parivattan-news-announcements-updated", handleNewsUpdate);
     return () => {
       window.removeEventListener("batch-seats-updated", handleBatchUpdate);
       window.removeEventListener("courses-updated", handleCoursesUpdate);
+      window.removeEventListener("parivattan-news-announcements-updated", handleNewsUpdate);
     };
   }, []);
 
@@ -1236,6 +1246,22 @@ export default function AdminDashboard() {
                 <span>Courses & Batches</span>
                 <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[11px] text-emerald-800 font-mono font-bold">
                   {coursesCount}
+                </span>
+              </button>
+
+              {/* Tab News & Announcements */}
+              <button
+                onClick={() => setActiveTab("news")}
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
+                  activeTab === "news"
+                    ? "bg-white text-[#1b2b25] shadow-sm font-extrabold"
+                    : "text-stone-600 hover:text-[#1b2b25] hover:bg-white/50"
+                }`}
+              >
+                <Bell size={15} />
+                <span>News & Announcements</span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-[11px] text-amber-900 font-mono font-bold">
+                  {announcementsCount}
                 </span>
               </button>
 
@@ -2570,6 +2596,13 @@ export default function AdminDashboard() {
           {activeTab === "courses" && (
             <div className="space-y-6 animate-in fade-in duration-200">
               <CourseManager />
+            </div>
+          )}
+
+          {/* ==================== TAB NEWS: NEWS & ANNOUNCEMENTS MANAGEMENT ==================== */}
+          {activeTab === "news" && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              <NewsAndAnnouncementsManager />
             </div>
           )}
         </div>

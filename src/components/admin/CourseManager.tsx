@@ -1248,7 +1248,7 @@ export default function CourseManager() {
                 Reset to Default Courses?
               </h3>
               <p className="text-xs text-stone-600 mt-1 leading-relaxed">
-                This action will remove all custom courses you added and restore the Foundation's default courses (Japanese, German, English, French, and Test Course).
+                This action will remove all custom courses you added and restore the Foundation's default courses (Japanese, German, English, and French).
               </p>
             </div>
 

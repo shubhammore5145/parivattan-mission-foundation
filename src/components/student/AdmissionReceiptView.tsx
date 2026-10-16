@@ -94,7 +94,7 @@ export const AdmissionReceiptView: React.FC<AdmissionReceiptViewProps> = ({
                 Department of Higher & Skill Education
               </p>
               <p className="text-[10px] text-[#65706a]">
-                Centralized Admission Portal (CAP) · Reg. Public Trust & 80G Certified
+                Centralized Admission Portal (CAP) · Reg. Section 8 Non-Profit Foundation
               </p>
             </div>
             <div className="text-right shrink-0 hidden sm:block">

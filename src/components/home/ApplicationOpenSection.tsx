@@ -73,13 +73,17 @@ const languages: LanguageItem[] = [
 export default function ApplicationOpenSection() {
   const [showPosterModal, setShowPosterModal] = useState(false);
 
-  // Automatically open announcement popup 3 seconds after website opens
+  // Open announcement popup once per session after 5 seconds if not already viewed
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowPosterModal(true);
-    }, 3000);
+    const hasSeen = sessionStorage.getItem("pmf_poster_viewed_once");
+    if (!hasSeen) {
+      const timer = setTimeout(() => {
+        setShowPosterModal(true);
+        sessionStorage.setItem("pmf_poster_viewed_once", "true");
+      }, 5000);
 
-    return () => clearTimeout(timer);
+      return () => clearTimeout(timer);
+    }
   }, []);
 
   // Keyboard Escape listener and background scroll lock when modal is open

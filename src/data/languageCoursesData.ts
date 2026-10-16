@@ -380,58 +380,6 @@ export const INITIAL_LANGUAGE_COURSES: LanguageCourse[] = [
       },
     ],
   },
-  {
-    id: "test-course",
-    name: "Live Test Course (₹1)",
-    flag: "🧪",
-    nativeName: "Test Course (₹1)",
-    tagline: "Live ₹1 Admission Test for Razorpay, 30->29 Real-Time Seat Decrement & Email Notifications",
-    shortDesc: "Complete a real ₹1 admission test to verify live Razorpay payment, live seat decrement (30 -> 29 remaining), and instant branded confirmation email.",
-    levelsSummary: "Live Test Level (₹1)",
-    durationSummary: "Instant 1-Day Test",
-    image: "/img/japanese.jpeg",
-    colorScheme: {
-      primary: "#059669",
-      light: "#ecfdf5",
-      border: "#a7f3d0",
-      text: "#065f46",
-      accent: "#b5623b",
-    },
-    levels: [
-      {
-        id: "test-course-lvl1",
-        level: "TEST-1RS",
-        levelShort: "Live Test Level (₹1)",
-        proficiency: "System Verification Test",
-        duration: "1 Day Test",
-        durationBadge: "₹1 Test Only",
-        courseFee: 1,
-        platformFee: 0,
-        securityDeposit: 0,
-        hasSecurityDeposit: false,
-        refundCondition: "Instant test course for complete admission and email verification.",
-        intakeSummary: "30 Test Seats",
-        description: "Live test course for verifying Razorpay ₹1 payment, real-time batch seat decrement (30 -> 29), and automatic confirmation email dispatch.",
-        objectives: [
-          "Test Razorpay ₹1 live payment gateway processing",
-          "Test automatic seat decrement (30 -> 29 remaining)",
-          "Test student PRN generation and database recording",
-          "Test automatic student confirmation email dispatch"
-        ],
-        batches: [
-          {
-            id: "test-batch-01",
-            name: "₹1 Live Test Batch",
-            days: "Daily / Any Time",
-            time: "Instant Live Test",
-            duration: "1 Day",
-            intake: 30,
-            badge: "₹1 Live Test 🧪",
-          },
-        ],
-      },
-    ],
-  },
 ];
 
 const STORAGE_KEY = "parivattan_custom_courses";
@@ -443,7 +391,18 @@ export const getStoredCourses = (): LanguageCourse[] => {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        // Automatically sanitize out any legacy test courses from local storage
+        const filtered = parsed.filter(
+          (c) => c.id !== "test-course" && c.id !== "test-course-1rs"
+        );
+        if (filtered.length !== parsed.length) {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+          } catch {
+            // ignore
+          }
+        }
+        return filtered.length > 0 ? filtered : INITIAL_LANGUAGE_COURSES;
       }
     }
   } catch (err) {
@@ -582,7 +541,6 @@ export const BATCH_SEATS_CONFIG: Record<string, { totalSeats: number; initialEnr
   "de-a2-weekend": { totalSeats: 25, initialEnrolled: 0 },
   "en-basic-evening": { totalSeats: 30, initialEnrolled: 0 },
   "fr-a1-evening": { totalSeats: 25, initialEnrolled: 0 },
-  "test-batch-01": { totalSeats: 30, initialEnrolled: 0 },
 };
 
 export interface BatchSeatsStatus {
@@ -701,11 +659,6 @@ export const matchAdmissionToBatchId = (admission: any): string | null => {
   // French
   if (text.includes("french") || text.includes("français") || text.includes("pfls-fr") || text.includes("fr-")) {
     return "fr-a1-evening";
-  }
-
-  // Live Test Course (₹1)
-  if (text.includes("test") || text.includes("1rs") || text.includes("pmf-test")) {
-    return "test-batch-01";
   }
 
   // Dynamic matching for custom courses

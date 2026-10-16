@@ -64,14 +64,6 @@ const upcomingCauses: UpcomingCause[] = [
     desc: "Equipping rural youth with laptops, programming bootcamps in Python, and full-stack web development.",
     tag: "Digital Empowerment",
   },
-  {
-    id: "girls-scholarship",
-    name: "Savitribai Girls Higher Education",
-    marathi: "Higher Education Grant for Rural Girls",
-    icon: BookOpen,
-    desc: "Direct college tuition scholarships and hostel fees assistance for deserving rural girls.",
-    tag: "Women Empowerment",
-  },
 ];
 
 const PRESET_AMOUNTS = [250, 500, 1000, 2500, 5000];
@@ -189,7 +181,7 @@ export default function DonationCheckoutPage() {
             }),
           });
 
-          // Automatically send official donation receipt and 80G confirmation email
+          // Automatically send official donation receipt and confirmation email
           sendDonationReceiptEmail({
             donorName: fullName.trim(),
             donorEmail: email.trim(),
@@ -521,7 +513,7 @@ export default function DonationCheckoutPage() {
                         <input
                           type="text"
                           maxLength={10}
-                          placeholder="PAN Number (Optional, for 80G Tax Exemption)"
+                          placeholder="PAN Number (Optional)"
                           value={panNumber}
                           onChange={(e) =>
                             setPanNumber(e.target.value.toUpperCase())
@@ -604,10 +596,10 @@ export default function DonationCheckoutPage() {
                       </div>
                       <div>
                         <h4 className="text-sm font-semibold text-white">
-                          Tax exemption eligible
+                          Govt. Registered NGO
                         </h4>
                         <p className="text-xs text-stone-300 mt-0.5">
-                          under Section 80G
+                          Section 8 Non-Profit Reg. #158298
                         </p>
                       </div>
                     </div>
@@ -802,14 +794,6 @@ export default function DonationCheckoutPage() {
                     <div>
                       <strong className="text-[#24312d] block">Section 8 Non-Profit Foundation:</strong>
                       Parivattan Mission Foundation is officially incorporated under Section 8 of Companies Act (Reg. #158298).
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <ShieldCheck size={18} className="text-emerald-600 shrink-0 mt-0.5" />
-                    <div>
-                      <strong className="text-[#24312d] block">80G & 12A Certified:</strong>
-                      Eligible donors receive tax exemption benefits under section 80G of the Income Tax Act.
                     </div>
                   </div>
 
