@@ -81,6 +81,58 @@ export const generateUUID = (): string => {
   });
 };
 
+// Exact column list present in the Supabase 'admissions' table
+const SUPABASE_ADMISSIONS_TABLE_COLUMNS = new Set([
+  "id",
+  "name",
+  "education",
+  "college_name",
+  "address",
+  "gender",
+  "current_address",
+  "permanent_address",
+  "email",
+  "phone",
+  "program",
+  "message",
+  "amount",
+  "payment_id",
+  "identity_proof",
+  "identity_proof_name",
+  "photo",
+  "photo_name",
+  "caste_certificate",
+  "caste_certificate_name",
+  "education_proof",
+  "education_proof_name",
+  "status",
+  "created_at",
+]);
+
+export const sanitizeAdmissionForSupabase = (
+  record: Record<string, any>
+): Record<string, any> => {
+  const sanitized: Record<string, any> = {};
+  for (const key of Object.keys(record)) {
+    if (SUPABASE_ADMISSIONS_TABLE_COLUMNS.has(key)) {
+      sanitized[key] = record[key];
+    }
+  }
+
+  // Preserve batch info inside message field so it is never lost
+  const batchId = record.batch_id || record.batchId;
+  if (batchId) {
+    const batchTag = `Batch ID: ${batchId}`;
+    if (!sanitized.message) {
+      sanitized.message = batchTag;
+    } else if (!sanitized.message.includes(batchId)) {
+      sanitized.message = `${sanitized.message} | ${batchTag}`;
+    }
+  }
+
+  return sanitized;
+};
+
 export const createAdmission = async (
   admissionData: Omit<Admission, "id" | "created_at"> & { id?: string }
 ): Promise<Admission> => {
@@ -109,15 +161,18 @@ export const createAdmission = async (
     recalculateBatchSeatsFromAdmissions();
   } catch {}
 
-  // Attempt to save to Supabase if table is configured
+  // Attempt to save to Supabase cloud database
   try {
+    const supabasePayload = sanitizeAdmissionForSupabase(newAdmission);
     const { data, error } = await supabase
       .from("admissions")
-      .insert([newAdmission])
+      .insert([supabasePayload])
       .select()
       .single();
 
-    if (!error && data) return data;
+    if (!error && data) {
+      return { ...newAdmission, ...data };
+    }
     if (error) {
       console.warn("Supabase admissions insert notice:", error.message);
     }
@@ -261,9 +316,12 @@ export const updateAdmission = async (
 ): Promise<Admission> => {
   // 1. Supabase update
   try {
-    const { error } = await supabase.from("admissions").update(updatedFields).eq("id", id);
-    if (error) {
-      console.warn("Supabase admissions update notice:", error);
+    const supabasePayload = sanitizeAdmissionForSupabase(updatedFields);
+    if (Object.keys(supabasePayload).length > 0) {
+      const { error } = await supabase.from("admissions").update(supabasePayload).eq("id", id);
+      if (error) {
+        console.warn("Supabase admissions update notice:", error);
+      }
     }
   } catch (e) {
     console.warn("Supabase admissions update exception:", e);

@@ -48,6 +48,9 @@ import {
   BookOpen,
   Bell,
   Newspaper,
+  UserPlus,
+  PlusCircle,
+  CreditCard,
 } from "lucide-react";
 import { StudentUser } from "@/types/student";
 import {
@@ -85,9 +88,11 @@ import {
   deleteAdmission,
   updateAdmissionStatus,
   updateAdmission,
+  createAdmission,
   Admission,
   isRealCourseAdmission,
 } from "@/lib/supabase-admin";
+import { sendCourseAdmissionEmail } from "@/lib/courseEmailService";
 import { CountryFlagIcon } from "@/components/common/CountryFlagIcon";
 import { toast } from "sonner";
 import Header from "@/components/Header";
@@ -173,6 +178,30 @@ export default function AdminDashboard() {
     url: string;
     isImage: boolean;
   } | null>(null);
+
+  // Add New Admission Modal State
+  const [showAddAdmissionModal, setShowAddAdmissionModal] = useState(false);
+  const [submittingAdmission, setSubmittingAdmission] = useState(false);
+  const [selectedStudentForAdmission, setSelectedStudentForAdmission] = useState<string>("");
+  const [newAdmissionData, setNewAdmissionData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    gender: "Male",
+    batchId: "jp-n5-morning",
+    program: "Japanese Language (N5) - N5 (Basic) – Morning Batch",
+    batchPreference: "N5 (Basic) – Morning Batch",
+    timing: "10:00 AM – 11:30 AM",
+    education: "Undergraduate / Degree",
+    college_name: "Parivattan Foreign Language School",
+    address: "Pune, Maharashtra",
+    amount: 4100,
+    payment_id: "",
+    payment_method: "Razorpay / Online",
+    status: "completed" as "completed" | "pending",
+    prn: "",
+    sendEmailNotification: true,
+  });
 
   // Batch Seats State
   const [batchSeatsList, setBatchSeatsList] = useState<BatchSeatsStatus[]>([]);
@@ -581,6 +610,235 @@ export default function AdminDashboard() {
       toast.error(`Failed to update admission: ${err?.message || "Unknown error"}`);
     } finally {
       setIsSavingAdmission(false);
+    }
+  };
+
+  const ADMISSION_COURSE_PRESETS = [
+    {
+      id: "jp-n5-morning",
+      courseName: "Japanese Language (N5)",
+      program: "Japanese Language (N5) - N5 (Basic) – Morning Batch",
+      batchName: "N5 (Basic) – Morning Batch",
+      timing: "10:00 AM – 11:30 AM",
+      fee: 4100,
+      flag: "🇯🇵",
+    },
+    {
+      id: "jp-n5-evening",
+      courseName: "Japanese Language (N5)",
+      program: "Japanese Language (N5) - N5 (Basic) – Evening Batch",
+      batchName: "N5 (Basic) – Evening Batch",
+      timing: "7:00 PM – 8:30 PM",
+      fee: 4100,
+      flag: "🇯🇵",
+    },
+    {
+      id: "jp-n4-evening",
+      courseName: "Japanese Language (N4)",
+      program: "Japanese Language (N4) - N4 (Medium) – Evening Batch",
+      batchName: "N4 (Medium) – Evening Batch",
+      timing: "7:00 PM – 8:30 PM",
+      fee: 6100,
+      flag: "🇯🇵",
+    },
+    {
+      id: "jp-n3-regular",
+      courseName: "Japanese Language (N3)",
+      program: "Japanese Language (N3) - N3 (Advanced) – Regular Batch",
+      batchName: "N3 (Advanced) – Regular Batch",
+      timing: "7:00 PM – 8:30 PM",
+      fee: 10100,
+      flag: "🇯🇵",
+    },
+    {
+      id: "de-a1-regular",
+      courseName: "German Language (A1)",
+      program: "German Language (A1) - Fast Track Morning Batch",
+      batchName: "A1 (Basic) – Morning Batch",
+      timing: "10:00 AM – 11:30 AM",
+      fee: 2100,
+      flag: "🇩🇪",
+    },
+    {
+      id: "de-a1-evening",
+      courseName: "German Language (A1)",
+      program: "German Language (A1) - Professional Evening Batch",
+      batchName: "A1 (Basic) – Evening Batch",
+      timing: "7:00 PM – 8:30 PM",
+      fee: 2100,
+      flag: "🇩🇪",
+    },
+    {
+      id: "de-a2-regular",
+      courseName: "German Language (A2)",
+      program: "German Language (A2) - Intermediate Level",
+      batchName: "A2 (Intermediate) – Regular Batch",
+      timing: "7:00 PM – 8:30 PM",
+      fee: 3100,
+      flag: "🇩🇪",
+    },
+    {
+      id: "en-basic-weekday",
+      courseName: "English Language (Basic English (A1))",
+      program: "English Language (Basic English (A1)) - Basic English – Weekday Batch",
+      batchName: "Basic English – Weekday Batch",
+      timing: "7:00 PM – 8:00 PM",
+      fee: 2100,
+      flag: "🇬🇧",
+    },
+    {
+      id: "fr-a1-regular",
+      courseName: "French Language (A1)",
+      program: "French Language (A1) - Foundation Level – Evening Batch",
+      batchName: "A1 (Basic) – Evening Batch",
+      timing: "6:00 PM – 7:30 PM",
+      fee: 2100,
+      flag: "🇫🇷",
+    },
+    {
+      id: "custom",
+      courseName: "Custom Course",
+      program: "Custom Course Enrollment",
+      batchName: "Regular Scheduled Batch",
+      timing: "10:00 AM – 11:30 AM",
+      fee: 100,
+      flag: "🎓",
+    },
+  ];
+
+  const handleOpenAddAdmissionForStudent = (student?: StudentUser) => {
+    if (student) {
+      setSelectedStudentForAdmission(student.id || student.prn);
+      setNewAdmissionData((prev) => ({
+        ...prev,
+        name: student.name || "",
+        email: student.email || "",
+        phone: student.phone || "",
+        prn: student.prn || "",
+        address: student.city ? `${student.city}, ${student.state || "Maharashtra"}` : prev.address,
+        payment_id: `PAY_ADM_${Date.now().toString().slice(-6)}`,
+      }));
+    } else {
+      setSelectedStudentForAdmission("");
+      setNewAdmissionData((prev) => ({
+        ...prev,
+        payment_id: `PAY_ADM_${Date.now().toString().slice(-6)}`,
+      }));
+    }
+    setShowAddAdmissionModal(true);
+  };
+
+  const handleSelectStudentForAdmission = (idOrPrn: string) => {
+    setSelectedStudentForAdmission(idOrPrn);
+    const found = students.find((s) => s.id === idOrPrn || s.prn === idOrPrn);
+    if (found) {
+      setNewAdmissionData((prev) => ({
+        ...prev,
+        name: found.name || prev.name,
+        email: found.email || prev.email,
+        phone: found.phone || prev.phone,
+        prn: found.prn || prev.prn,
+        address: found.city ? `${found.city}, ${found.state || "Maharashtra"}` : prev.address,
+      }));
+      toast.success(`Selected student "${found.name}" (${found.prn})`);
+    }
+  };
+
+  const handleSelectCoursePreset = (batchId: string) => {
+    const preset = ADMISSION_COURSE_PRESETS.find((p) => p.id === batchId);
+    if (preset) {
+      setNewAdmissionData((prev) => ({
+        ...prev,
+        batchId: preset.id,
+        program: preset.program,
+        batchPreference: preset.batchName,
+        timing: preset.timing,
+        amount: preset.fee,
+      }));
+    }
+  };
+
+  const handleAddAdmissionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAdmissionData.name.trim()) {
+      toast.error("Student name is required.");
+      return;
+    }
+
+    setSubmittingAdmission(true);
+    try {
+      const finalPrn = newAdmissionData.prn.trim() || `PMF2026-${Math.floor(1000 + Math.random() * 9000)}`;
+      const paymentRef = newAdmissionData.payment_id.trim() || `PAY_ADM_${Date.now().toString().slice(-6)}`;
+
+      const admissionRecord = await createAdmission({
+        name: newAdmissionData.name.trim(),
+        email: newAdmissionData.email.trim() || undefined,
+        phone: newAdmissionData.phone.trim() || undefined,
+        gender: newAdmissionData.gender,
+        education: newAdmissionData.education,
+        college_name: newAdmissionData.college_name,
+        address: newAdmissionData.address,
+        current_address: newAdmissionData.address,
+        permanent_address: newAdmissionData.address,
+        program: newAdmissionData.program,
+        message: `PRN: ${finalPrn} | Batch: ${newAdmissionData.batchPreference} | Timing: ${newAdmissionData.timing} | Mode: ${newAdmissionData.payment_method} | Txn: ${paymentRef}`,
+        amount: Number(newAdmissionData.amount) || 0,
+        payment_id: paymentRef,
+        batch_id: newAdmissionData.batchId,
+        batchId: newAdmissionData.batchId,
+        status: newAdmissionData.status,
+      });
+
+      // Dispatch confirmation email if enabled
+      if (newAdmissionData.sendEmailNotification && newAdmissionData.email?.includes("@")) {
+        try {
+          await sendCourseAdmissionEmail({
+            studentName: newAdmissionData.name,
+            studentEmail: newAdmissionData.email,
+            courseName: newAdmissionData.program,
+            phone: newAdmissionData.phone,
+            batch: newAdmissionData.batchPreference,
+            timing: newAdmissionData.timing,
+            totalAmount: newAdmissionData.amount,
+            prn: finalPrn,
+          });
+        } catch (emailErr) {
+          console.warn("Could not dispatch confirmation email:", emailErr);
+        }
+      }
+
+      setAdmissions((prev) => [admissionRecord, ...prev.filter((a) => a.id !== admissionRecord.id)]);
+      setBatchSeatsList(getAllBatchesSeatsList());
+      toast.success(
+        `Admission for "${newAdmissionData.name}" added successfully! PRN: ${finalPrn}`
+      );
+      setShowAddAdmissionModal(false);
+      // Reset form
+      setNewAdmissionData({
+        name: "",
+        email: "",
+        phone: "",
+        gender: "Male",
+        batchId: "jp-n5-morning",
+        program: "Japanese Language (N5) - N5 (Basic) – Morning Batch",
+        batchPreference: "N5 (Basic) – Morning Batch",
+        timing: "10:00 AM – 11:30 AM",
+        education: "Undergraduate / Degree",
+        college_name: "Parivattan Foreign Language School",
+        address: "Pune, Maharashtra",
+        amount: 4100,
+        payment_id: "",
+        payment_method: "Razorpay / Online",
+        status: "completed",
+        prn: "",
+        sendEmailNotification: true,
+      });
+      setSelectedStudentForAdmission("");
+    } catch (err: any) {
+      console.error("Error creating admission:", err);
+      toast.error(`Failed to add admission: ${err?.message || "Unknown error"}`);
+    } finally {
+      setSubmittingAdmission(false);
     }
   };
 
@@ -1741,6 +1999,16 @@ export default function AdminDashboard() {
                       <Download size={14} />
                       <span>Export CSV</span>
                     </button>
+
+                    {/* Add New Admission Button */}
+                    <button
+                      onClick={() => handleOpenAddAdmissionForStudent()}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#1b2b25] hover:bg-[#253a32] text-white text-xs font-bold transition shadow-xs cursor-pointer"
+                      title="Add new student course admission"
+                    >
+                      <UserPlus size={14} className="text-[#fedb41]" />
+                      <span>+ New Admission</span>
+                    </button>
                   </div>
                 </div>
 
@@ -2191,16 +2459,32 @@ export default function AdminDashboard() {
                                     </button>
                                   </div>
                                 ) : (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium bg-stone-100 text-stone-600 border border-stone-200">
-                                    <User size={10} className="text-stone-400" />
-                                    <span>Registered Only (No Course)</span>
-                                  </span>
+                                  <div className="space-y-1 inline-flex flex-col items-center">
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium bg-stone-100 text-stone-600 border border-stone-200">
+                                      <User size={10} className="text-stone-400" />
+                                      <span>Registered Only (No Course)</span>
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenAddAdmissionForStudent(s)}
+                                      className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-md transition cursor-pointer"
+                                    >
+                                      + Enroll in Course
+                                    </button>
+                                  </div>
                                 )}
                               </td>
 
                               {/* Actions */}
                               <td className="px-4 py-3.5 text-center">
                                 <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={() => handleOpenAddAdmissionForStudent(s)}
+                                    className="p-1.5 text-[#b5623b] hover:bg-orange-50 rounded-lg transition"
+                                    title="Add Course Admission for this Student"
+                                  >
+                                    <UserPlus size={16} />
+                                  </button>
                                   <button
                                     onClick={() => setSelectedStudent(s)}
                                     className="p-1.5 text-emerald-700 hover:bg-emerald-50 rounded-lg transition"
@@ -3672,6 +3956,403 @@ export default function AdminDashboard() {
                     <>
                       <CheckCircle2 size={15} />
                       <span>Save Changes</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 9. Add New Admission Application Modal */}
+      {showAddAdmissionModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[92vh] overflow-hidden flex flex-col border border-stone-200">
+            {/* Modal Header */}
+            <div className="p-5 px-6 border-b border-stone-200 flex justify-between items-center bg-[#1b2b25] text-white shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-white/10 text-[#fedb41] font-bold flex items-center justify-center">
+                  <UserPlus size={20} />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-lg text-white">
+                    Add Student Course Admission
+                  </h3>
+                  <p className="text-[11px] text-stone-300">
+                    Directly enroll a student, assign course batch, and dispatch official confirmation email
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddAdmissionModal(false)}
+                className="p-1.5 hover:bg-white/10 rounded-full text-stone-300 hover:text-white transition cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleAddAdmissionSubmit} className="flex-1 overflow-y-auto p-6 space-y-6 text-xs bg-white">
+              {/* Quick Fill From Registered Students */}
+              {students.length > 0 && (
+                <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80">
+                  <label className="block font-bold text-emerald-900 mb-1.5 text-xs flex items-center gap-1.5">
+                    <Users size={14} className="text-emerald-700" />
+                    <span>Quick Select from Registered Student Accounts (Optional)</span>
+                  </label>
+                  <select
+                    value={selectedStudentForAdmission}
+                    onChange={(e) => handleSelectStudentForAdmission(e.target.value)}
+                    className="w-full rounded-xl border border-emerald-300 bg-white px-3.5 py-2.5 outline-none font-medium text-stone-900"
+                  >
+                    <option value="">-- Choose a registered student to auto-fill details, or enter manually below --</option>
+                    {students.map((st) => (
+                      <option key={st.id || st.prn} value={st.id || st.prn}>
+                        {st.name} ({st.prn}) — {st.phone || st.email || "No contact"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Section 1: Course & Batch Selection */}
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#b5623b] mb-3 flex items-center gap-1.5">
+                  <BookOpen size={14} /> 1. Course & Batch Enrollment
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Choose Course & Batch Preset *
+                    </label>
+                    <select
+                      value={newAdmissionData.batchId}
+                      onChange={(e) => handleSelectCoursePreset(e.target.value)}
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900 font-semibold"
+                    >
+                      {ADMISSION_COURSE_PRESETS.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.flag} {p.courseName} — {p.batchName} ({p.timing}) — ₹{p.fee}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Program / Course Title *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newAdmissionData.program}
+                      onChange={(e) =>
+                        setNewAdmissionData({ ...newAdmissionData, program: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900 font-medium"
+                      placeholder="e.g. Japanese Language (N5) - N5 (Basic) – Morning Batch"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Batch Preference / Name
+                    </label>
+                    <input
+                      type="text"
+                      value={newAdmissionData.batchPreference}
+                      onChange={(e) =>
+                        setNewAdmissionData({ ...newAdmissionData, batchPreference: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900"
+                      placeholder="e.g. N5 (Basic) – Morning Batch"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Class Timing
+                    </label>
+                    <input
+                      type="text"
+                      value={newAdmissionData.timing}
+                      onChange={(e) =>
+                        setNewAdmissionData({ ...newAdmissionData, timing: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900"
+                      placeholder="e.g. 10:00 AM – 11:30 AM"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Student Details */}
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#b5623b] mb-3 flex items-center gap-1.5">
+                  <User size={14} /> 2. Student Information
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Student Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newAdmissionData.name}
+                      onChange={(e) =>
+                        setNewAdmissionData({ ...newAdmissionData, name: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900 font-bold"
+                      placeholder="Student full name"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Student PRN (Auto-generated if empty)
+                    </label>
+                    <input
+                      type="text"
+                      value={newAdmissionData.prn}
+                      onChange={(e) =>
+                        setNewAdmissionData({ ...newAdmissionData, prn: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900 font-mono"
+                      placeholder="e.g. PMF2026-3895"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={newAdmissionData.email}
+                      onChange={(e) =>
+                        setNewAdmissionData({ ...newAdmissionData, email: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900"
+                      placeholder="student@example.com"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Mobile Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={newAdmissionData.phone}
+                      onChange={(e) =>
+                        setNewAdmissionData({ ...newAdmissionData, phone: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900 font-mono"
+                      placeholder="10-digit mobile number"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Gender
+                    </label>
+                    <select
+                      value={newAdmissionData.gender}
+                      onChange={(e) =>
+                        setNewAdmissionData({ ...newAdmissionData, gender: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900"
+                    >
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Qualification / Education
+                    </label>
+                    <input
+                      type="text"
+                      value={newAdmissionData.education}
+                      onChange={(e) =>
+                        setNewAdmissionData({ ...newAdmissionData, education: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900"
+                      placeholder="e.g. Undergraduate / Engineering"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      College / Institution Name
+                    </label>
+                    <input
+                      type="text"
+                      value={newAdmissionData.college_name}
+                      onChange={(e) =>
+                        setNewAdmissionData({ ...newAdmissionData, college_name: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900"
+                      placeholder="e.g. SVERI College / Parivattan Institute"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      City / Address
+                    </label>
+                    <input
+                      type="text"
+                      value={newAdmissionData.address}
+                      onChange={(e) =>
+                        setNewAdmissionData({ ...newAdmissionData, address: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900"
+                      placeholder="e.g. Pune, Maharashtra"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: Fee & Payment Details */}
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#b5623b] mb-3 flex items-center gap-1.5">
+                  <CreditCard size={14} /> 3. Payment & Enrollment Status
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Fee Amount Paid (₹) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min={0}
+                      value={newAdmissionData.amount}
+                      onChange={(e) =>
+                        setNewAdmissionData({
+                          ...newAdmissionData,
+                          amount: parseFloat(e.target.value) || 0,
+                        })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900 font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Payment Mode
+                    </label>
+                    <select
+                      value={newAdmissionData.payment_method}
+                      onChange={(e) =>
+                        setNewAdmissionData({
+                          ...newAdmissionData,
+                          payment_method: e.target.value,
+                        })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900 font-medium"
+                    >
+                      <option value="Online Razorpay">Online Razorpay / Card</option>
+                      <option value="UPI / QR">UPI / QR Code</option>
+                      <option value="Cash / Direct Offline">Cash / Direct Offline</option>
+                      <option value="NEFT / Bank Transfer">NEFT / Bank Transfer</option>
+                      <option value="Scholarship / Exemption">Scholarship / Fee Exemption</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Payment / Receipt ID
+                    </label>
+                    <input
+                      type="text"
+                      value={newAdmissionData.payment_id}
+                      onChange={(e) =>
+                        setNewAdmissionData({
+                          ...newAdmissionData,
+                          payment_id: e.target.value,
+                        })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900 font-mono"
+                      placeholder="Auto or e.g. PAY_12345"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <label className="block font-bold text-stone-700 mb-1">
+                    Admission Status
+                  </label>
+                  <select
+                    value={newAdmissionData.status}
+                    onChange={(e) =>
+                      setNewAdmissionData({
+                        ...newAdmissionData,
+                        status: e.target.value as any,
+                      })
+                    }
+                    className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900 font-bold"
+                  >
+                    <option value="completed">Completed & Verified (Seat Allocated)</option>
+                    <option value="pending">Pending Document Verification</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Email Notification Option */}
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={newAdmissionData.sendEmailNotification}
+                    onChange={(e) =>
+                      setNewAdmissionData({
+                        ...newAdmissionData,
+                        sendEmailNotification: e.target.checked,
+                      })
+                    }
+                    className="mt-1 h-4 w-4 rounded text-[#b5623b] focus:ring-[#b5623b]"
+                  />
+                  <div>
+                    <span className="font-bold text-[#1b2b25] block">
+                      Send Official Admission Confirmation Email
+                    </span>
+                    <span className="text-[11px] text-stone-600 block mt-0.5">
+                      Automatically sends an official branded confirmation email to the student with their PRN number, batch schedule, and timetable instructions.
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              {/* Submit Actions */}
+              <div className="pt-4 border-t border-stone-200 flex justify-end gap-2.5 bg-white">
+                <button
+                  type="button"
+                  onClick={() => setShowAddAdmissionModal(false)}
+                  className="px-4 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingAdmission}
+                  className="px-6 py-2.5 rounded-xl bg-[#1b2b25] hover:bg-[#253a32] text-white font-bold transition shadow-xs disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                >
+                  {submittingAdmission ? (
+                    <>
+                      <Clock size={15} className="animate-spin text-[#fedb41]" />
+                      <span>Saving Admission...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={15} className="text-[#fedb41]" />
+                      <span>Confirm & Save Admission</span>
                     </>
                   )}
                 </button>
