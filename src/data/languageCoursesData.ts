@@ -437,6 +437,10 @@ export const saveCustomCourse = (course: LanguageCourse): void => {
       window.dispatchEvent(new Event("courses-updated"));
       window.dispatchEvent(new Event("batch-seats-updated"));
     }
+    // Sync to cloud databases (MongoDB Atlas and Supabase)
+    import("@/lib/courses-sync").then(({ saveCoursesToCloud }) => {
+      saveCoursesToCloud(list).catch((e) => console.warn("Course cloud save warning:", e));
+    }).catch(() => {});
   } catch (err) {
     console.error("Failed to save course:", err);
   }
@@ -451,6 +455,10 @@ export const deleteCustomCourse = (courseId: string): void => {
       window.dispatchEvent(new Event("courses-updated"));
       window.dispatchEvent(new Event("batch-seats-updated"));
     }
+    // Sync to cloud databases (MongoDB Atlas and Supabase)
+    import("@/lib/courses-sync").then(({ saveCoursesToCloud }) => {
+      saveCoursesToCloud(list).catch((e) => console.warn("Course cloud delete warning:", e));
+    }).catch(() => {});
   } catch (err) {
     console.error("Failed to delete course:", err);
   }
@@ -464,6 +472,10 @@ export const resetCustomCourses = (): void => {
       window.dispatchEvent(new Event("courses-updated"));
       window.dispatchEvent(new Event("batch-seats-updated"));
     }
+    // Sync to cloud databases (MongoDB Atlas and Supabase)
+    import("@/lib/courses-sync").then(({ saveCoursesToCloud }) => {
+      saveCoursesToCloud([]).catch((e) => console.warn("Course cloud reset warning:", e));
+    }).catch(() => {});
   } catch (err) {
     console.error("Failed to reset courses:", err);
   }
@@ -569,8 +581,11 @@ export const matchAdmissionToBatchId = (admission: any): string | null => {
   // Filter out system configuration rows
   if (
     admission.id === "00000000-0000-0000-0000-000000000001" ||
+    admission.id === "00000000-0000-0000-0000-000000000002" ||
     admission.name === "SYSTEM_BATCH_OVERRIDES" ||
-    admission.program === "SYSTEM_BATCH_SETTINGS"
+    admission.name === "SYSTEM_CUSTOM_COURSES" ||
+    admission.program === "SYSTEM_BATCH_SETTINGS" ||
+    admission.program === "SYSTEM_CUSTOM_COURSES"
   ) {
     return null;
   }
@@ -587,7 +602,8 @@ export const matchAdmissionToBatchId = (admission: any): string | null => {
     prog === "REGISTERED_ACCOUNT" ||
     prog === "ACCOUNT_SIGNUP" ||
     prog === "USER_REGISTRATION" ||
-    prog === "SYSTEM_BATCH_SETTINGS"
+    prog === "SYSTEM_BATCH_SETTINGS" ||
+    prog === "SYSTEM_CUSTOM_COURSES"
   ) {
     return null;
   }

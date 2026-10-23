@@ -181,8 +181,8 @@ export const createAdmission = async (
     recalculateBatchSeatsFromAdmissions();
   } catch {}
 
-  // 1. SAVE NEW ADMISSION DIRECTLY TO MONGODB DATABASE (Primary destination for new admissions)
-  let savedInMongo = false;
+  // 1. SAVE NEW ADMISSION DIRECTLY TO MONGODB DATABASE
+  let mongoData: any = null;
   try {
     const res = await fetch("/api/admissions", {
       method: "POST",
@@ -193,9 +193,8 @@ export const createAdmission = async (
     if (res.ok) {
       const result = await res.json();
       if (result.success && result.data) {
-        console.log("[MongoDB Atlas] New student admission saved successfully to MongoDB:", result.data);
-        savedInMongo = true;
-        return { ...newAdmission, ...result.data };
+        console.log("[MongoDB Atlas] New student admission saved to MongoDB:", result.data);
+        mongoData = result.data;
       }
     } else if (res.status === 429) {
       const result = await res.json().catch(() => ({}));
@@ -212,36 +211,47 @@ export const createAdmission = async (
     console.warn("[MongoDB Atlas] Notice saving to MongoDB admissions API:", mongoErr);
   }
 
-  // Fallback: If MongoDB is waiting for password or unreachable, save to Supabase cloud database
-  // so no applicant data is ever lost
-  if (!savedInMongo) {
-    try {
-      const supabasePayload = sanitizeAdmissionForSupabase(newAdmission);
-      const { data, error } = await supabase
+  // 2. ALWAYS ALSO SAVE TO SUPABASE CLOUD DATABASE
+  // This guarantees BOTH databases have the complete, identical record at all times!
+  let supabaseData: any = null;
+  try {
+    const supabasePayload = sanitizeAdmissionForSupabase(newAdmission);
+    const { data, error } = await supabase
+      .from("admissions")
+      .upsert([supabasePayload], { onConflict: "id" })
+      .select()
+      .single();
+
+    if (!error && data) {
+      console.log("[Supabase] Admission successfully synced to Supabase:", data.id);
+      supabaseData = data;
+    } else if (error) {
+      // Fallback insert if upsert encountered conflict
+      const { data: insData, error: insErr } = await supabase
         .from("admissions")
         .insert([supabasePayload])
         .select()
         .single();
-
-      if (!error && data) {
-        return { ...newAdmission, ...data };
+      if (!insErr && insData) {
+        supabaseData = insData;
+      } else {
+        console.warn("Supabase admissions insert notice:", error.message || insErr?.message);
       }
-      if (error) {
-        console.warn("Supabase admissions insert notice:", error.message);
-      }
-    } catch (e) {
-      console.warn("Supabase admissions insert notice:", e);
     }
+  } catch (e) {
+    console.warn("Supabase admissions insert notice:", e);
   }
 
-  return newAdmission;
+  return { ...newAdmission, ...(supabaseData || {}), ...(mongoData || {}) };
 };
 
 export const isRealCourseAdmission = (row: any): boolean => {
   if (!row) return false;
   if (
     row.id === "00000000-0000-0000-0000-000000000001" ||
-    row.name === "SYSTEM_BATCH_OVERRIDES"
+    row.id === "00000000-0000-0000-0000-000000000002" ||
+    row.name === "SYSTEM_BATCH_OVERRIDES" ||
+    row.name === "SYSTEM_CUSTOM_COURSES"
   ) {
     return false;
   }
@@ -251,7 +261,8 @@ export const isRealCourseAdmission = (row: any): boolean => {
     prog === "REGISTERED_ACCOUNT" ||
     prog === "ACCOUNT_SIGNUP" ||
     prog === "USER_REGISTRATION" ||
-    prog === "SYSTEM_BATCH_SETTINGS"
+    prog === "SYSTEM_BATCH_SETTINGS" ||
+    prog === "SYSTEM_CUSTOM_COURSES"
   ) {
     return false;
   }
