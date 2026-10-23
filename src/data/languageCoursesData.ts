@@ -22,7 +22,8 @@ export interface CourseLevel {
   duration: string; // "6 Months", "7 Months", "3 Months", "3–4.5 Months"
   durationBadge: "3-Month Course" | "6-Month Course" | "7-Month Course" | "3–4.5 Months";
   courseFee: number;
-  platformFee: number; // ₹100 platform handling fee
+  platformFee: number; // ₹100 platform handling fee or ₹0 if waived
+  hasPlatformFee?: boolean;
   securityDeposit: number; // 0 if none
   hasSecurityDeposit: boolean;
   refundCondition: string;

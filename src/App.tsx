@@ -35,6 +35,9 @@ const App = () => (
           <Route path="/courses" element={<CoursesPage />} />
           <Route path="/courses/:courseId" element={<CourseDetailPage />} />
           <Route path="/register" element={<Navigate to="/admissions#admission-form" replace />} />
+          <Route path="/apply" element={<Navigate to="/admissions#admission-form" replace />} />
+          <Route path="/enroll" element={<Navigate to="/admissions#admission-form" replace />} />
+          <Route path="/registration" element={<RegistrationPage />} />
           <Route path="/rules" element={<RulesPage />} />
           <Route path="/rules-and-regulations" element={<RulesPage />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />

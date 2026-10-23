@@ -77,6 +77,7 @@ export default function CourseManager() {
       durationBadge: "3-Month Course" | "6-Month Course" | "7-Month Course" | "3–4.5 Months";
       courseFee: number;
       platformFee: number;
+      hasPlatformFee: boolean;
       securityDeposit: number;
       hasSecurityDeposit: boolean;
       refundCondition: string;
@@ -156,6 +157,7 @@ export default function CourseManager() {
           durationBadge: "3-Month Course",
           courseFee: 2000,
           platformFee: 100,
+          hasPlatformFee: true,
           securityDeposit: 0,
           hasSecurityDeposit: false,
           refundCondition: "Platform fee and admission registration fees are strictly non-refundable.",
@@ -191,7 +193,8 @@ export default function CourseManager() {
       duration: lvl.duration,
       durationBadge: lvl.durationBadge || "6-Month Course",
       courseFee: lvl.courseFee,
-      platformFee: lvl.platformFee || 100,
+      platformFee: typeof lvl.platformFee === "number" ? lvl.platformFee : 100,
+      hasPlatformFee: lvl.hasPlatformFee !== undefined ? lvl.hasPlatformFee : (lvl.platformFee !== 0),
       securityDeposit: lvl.securityDeposit || 0,
       hasSecurityDeposit: Boolean(lvl.hasSecurityDeposit),
       refundCondition: lvl.refundCondition || "Non-refundable once batch commences.",
@@ -250,6 +253,7 @@ export default function CourseManager() {
           durationBadge: "6-Month Course",
           courseFee: 3000,
           platformFee: 100,
+          hasPlatformFee: true,
           securityDeposit: 0,
           hasSecurityDeposit: false,
           refundCondition: "Platform fee and admission registration fees are strictly non-refundable.",
@@ -374,7 +378,8 @@ export default function CourseManager() {
         duration: lvl.duration.trim(),
         durationBadge: lvl.durationBadge || "6-Month Course",
         courseFee: Number(lvl.courseFee) || 0,
-        platformFee: Number(lvl.platformFee) || 100,
+        platformFee: lvl.hasPlatformFee === false ? 0 : (typeof lvl.platformFee === "number" ? lvl.platformFee : 100),
+        hasPlatformFee: lvl.hasPlatformFee,
         securityDeposit: Number(lvl.securityDeposit) || 0,
         hasSecurityDeposit: Boolean(lvl.hasSecurityDeposit),
         refundCondition: lvl.refundCondition.trim(),
@@ -652,7 +657,9 @@ export default function CourseManager() {
                             </div>
                             <div className="flex justify-between text-stone-600">
                               <span>Platform Fee:</span>
-                              <span className="text-stone-800">₹{lvl.platformFee || 100}</span>
+                              <span className={(lvl.platformFee ?? 100) > 0 ? "font-medium text-stone-800" : "font-semibold text-emerald-700"}>
+                                {(lvl.platformFee ?? 100) > 0 ? `₹${lvl.platformFee ?? 100}` : "₹0 (Waived)"}
+                              </span>
                             </div>
                             {lvl.hasSecurityDeposit && (
                               <div className="flex justify-between text-amber-700 font-medium">
@@ -1029,6 +1036,73 @@ export default function CourseManager() {
                             }}
                             className="w-full rounded-lg border border-stone-200 px-3 py-1.5 text-xs focus:border-[#b5623b] focus:outline-none"
                           />
+                        </div>
+
+                        {/* Platform Handling Fee Option */}
+                        <div className="sm:col-span-2 lg:col-span-4 rounded-xl border border-stone-200/90 bg-white p-3 shadow-2xs">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-stone-800">
+                                  Platform Handling Fee
+                                </span>
+                                {lvl.hasPlatformFee ? (
+                                  <span className="rounded-full bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 text-[10px] font-bold">
+                                    Active (₹{lvl.platformFee})
+                                  </span>
+                                ) : (
+                                  <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
+                                    Waived / ₹0 Free
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-stone-500">
+                                Decide whether students will be charged a platform handling fee for this course level.
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-3 shrink-0">
+                              <label className="flex items-center gap-2 cursor-pointer select-none bg-stone-50 hover:bg-stone-100 rounded-lg px-2.5 py-1.5 border border-stone-200 transition">
+                                <input
+                                  type="checkbox"
+                                  checked={lvl.hasPlatformFee}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    setFormData((prev) => {
+                                      const updated = [...prev.levels];
+                                      updated[lvlIdx].hasPlatformFee = checked;
+                                      updated[lvlIdx].platformFee = checked ? (updated[lvlIdx].platformFee || 100) : 0;
+                                      return { ...prev, levels: updated };
+                                    });
+                                  }}
+                                  className="h-4 w-4 rounded border-stone-300 text-[#b5623b] focus:ring-[#b5623b]"
+                                />
+                                <span className="text-xs font-semibold text-stone-700">
+                                  {lvl.hasPlatformFee ? "Charge Platform Fee" : "Waive Platform Fee (₹0)"}
+                                </span>
+                              </label>
+
+                              {lvl.hasPlatformFee && (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-medium text-stone-600">Amount (₹):</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={lvl.platformFee}
+                                    onChange={(e) => {
+                                      const val = Number(e.target.value) || 0;
+                                      setFormData((prev) => {
+                                        const updated = [...prev.levels];
+                                        updated[lvlIdx].platformFee = val;
+                                        return { ...prev, levels: updated };
+                                      });
+                                    }}
+                                    className="w-20 rounded-lg border border-stone-200 px-2.5 py-1 text-xs text-right font-bold focus:border-[#b5623b] focus:outline-none"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
 
                         <div className="sm:col-span-2 lg:col-span-4">

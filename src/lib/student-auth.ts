@@ -74,17 +74,89 @@ export const saveStudentToCloud = async (student: StudentUser): Promise<void> =>
     } else {
       console.log("[CloudSave] Student successfully synced to Supabase:", student.name, student.prn);
     }
+
+    // 2. Also save student registration to MongoDB Atlas
+    try {
+      await fetch("/api/admissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      console.log("[CloudSave] Student successfully synced to MongoDB Atlas:", student.name, student.prn);
+    } catch (mongoErr) {
+      console.warn("[CloudSave] Notice saving student to MongoDB Atlas:", mongoErr);
+    }
   } catch (err) {
-    console.warn("[CloudSave] Could not sync student to Supabase cloud:", err);
+    console.warn("[CloudSave] Could not sync student to cloud databases:", err);
   }
 };
 
 /**
- * Fetches all registered students and applicants from Supabase cloud database.
+ * Fetches all registered students and applicants from Supabase and MongoDB Atlas.
  * Merges with local storage cache so admin always sees all registered students.
  */
 export const fetchRegisteredStudentsFromCloud = async (): Promise<StudentUser[]> => {
   const studentsMap = new Map<string, StudentUser>();
+
+  // Helper to parse student rows from either Supabase or MongoDB
+  const parseRows = (rows: any[]) => {
+    for (const row of rows) {
+      if (!row || (!row.email && !row.name)) continue;
+
+      let prn = "";
+      let city = "Pune";
+      let state = "Maharashtra";
+      let registeredAt = row.created_at || new Date().toISOString();
+      let password: string | undefined = undefined;
+      let firebaseUid: string | undefined = undefined;
+
+      // Try extracting metadata from JSON message
+      if (row.message && typeof row.message === "string" && row.message.trim().startsWith("{")) {
+        try {
+          const meta = JSON.parse(row.message);
+          if (meta.prn) prn = meta.prn;
+          if (meta.city) city = meta.city;
+          if (meta.state) state = meta.state;
+          if (meta.password) password = meta.password;
+          if (meta.firebaseUid) firebaseUid = meta.firebaseUid;
+          if (meta.registeredAt) registeredAt = meta.registeredAt;
+        } catch {}
+      }
+
+      // If not in JSON, extract PRN from text like "PRN: PMF2026-1234"
+      if (!prn && row.message) {
+        const prnMatch = String(row.message).match(/PRN:\s*([A-Za-z0-9-]+)/i);
+        if (prnMatch) prn = prnMatch[1];
+      }
+
+      // Deterministic PRN fallback based on student details
+      if (!prn) {
+        const h = getDeterministicHash(row.email || row.name || row.id);
+        prn = `PMF2026-${String((h % 9000) + 1000)}`;
+      }
+
+      const emailKey = (row.email || "").trim().toLowerCase();
+      const prnKey = prn.toLowerCase();
+
+      const existing = (emailKey && studentsMap.get(emailKey)) || studentsMap.get(prnKey);
+
+      const studentUser: StudentUser = {
+        id: row.id || `std_${prn}`,
+        prn: prn,
+        name: row.name || existing?.name || "Student",
+        email: row.email || existing?.email || "",
+        phone: row.phone || existing?.phone || "",
+        city: city || existing?.city || "Pune",
+        state: state || existing?.state || "Maharashtra",
+        password: password || existing?.password,
+        firebaseUid: firebaseUid || existing?.firebaseUid,
+        registeredAt: registeredAt || existing?.registeredAt || new Date().toISOString(),
+      };
+
+      if (emailKey) studentsMap.set(emailKey, studentUser);
+      studentsMap.set(prnKey, studentUser);
+    }
+  };
 
   // 1. Seed with local students cache
   const localList = getAllRegisteredStudents();
@@ -93,7 +165,20 @@ export const fetchRegisteredStudentsFromCloud = async (): Promise<StudentUser[]>
     if (s.prn) studentsMap.set(s.prn.toLowerCase(), s);
   }
 
-  // 2. Fetch all admissions from Supabase
+  // 2. Fetch from MongoDB Atlas
+  try {
+    const res = await fetch("/api/admissions");
+    if (res.ok) {
+      const resJson = await res.json();
+      if (Array.isArray(resJson?.data)) {
+        parseRows(resJson.data);
+      }
+    }
+  } catch (mErr) {
+    console.warn("[CloudFetch] Notice fetching students from MongoDB Atlas:", mErr);
+  }
+
+  // 3. Fetch from Supabase
   try {
     const { data, error } = await supabase
       .from("admissions")
@@ -101,62 +186,7 @@ export const fetchRegisteredStudentsFromCloud = async (): Promise<StudentUser[]>
       .order("created_at", { ascending: false });
 
     if (!error && Array.isArray(data)) {
-      for (const row of data) {
-        if (!row.email && !row.name) continue;
-
-        let prn = "";
-        let city = "Pune";
-        let state = "Maharashtra";
-        let registeredAt = row.created_at || new Date().toISOString();
-        let password: string | undefined = undefined;
-        let firebaseUid: string | undefined = undefined;
-
-        // Try extracting metadata from JSON message
-        if (row.message && row.message.trim().startsWith("{")) {
-          try {
-            const meta = JSON.parse(row.message);
-            if (meta.prn) prn = meta.prn;
-            if (meta.city) city = meta.city;
-            if (meta.state) state = meta.state;
-            if (meta.password) password = meta.password;
-            if (meta.firebaseUid) firebaseUid = meta.firebaseUid;
-            if (meta.registeredAt) registeredAt = meta.registeredAt;
-          } catch {}
-        }
-
-        // If not in JSON, extract PRN from text like "PRN: PMF2026-1234"
-        if (!prn && row.message) {
-          const prnMatch = row.message.match(/PRN:\s*([A-Za-z0-9-]+)/i);
-          if (prnMatch) prn = prnMatch[1];
-        }
-
-        // Deterministic PRN fallback based on student details
-        if (!prn) {
-          const h = getDeterministicHash(row.email || row.name || row.id);
-          prn = `PMF2026-${String((h % 9000) + 1000)}`;
-        }
-
-        const emailKey = (row.email || "").trim().toLowerCase();
-        const prnKey = prn.toLowerCase();
-
-        const existing = (emailKey && studentsMap.get(emailKey)) || studentsMap.get(prnKey);
-
-        const studentUser: StudentUser = {
-          id: row.id,
-          prn: prn,
-          name: row.name || existing?.name || "Student",
-          email: row.email || existing?.email || "",
-          phone: row.phone || existing?.phone || "",
-          city: city || existing?.city || "Pune",
-          state: state || existing?.state || "Maharashtra",
-          password: password || existing?.password,
-          firebaseUid: firebaseUid || existing?.firebaseUid,
-          registeredAt: registeredAt || existing?.registeredAt || new Date().toISOString(),
-        };
-
-        if (emailKey) studentsMap.set(emailKey, studentUser);
-        studentsMap.set(prnKey, studentUser);
-      }
+      parseRows(data);
     }
   } catch (err) {
     console.warn("[CloudFetch] Could not fetch students from Supabase:", err);
@@ -186,10 +216,18 @@ export const fetchRegisteredStudentsFromCloud = async (): Promise<StudentUser[]>
 };
 
 /**
- * Deletes student record from Supabase cloud database
+ * Deletes student record from both Supabase and MongoDB Atlas databases
  */
 export const deleteStudentFromCloud = async (id: string): Promise<void> => {
   try {
+    // Delete from MongoDB Atlas
+    try {
+      await fetch(`/api/admissions?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    } catch (mErr) {
+      console.warn("[CloudDelete] MongoDB delete notice:", mErr);
+    }
+
+    // Delete from Supabase
     if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
       await supabase.from("admissions").delete().eq("id", id);
     } else {

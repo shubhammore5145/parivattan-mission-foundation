@@ -78,8 +78,18 @@ export async function sendCourseAdmissionEmail(
         console.log("[EmailService] Direct SMTP email sent successfully!");
         return { success: true, message: "Email sent via SMTP." };
       }
+    } else if (res.status === 429) {
+      const data = await res.json().catch(() => ({}));
+      console.warn("[EmailService] Email rate limit exceeded:", data.error);
+      return {
+        success: false,
+        message: data.error || "Email rate limit reached. Please wait a few minutes.",
+      };
     }
-  } catch {
+  } catch (e: any) {
+    if (e?.message && e.message.includes("rate limit")) {
+      return { success: false, message: e.message };
+    }
     // Continue to Google Apps Script fallback
   }
 
@@ -163,8 +173,18 @@ export async function sendDonationReceiptEmail(
         console.log("[EmailService] Direct SMTP donation receipt email sent successfully!");
         return { success: true, message: "Donation receipt sent via SMTP." };
       }
+    } else if (res.status === 429) {
+      const data = await res.json().catch(() => ({}));
+      console.warn("[EmailService] Donation email rate limit exceeded:", data.error);
+      return {
+        success: false,
+        message: data.error || "Email rate limit reached. Please wait a few minutes.",
+      };
     }
-  } catch {
+  } catch (e: any) {
+    if (e?.message && e.message.includes("rate limit")) {
+      return { success: false, message: e.message };
+    }
     // Continue to Google Apps Script fallback
   }
 

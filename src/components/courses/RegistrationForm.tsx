@@ -33,6 +33,7 @@ import { createAdmission } from "@/lib/supabase-admin";
 import { sendCourseAdmissionEmail } from "@/lib/courseEmailService";
 import { syncAdmissionToStudentPortal } from "@/lib/student-auth";
 import { printElement } from "@/lib/printUtils";
+import { checkCooldown, recordSubmission, getCooldownMessage } from "@/lib/clientRateLimit";
 
 interface RegistrationFormProps {
   initialLanguage?: string;
@@ -175,6 +176,14 @@ export default function RegistrationForm({
       return;
     }
 
+    // Rate limiting cooldown protection (15 seconds between submissions)
+    const cooldown = checkCooldown("course_registration", 15);
+    if (!cooldown.allowed) {
+      toast.warning(getCooldownMessage(cooldown.remainingSeconds, "नोंदणी अर्ज"));
+      return;
+    }
+
+    recordSubmission("course_registration");
     setIsSubmitting(true);
     const registrationId = `REG-${Date.now().toString().slice(-6)}`;
 
@@ -714,9 +723,13 @@ export default function RegistrationForm({
 
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-[#65706a]">Platform Handling Fee</span>
-                  <span className="font-bold text-[#24312d]">
-                    ₹{platformFee.toLocaleString("en-IN")}
-                  </span>
+                  {platformFee > 0 ? (
+                    <span className="font-bold text-[#24312d]">
+                      ₹{platformFee.toLocaleString("en-IN")}
+                    </span>
+                  ) : (
+                    <span className="font-semibold text-emerald-700">₹0 (Waived)</span>
+                  )}
                 </div>
 
                 <div className="border-t border-[#e2e5dc] pt-2.5 flex items-center justify-between font-bold text-sm">

@@ -91,6 +91,7 @@ import {
   createAdmission,
   Admission,
   isRealCourseAdmission,
+  checkMongoStatus,
 } from "@/lib/supabase-admin";
 import { sendCourseAdmissionEmail } from "@/lib/courseEmailService";
 import { CountryFlagIcon } from "@/components/common/CountryFlagIcon";
@@ -163,6 +164,12 @@ export default function AdminDashboard() {
   // Admissions State
   const [admissions, setAdmissions] = useState<Admission[]>([]);
   const [admissionsLoading, setAdmissionsLoading] = useState(false);
+  const [mongoStatus, setMongoStatus] = useState<{
+    connected: boolean;
+    dbName: string;
+    hasPlaceholder: boolean;
+    message: string;
+  } | null>(null);
   const [admissionsSearch, setAdmissionsSearch] = useState("");
   const [admissionCourseFilter, setAdmissionCourseFilter] = useState<string>("all");
   const [admissionBatchFilter, setAdmissionBatchFilter] = useState<string>("all");
@@ -328,6 +335,7 @@ export default function AdminDashboard() {
   const loadAdmissions = async () => {
     try {
       setAdmissionsLoading(true);
+      checkMongoStatus().then(setMongoStatus).catch(() => {});
       const data = await getAllAdmissions();
       const realCourseAdmissions = data.filter(isRealCourseAdmission);
       setAdmissions(realCourseAdmissions);
@@ -1615,13 +1623,30 @@ export default function AdminDashboard() {
                       <BarChart3 size={22} />
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-serif font-bold text-lg text-[#1b2b25]">
                           Course & Batch Live Enrollment Matrix
                         </h3>
                         <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
                           Live Sync
                         </span>
+                        {mongoStatus?.connected ? (
+                          <span
+                            className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1.5"
+                            title="New student admissions are active on MongoDB Atlas"
+                          >
+                            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                            MongoDB Atlas: Active
+                          </span>
+                        ) : mongoStatus?.hasPlaceholder ? (
+                          <span
+                            className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1.5"
+                            title="MongoDB URI contains <db_password> placeholder. Update .env to activate MongoDB Atlas directly."
+                          >
+                            <span className="h-2 w-2 rounded-full bg-amber-500" />
+                            MongoDB: Set Password in .env
+                          </span>
+                        ) : null}
                       </div>
                       <p className="text-xs text-stone-500 mt-0.5">
                         Real-time breakdown of students enrolled in each course and batch. Click any batch card to filter the admissions table below.

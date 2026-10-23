@@ -170,7 +170,7 @@ export default function CourseDetailPage() {
                 <div className="border-t border-[#e2e5dc] pt-3">
                   <span className="text-xs font-semibold text-[#65706a]">Platform Handling Fee</span>
                   <p className="text-lg font-serif font-bold text-[#24312d]">
-                    ₹{(level.platformFee ?? 100).toLocaleString("en-IN")}
+                    {(level.platformFee ?? 100) > 0 ? `₹${(level.platformFee ?? 100).toLocaleString("en-IN")}` : "₹0 (Waived)"}
                   </p>
                 </div>
 

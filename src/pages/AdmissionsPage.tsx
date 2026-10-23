@@ -612,8 +612,11 @@ export default function AdmissionsPage() {
       });
 
       setSubmittedReceipt(admissionRecord);
-      toast.success(`Admission confirmed successfully! Student PRN: ${studentPrn}`);
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.message && (err.message.includes("Rate limit") || err.message.includes("मर्यादा"))) {
+        toast.error(err.message);
+        return;
+      }
       console.warn("Admission save notice:", err);
       setSubmittedReceipt(admissionRecord);
       toast.success("Admission application recorded successfully!");
@@ -831,7 +834,9 @@ export default function AdmissionsPage() {
                   <div className="flex justify-between">
                     <span className="text-[#65706a]">Platform Handling Fee</span>
                     <span className="font-bold text-[#24312d]">
-                      ₹{(submittedReceipt.platformFee ?? 100).toLocaleString("en-IN")}
+                      {(submittedReceipt.platformFee ?? 100) > 0
+                        ? `₹${(submittedReceipt.platformFee ?? 100).toLocaleString("en-IN")}`
+                        : "₹0 (Waived)"}
                     </span>
                   </div>
                   <div className="flex justify-between border-t border-[#f1f3ed] pt-2 font-bold text-sm">
@@ -1902,7 +1907,11 @@ export default function AdmissionsPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#65706a]">Platform Handling Fee</span>
-                    <span className="font-bold text-[#24312d]">₹{platformFee.toLocaleString("en-IN")}</span>
+                    {platformFee > 0 ? (
+                      <span className="font-bold text-[#24312d]">₹{platformFee.toLocaleString("en-IN")}</span>
+                    ) : (
+                      <span className="font-semibold text-emerald-700">₹0 (Waived)</span>
+                    )}
                   </div>
                   <div className="flex justify-between border-t border-[#e2e5dc] pt-2 font-bold text-sm">
                     <span className="text-[#24312d] uppercase text-xs">Total Amount to Pay</span>

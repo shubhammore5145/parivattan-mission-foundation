@@ -133,6 +133,26 @@ export const sanitizeAdmissionForSupabase = (
   return sanitized;
 };
 
+export const checkMongoStatus = async (): Promise<{
+  connected: boolean;
+  dbName: string;
+  hasPlaceholder: boolean;
+  message: string;
+}> => {
+  try {
+    const res = await fetch("/api/admissions?health=true");
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {}
+  return {
+    connected: false,
+    dbName: "parivattan_db",
+    hasPlaceholder: true,
+    message: "Could not reach MongoDB admissions service.",
+  };
+};
+
 export const createAdmission = async (
   admissionData: Omit<Admission, "id" | "created_at"> & { id?: string }
 ): Promise<Admission> => {
@@ -148,7 +168,7 @@ export const createAdmission = async (
     created_at: new Date().toISOString(),
   };
 
-  // Persist locally so applications are never lost
+  // Persist locally so applications are never lost in client state
   try {
     const existing = JSON.parse(localStorage.getItem("parivattan_admissions") || "[]");
     localStorage.setItem("parivattan_admissions", JSON.stringify([newAdmission, ...existing]));
@@ -161,23 +181,57 @@ export const createAdmission = async (
     recalculateBatchSeatsFromAdmissions();
   } catch {}
 
-  // Attempt to save to Supabase cloud database
+  // 1. SAVE NEW ADMISSION DIRECTLY TO MONGODB DATABASE (Primary destination for new admissions)
+  let savedInMongo = false;
   try {
-    const supabasePayload = sanitizeAdmissionForSupabase(newAdmission);
-    const { data, error } = await supabase
-      .from("admissions")
-      .insert([supabasePayload])
-      .select()
-      .single();
+    const res = await fetch("/api/admissions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newAdmission),
+    });
 
-    if (!error && data) {
-      return { ...newAdmission, ...data };
+    if (res.ok) {
+      const result = await res.json();
+      if (result.success && result.data) {
+        console.log("[MongoDB Atlas] New student admission saved successfully to MongoDB:", result.data);
+        savedInMongo = true;
+        return { ...newAdmission, ...result.data };
+      }
+    } else if (res.status === 429) {
+      const result = await res.json().catch(() => ({}));
+      const errorMsg =
+        result.error ||
+        "विनंती मर्यादा गाठली आहे (Rate limit exceeded). कृपया १५ मिनिटांनंतर प्रयत्न करा.";
+      console.warn("[RateLimit] Admission blocked by server rate limit:", errorMsg);
+      throw new Error(errorMsg);
     }
-    if (error) {
-      console.warn("Supabase admissions insert notice:", error.message);
+  } catch (mongoErr: any) {
+    if (mongoErr?.message && mongoErr.message.includes("Rate limit")) {
+      throw mongoErr;
     }
-  } catch (e) {
-    console.warn("Supabase admissions insert notice:", e);
+    console.warn("[MongoDB Atlas] Notice saving to MongoDB admissions API:", mongoErr);
+  }
+
+  // Fallback: If MongoDB is waiting for password or unreachable, save to Supabase cloud database
+  // so no applicant data is ever lost
+  if (!savedInMongo) {
+    try {
+      const supabasePayload = sanitizeAdmissionForSupabase(newAdmission);
+      const { data, error } = await supabase
+        .from("admissions")
+        .insert([supabasePayload])
+        .select()
+        .single();
+
+      if (!error && data) {
+        return { ...newAdmission, ...data };
+      }
+      if (error) {
+        console.warn("Supabase admissions insert notice:", error.message);
+      }
+    } catch (e) {
+      console.warn("Supabase admissions insert notice:", e);
+    }
   }
 
   return newAdmission;
@@ -221,6 +275,24 @@ export const isRealCourseAdmission = (row: any): boolean => {
 };
 
 export const getAllAdmissions = async (): Promise<Admission[]> => {
+  let mongoAdmissions: Admission[] = [];
+  let supabaseAdmissions: Admission[] = [];
+
+  // 1. Fetch new admissions from MongoDB database
+  try {
+    const res = await fetch("/api/admissions");
+    if (res.ok) {
+      const result = await res.json();
+      if (result.success && Array.isArray(result.data)) {
+        mongoAdmissions = result.data.filter(isRealCourseAdmission);
+        console.log(`[MongoDB Atlas] Loaded ${mongoAdmissions.length} admissions from MongoDB`);
+      }
+    }
+  } catch (mongoErr) {
+    console.warn("MongoDB admissions fetch notice:", mongoErr);
+  }
+
+  // 2. Fetch existing admissions from Supabase (preserving earlier branch / old data as requested)
   try {
     const { data, error } = await supabase
       .from("admissions")
@@ -228,7 +300,7 @@ export const getAllAdmissions = async (): Promise<Admission[]> => {
       .order("created_at", { ascending: false });
 
     if (!error && Array.isArray(data)) {
-      // 1. Process cloud admin capacity overrides if present
+      // Process cloud admin capacity overrides if present
       const sysRow = data.find(
         (r) =>
           r.id === "00000000-0000-0000-0000-000000000001" ||
@@ -251,36 +323,66 @@ export const getAllAdmissions = async (): Promise<Admission[]> => {
         } catch {}
       }
 
-      const realAdmissions = data.filter(isRealCourseAdmission);
-      try {
-        localStorage.setItem("parivattan_admissions", JSON.stringify(realAdmissions));
-        recalculateBatchSeatsFromAdmissions(realAdmissions);
-      } catch {}
-      return realAdmissions;
+      supabaseAdmissions = data.filter(isRealCourseAdmission);
     }
   } catch (e) {
     console.warn("Supabase admissions fetch notice:", e);
   }
 
+  // 3. Seed with local storage cache
+  let localAdmissions: Admission[] = [];
   try {
     const local: any[] = JSON.parse(localStorage.getItem("parivattan_admissions") || "[]");
-    const realLocal = local.filter(isRealCourseAdmission);
-    try {
-      recalculateBatchSeatsFromAdmissions(realLocal);
-    } catch {}
-    return realLocal;
-  } catch {
-    return [];
+    localAdmissions = local.filter(isRealCourseAdmission);
+  } catch {}
+
+  // 4. Merge and deduplicate records: MongoDB (highest priority) -> Supabase -> Local
+  const admissionsMap = new Map<string, Admission>();
+
+  // Add Local
+  for (const adm of localAdmissions) {
+    if (adm.id) admissionsMap.set(adm.id, adm);
   }
+  // Add Supabase (overrides local with cloud version)
+  for (const adm of supabaseAdmissions) {
+    if (adm.id) admissionsMap.set(adm.id, adm);
+  }
+  // Add MongoDB (overrides with latest MongoDB student admissions)
+  for (const adm of mongoAdmissions) {
+    if (adm.id) admissionsMap.set(adm.id, adm);
+  }
+
+  const mergedAdmissions = Array.from(admissionsMap.values()).sort(
+    (a, b) => new Date(b.created_at || "").getTime() - new Date(a.created_at || "").getTime()
+  );
+
+  if (mergedAdmissions.length > 0) {
+    try {
+      localStorage.setItem("parivattan_admissions", JSON.stringify(mergedAdmissions));
+      recalculateBatchSeatsFromAdmissions(mergedAdmissions);
+    } catch {}
+    return mergedAdmissions;
+  }
+
+  return [];
 };
 
 export const deleteAdmission = async (id: string): Promise<void> => {
+  // 1. Delete from MongoDB
+  try {
+    await fetch(`/api/admissions?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+  } catch (mongoErr) {
+    console.warn("MongoDB admissions delete notice:", mongoErr);
+  }
+
+  // 2. Delete from Supabase
   try {
     await supabase.from("admissions").delete().eq("id", id);
   } catch (e) {
     console.warn("Supabase admissions delete notice:", e);
   }
 
+  // 3. Delete from localStorage
   try {
     const list: Admission[] = JSON.parse(localStorage.getItem("parivattan_admissions") || "[]");
     const updated = list.filter((item) => item.id !== id);
@@ -295,12 +397,25 @@ export const updateAdmissionStatus = async (
   id: string,
   status: "completed" | "failed" | "pending"
 ): Promise<void> => {
+  // 1. Update in MongoDB
+  try {
+    await fetch(`/api/admissions?id=${encodeURIComponent(id)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status }),
+    });
+  } catch (mongoErr) {
+    console.warn("MongoDB admissions update status notice:", mongoErr);
+  }
+
+  // 2. Update in Supabase
   try {
     await supabase.from("admissions").update({ status }).eq("id", id);
   } catch (e) {
     console.warn("Supabase admissions update notice:", e);
   }
 
+  // 3. Update in localStorage
   try {
     const list: Admission[] = JSON.parse(localStorage.getItem("parivattan_admissions") || "[]");
     const updated = list.map((item) => (item.id === id ? { ...item, status } : item));
@@ -314,7 +429,18 @@ export const updateAdmission = async (
   id: string,
   updatedFields: Partial<Admission>
 ): Promise<Admission> => {
-  // 1. Supabase update
+  // 1. Update in MongoDB
+  try {
+    await fetch(`/api/admissions?id=${encodeURIComponent(id)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, ...updatedFields }),
+    });
+  } catch (mongoErr) {
+    console.warn("MongoDB admissions update notice:", mongoErr);
+  }
+
+  // 2. Supabase update
   try {
     const supabasePayload = sanitizeAdmissionForSupabase(updatedFields);
     if (Object.keys(supabasePayload).length > 0) {

@@ -6,6 +6,7 @@ import Footer from "@/components/Footer";
 import OurWork from "@/components/OurWork";
 import OurTeamSection from "@/components/team/OurTeamSection";
 import ClassroomVideos from "@/components/home/ClassroomVideos";
+import StudentAchieversSection from "@/components/home/StudentAchieversSection";
 
 const initiatives = [
   { title: "Parivattan Overseas Schools", text: "Supportive programs that help learners prepare for IELTS, TOEFL and PTE with confidence.", tags: ["IELTS", "TOEFL", "PTE"] },
@@ -90,7 +91,42 @@ export default function ContentPage() {
     </>}
     {isInitiatives && <section className="page-section !pt-4 !pb-16 md:!pt-6"><div className="grid items-stretch gap-5 md:grid-cols-2 lg:grid-cols-3">{initiatives.map((item, index) => <article id={["overseas", "languages", "technology"][index]} className="min-h-[360px] scroll-mt-28 rounded-3xl bg-white p-7 shadow-[0_14px_35px_-28px_rgba(36,49,45,0.7)] ring-1 ring-[#e7e5de] transition-transform duration-300 hover:-translate-y-1" key={item.title}><span className="text-sm font-semibold text-[#b5623b]">0{index + 1}</span><h2 className="mt-10 text-3xl font-serif leading-tight">{item.title}</h2><p className="mt-4 text-[#65706a]">{item.text}</p><div className="mt-7 flex flex-wrap gap-2">{item.tags.map(tag => <span className="rounded-full bg-[#eef0e8] px-3 py-1 text-sm" key={tag}>{tag}</span>)}</div></article>)}</div></section>}
     {path === "/campaigns" && <><PageIntro eyebrow="Active campaigns" title="Small actions, lasting ripples." copy="Join the live efforts helping learners find the confidence, tools and support to keep moving forward." /><section className="page-section"><div className="grid gap-6 md:grid-cols-2"><Campaign title="Sponsor a learning kit" detail="Help put books, internet access and mentoring within reach for a learner." amount="₹1,500" /><Campaign title="Sponsor a month of classes" detail="Keep our community-led classrooms open and welcoming." amount="₹3,000" /></div></section></>}
-    {path === "/story" && <><PageIntro eyebrow="Our story" title="A timeline of showing up." copy="The work has grown, but the reason remains close to the ground: listen, learn and build with people." /><section className="page-section"><div className="space-y-5">{timeline.map(([year, text]) => <div className="grid gap-3 border-l-2 border-[#d7b49e] pl-6 md:grid-cols-[120px_1fr]" key={year}><strong className="text-2xl text-[#b5623b]">{year}</strong><p className="max-w-2xl text-lg text-[#65706a]">{text}</p></div>)}</div></section><section className="page-section border-t border-[#e5e1d8]"><SectionHeading eyebrow="Newspaper cuts" title="Stories worth keeping." /><div className="grid gap-5 md:grid-cols-3">{["Learning belongs everywhere", "A classroom without walls", "The people who keep showing up"].map((title, i) => <article className="rotate-[-1deg] bg-[#f1eadb] p-6 shadow-sm" key={title}><Newspaper className="text-[#b5623b]" /><p className="mt-10 text-xl font-serif">{title}</p><p className="mt-4 text-sm text-[#65706a]">Parivattan Journal · {2023 + i}</p></article>)}</div></section><div className="border-t border-[#e5e1d8]"><OurWork /></div></>}
+    {path === "/story" && <>
+      <PageIntro eyebrow="Our story" title="A timeline of showing up." copy="The work has grown, but the reason remains close to the ground: listen, learn and build with people." />
+      <section className="page-section">
+        <div className="space-y-5">
+          {timeline.map(([year, text]) => (
+            <div className="grid gap-3 border-l-2 border-[#d7b49e] pl-6 md:grid-cols-[120px_1fr]" key={year}>
+              <strong className="text-2xl text-[#b5623b]">{year}</strong>
+              <p className="max-w-2xl text-lg text-[#65706a]">{text}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Real Student Exam Achievers Showcase */}
+      <StudentAchieversSection
+        eyebrow="Proof of Impact · Certified Success"
+        title="Milestones of Transformation: Real Student Achievers"
+        subtitle="Behind every milestone on our timeline are real students whose lives and careers were transformed by passing international language qualification exams (JLPT N4 & N5)."
+      />
+
+      <section className="page-section border-t border-[#e5e1d8]">
+        <SectionHeading eyebrow="Newspaper cuts" title="Stories worth keeping." />
+        <div className="grid gap-5 md:grid-cols-3">
+          {["Learning belongs everywhere", "A classroom without walls", "The people who keep showing up"].map((title, i) => (
+            <article className="rotate-[-1deg] bg-[#f1eadb] p-6 shadow-sm" key={title}>
+              <Newspaper className="text-[#b5623b]" />
+              <p className="mt-10 text-xl font-serif">{title}</p>
+              <p className="mt-4 text-sm text-[#65706a]">Parivattan Journal · {2023 + i}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+      <div className="border-t border-[#e5e1d8]">
+        <OurWork />
+      </div>
+    </>}
     {isGallery && <><PageIntro eyebrow="Gallery" title="Moments from the movement." copy="A visual record of classrooms, conversations and the people who make this work possible." /><section className="page-section"><div className="grid grid-cols-2 gap-4 md:grid-cols-3">{gallery.map((image, i) => <img key={image} src={image} alt={`Parivattan community moment ${i + 1}`} className={`h-64 w-full rounded-3xl object-cover ${i === 1 ? "md:row-span-2 md:h-full" : ""}`} />)}</div></section></>}
     {isBlogs && <><PageIntro eyebrow="Parivattan Blogs" title="Notes from the field." copy="Ideas, lessons and honest reflections from the work of building more open pathways through education." /><section className="page-section"><div className="grid gap-5 md:grid-cols-3">{["What does opportunity look like?", "Why language learning changes the room", "The quiet power of a prepared mentor"].map((title, i) => <article className="rounded-3xl bg-white p-7 shadow-sm" key={title}><BookOpen className="text-[#b5623b]" /><p className="mt-12 text-2xl font-serif">{title}</p><p className="mt-4 text-sm text-[#65706a]">By the Parivattan team · 6 min read</p><Link className="mt-6 inline-flex items-center gap-2 font-semibold text-[#b5623b]" to="/contact">Read the story <ArrowRight size={16} /></Link></article>)}</div></section></>}
   </main><Footer /></div>;
