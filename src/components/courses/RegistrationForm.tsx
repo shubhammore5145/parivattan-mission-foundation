@@ -1,4 +1,4 @@
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, useRef, FormEvent } from "react";
 import {
   LANGUAGE_COURSES,
   LanguageCourse,
@@ -127,6 +127,7 @@ export default function RegistrationForm({
 
   // State
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submissionLockedRef = useRef(false);
   const [submittedData, setSubmittedData] = useState<any | null>(null);
 
   // Fee calculation
@@ -137,6 +138,10 @@ export default function RegistrationForm({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+
+    if (isSubmitting || submissionLockedRef.current) {
+      return;
+    }
 
     if (!fullName.trim()) {
       toast.error("Please enter your Full Name.");
@@ -179,11 +184,12 @@ export default function RegistrationForm({
     // Rate limiting cooldown protection (15 seconds between submissions)
     const cooldown = checkCooldown("course_registration", 15);
     if (!cooldown.allowed) {
-      toast.warning(getCooldownMessage(cooldown.remainingSeconds, "नोंदणी अर्ज"));
+      toast.warning(getCooldownMessage(cooldown.remainingSeconds, "Course Registration"));
       return;
     }
 
     recordSubmission("course_registration");
+    submissionLockedRef.current = true;
     setIsSubmitting(true);
     const registrationId = `REG-${Date.now().toString().slice(-6)}`;
 
@@ -290,6 +296,8 @@ export default function RegistrationForm({
   };
 
   const resetForm = () => {
+    submissionLockedRef.current = false;
+    setIsSubmitting(false);
     setSubmittedData(null);
     setFullName("");
     setMobileNumber("");
@@ -807,13 +815,19 @@ export default function RegistrationForm({
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="w-full mt-4 flex items-center justify-center gap-2 rounded-xl bg-[#b5623b] py-4 text-sm font-bold text-white shadow-md hover:bg-[#954b2c] hover:shadow-lg transition disabled:opacity-50"
+              disabled={isSubmitting || submissionLockedRef.current || activeBatchSeats.isFull}
+              className={`w-full mt-4 flex items-center justify-center gap-2 rounded-xl py-4 text-sm font-bold text-white shadow-md transition ${
+                isSubmitting || submissionLockedRef.current
+                  ? "bg-amber-850/80 cursor-not-allowed opacity-75 pointer-events-none"
+                  : activeBatchSeats.isFull
+                  ? "bg-gray-400 cursor-not-allowed opacity-75"
+                  : "bg-[#b5623b] hover:bg-[#954b2c] hover:shadow-lg cursor-pointer"
+              }`}
             >
-              {isSubmitting ? (
+              {isSubmitting || submissionLockedRef.current ? (
                 <>
                   <LoaderCircle size={18} className="animate-spin" />
-                  <span>Processing Registration...</span>
+                  <span>Processing Registration... Please wait...</span>
                 </>
               ) : (
                 <>

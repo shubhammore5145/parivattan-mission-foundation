@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, ChangeEvent, FormEvent } from "react";
+import { useState, useEffect, useMemo, useRef, ChangeEvent, FormEvent } from "react";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import { checkCooldown, recordSubmission, getCooldownMessage } from "@/lib/clientRateLimit";
 import {
   LANGUAGE_COURSES,
   LanguageCourse,
@@ -94,6 +94,7 @@ export default function AdmissionsPage() {
   const queryParams = new URLSearchParams(location.search);
   const initialLangParam = queryParams.get("lang") || "japanese";
   const initialLevelParam = queryParams.get("level");
+  const initialBatchParam = queryParams.get("batch");
   const initialPrnParam = queryParams.get("prn") || "";
 
   // ================= 0. MANDATORY PRN VERIFICATION STATE =================
@@ -150,10 +151,15 @@ export default function AdmissionsPage() {
     }
   };
 
-  // Auto-verify ONLY if ?prn=... is explicitly provided in the URL query
+  // Auto-verify if ?prn=... is in query or if student is already logged into Student Portal
   useEffect(() => {
     if (initialPrnParam) {
       handleVerifyPrn(initialPrnParam);
+    } else {
+      const activeStudent = getCurrentStudent();
+      if (activeStudent && activeStudent.prn) {
+        handleVerifyPrn(activeStudent.prn);
+      }
     }
   }, [initialPrnParam]);
 
@@ -196,14 +202,21 @@ export default function AdmissionsPage() {
     return formCourse.levels.find((l) => l.id === formLevelId) || formCourse.levels[0];
   }, [formCourse, formLevelId]);
 
-  // Selected Batch
-  const [formBatchId, setFormBatchId] = useState<string>(formLevel.batches[0]?.id || "");
+  // Selected Batch (supports ?batch= param from course catalog)
+  const [formBatchId, setFormBatchId] = useState<string>(() => {
+    if (initialBatchParam && formLevel.batches.some((b) => b.id === initialBatchParam)) {
+      return initialBatchParam;
+    }
+    return formLevel.batches[0]?.id || "";
+  });
 
   useEffect(() => {
-    if (!formLevel.batches.some((b) => b.id === formBatchId)) {
+    if (initialBatchParam && formLevel.batches.some((b) => b.id === initialBatchParam)) {
+      setFormBatchId(initialBatchParam);
+    } else if (!formLevel.batches.some((b) => b.id === formBatchId)) {
       setFormBatchId(formLevel.batches[0]?.id || "");
     }
-  }, [formLevel, formBatchId]);
+  }, [formLevel, formBatchId, initialBatchParam]);
 
   const formBatch: BatchSchedule | undefined = useMemo(() => {
     return formLevel.batches.find((b) => b.id === formBatchId) || formLevel.batches[0];
@@ -238,6 +251,9 @@ export default function AdmissionsPage() {
   // ================= 1. APPLICANT DETAILS =================
   const [fullName, setFullName] = useState("");
   const [gender, setGender] = useState<"Male" | "Female" | "Other" | "">("");
+  const [dob, setDob] = useState("");
+  const [guardianName, setGuardianName] = useState("");
+  const [guardianPhone, setGuardianPhone] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [emailAddress, setEmailAddress] = useState("");
   const [education, setEducation] = useState("");
@@ -277,6 +293,7 @@ export default function AdmissionsPage() {
 
   // Submission State
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submissionLockedRef = useRef(false);
   const [submittedReceipt, setSubmittedReceipt] = useState<any | null>(null);
 
   // Total calculation
@@ -438,7 +455,18 @@ export default function AdmissionsPage() {
       return;
     }
 
-    // Direct Online Gateway Checkout (Razorpay - UPI/Cards/Netbanking)
+    // Prevent double clicks or multiple submissions
+    if (isSubmitting || submissionLockedRef.current) {
+      return;
+    }
+
+    const cooldown = checkCooldown("course_admission", 15);
+    if (!cooldown.allowed) {
+      toast.warning(getCooldownMessage(cooldown.remainingSeconds, "Admission Application"));
+      return;
+    }
+
+    submissionLockedRef.current = true;
     setIsSubmitting(true);
     try {
       await loadRazorpay();
@@ -468,6 +496,7 @@ export default function AdmissionsPage() {
         },
         modal: {
           ondismiss: () => {
+            submissionLockedRef.current = false;
             setIsSubmitting(false);
             toast.info("Payment window was closed.");
           },
@@ -498,6 +527,9 @@ export default function AdmissionsPage() {
       prn: studentPrn,
       fullName: fullName.trim(),
       gender,
+      dob: dob.trim(),
+      guardianName: guardianName.trim(),
+      guardianPhone: guardianPhone.trim(),
       mobileNumber: mobileNumber.trim(),
       emailAddress: emailAddress.trim(),
       education: educationStream ? `${education.trim()} (${educationStream.trim()})` : education.trim(),
@@ -582,7 +614,7 @@ export default function AdmissionsPage() {
         caste_certificate: casteCertFile.dataUrl || undefined,
         caste_certificate_name: casteCertFile.name || undefined,
         program: `${admissionRecord.language} (${admissionRecord.level}) - ${admissionRecord.batch}`,
-        message: `Batch ID: ${formBatch?.id || ""} | Gender: ${gender} | Timing: ${admissionRecord.preferredTiming} | PRN: ${studentPrn} | Duration: ${admissionRecord.duration} | Caste: ${casteCategory} | Txn: ${paymentRef}`,
+        message: `Batch ID: ${formBatch?.id || ""} | Gender: ${gender} | DOB: ${dob} | Guardian: ${guardianName} (${guardianPhone}) | Timing: ${admissionRecord.preferredTiming} | PRN: ${studentPrn} | Duration: ${admissionRecord.duration} | Caste: ${casteCategory} | Txn: ${paymentRef}`,
         amount: admissionRecord.totalAmount,
         payment_id: paymentRef,
         batchId: formBatch?.id,
@@ -613,11 +645,13 @@ export default function AdmissionsPage() {
 
       setSubmittedReceipt(admissionRecord);
     } catch (err: any) {
-      if (err?.message && (err.message.includes("Rate limit") || err.message.includes("मर्यादा"))) {
+      if (err?.message && (err.message.includes("Rate limit") || err.message.includes("limit"))) {
         toast.error(err.message);
         return;
       }
       console.warn("Admission save notice:", err);
+      // Record rate limit submission
+      recordSubmission("course_admission");
       setSubmittedReceipt(admissionRecord);
       toast.success("Admission application recorded successfully!");
     } finally {
@@ -626,6 +660,8 @@ export default function AdmissionsPage() {
   };
 
   const resetAll = () => {
+    submissionLockedRef.current = false;
+    setIsSubmitting(false);
     setSubmittedReceipt(null);
     setIsPrnVerified(false);
     setVerifiedStudent(null);
@@ -633,6 +669,9 @@ export default function AdmissionsPage() {
     setPrnVerifyError("");
     setFullName("");
     setGender("");
+    setDob("");
+    setGuardianName("");
+    setGuardianPhone("");
     setMobileNumber("");
     setEmailAddress("");
     setEducation("");
@@ -685,7 +724,7 @@ export default function AdmissionsPage() {
                 <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3.5 py-0.5 text-xs font-bold text-emerald-800 border border-emerald-200">
                   <CheckCircle2 size={13} /> Admission Confirmed & Seat Reserved
                 </span>
-                <h2 className="mt-2 text-2xl sm:text-3xl font-serif font-bold text-[#24312d]">
+                <h2 className="mt-2 text-2xl sm:text-3xl font-sans font-extrabold text-[#24312d] tracking-tight">
                   Welcome to Parivattan Mission Foundation!
                 </h2>
                 <p className="text-xs sm:text-sm text-[#65706a] mt-1">
@@ -748,10 +787,20 @@ export default function AdmissionsPage() {
                           {submittedReceipt.gender || "Student"}
                         </span>
                       </p>
+                      {submittedReceipt.dob && (
+                        <p className="text-[11px] text-[#65706a] mt-0.5">
+                          DOB: <span className="font-medium text-[#24312d]">{submittedReceipt.dob}</span>
+                        </p>
+                      )}
                     </div>
                     <div>
                       <span className="text-[#65706a]">Contact Phone & Email</span>
                       <p className="font-medium text-[#24312d]">{submittedReceipt.mobileNumber} • {submittedReceipt.emailAddress}</p>
+                      {submittedReceipt.guardianName && (
+                        <p className="text-[11px] text-[#65706a] mt-0.5">
+                          Guardian: <span className="font-medium text-[#24312d]">{submittedReceipt.guardianName} ({submittedReceipt.guardianPhone || "N/A"})</span>
+                        </p>
+                      )}
                     </div>
                     <div>
                       <span className="text-[#65706a]">Educational Qualification</span>
@@ -916,12 +965,40 @@ export default function AdmissionsPage() {
                   )}
                 </div>
 
-                <h1 className="mt-3 text-2xl sm:text-3xl font-sans font-bold text-[#24312d] tracking-tight">
+                <h1 className="mt-3 text-2xl sm:text-3xl font-sans font-extrabold text-[#24312d] tracking-tight">
                   Language Course Admission Form
                 </h1>
                 <p className="text-xs sm:text-sm text-[#65706a] mt-1">
                   Complete your registration with verified student details, documents, and secure payment.
                 </p>
+
+                {/* 5-Step Visual Progress Bar */}
+                <div className="mt-4 pt-4 border-t border-[#f1f3ed]">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[11px]">
+                    <div className={`p-2 rounded-xl border flex items-center gap-1.5 font-semibold ${isPrnVerified ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-amber-50 border-amber-200 text-amber-900"}`}>
+                      <span className="w-5 h-5 rounded-full bg-white flex items-center justify-center text-[10px] font-bold shrink-0 shadow-2xs">
+                        {isPrnVerified ? "✓" : "1"}
+                      </span>
+                      <span className="truncate">1. PRN Check</span>
+                    </div>
+                    <div className="p-2 rounded-xl border border-slate-200 bg-[#fbfaf7] flex items-center gap-1.5 font-semibold text-[#24312d]">
+                      <span className="w-5 h-5 rounded-full bg-white flex items-center justify-center text-[10px] font-bold shrink-0 shadow-2xs">2</span>
+                      <span className="truncate">2. Course & Batch</span>
+                    </div>
+                    <div className="p-2 rounded-xl border border-slate-200 bg-[#fbfaf7] flex items-center gap-1.5 font-semibold text-[#24312d]">
+                      <span className="w-5 h-5 rounded-full bg-white flex items-center justify-center text-[10px] font-bold shrink-0 shadow-2xs">3</span>
+                      <span className="truncate">3. Personal Info</span>
+                    </div>
+                    <div className="p-2 rounded-xl border border-slate-200 bg-[#fbfaf7] flex items-center gap-1.5 font-semibold text-[#24312d]">
+                      <span className="w-5 h-5 rounded-full bg-white flex items-center justify-center text-[10px] font-bold shrink-0 shadow-2xs">4</span>
+                      <span className="truncate">4. Documents</span>
+                    </div>
+                    <div className="col-span-2 sm:col-span-1 p-2 rounded-xl border border-slate-200 bg-[#fbfaf7] flex items-center gap-1.5 font-semibold text-[#24312d]">
+                      <span className="w-5 h-5 rounded-full bg-white flex items-center justify-center text-[10px] font-bold shrink-0 shadow-2xs">5</span>
+                      <span className="truncate">5. Pay & Enroll</span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Batch Full Warning Banner (Blocks Registration if full) */}
@@ -1053,7 +1130,7 @@ export default function AdmissionsPage() {
                         </p>
                       </div>
                       <Link
-                        to="/student?tab=register"
+                        to="/student/portal"
                         className="inline-flex items-center gap-1.5 rounded-lg bg-[#24312d] hover:bg-[#b5623b] text-white px-4 py-2 text-xs font-bold transition shrink-0"
                       >
                         <span>Register on Student Portal (Get PRN)</span>
@@ -1183,6 +1260,33 @@ export default function AdmissionsPage() {
                         );
                       })}
                     </select>
+
+                    {/* Live Batch Capacity Indicator Bar */}
+                    <div className="mt-2 rounded-xl bg-white border border-[#e2e5dc] p-2.5 shadow-2xs">
+                      <div className="flex items-center justify-between text-[11px] mb-1.5">
+                        <span className="font-semibold text-[#24312d] flex items-center gap-1">
+                          <Users size={12} className="text-[#b5623b]" />
+                          <span>Batch Intake Status</span>
+                        </span>
+                        <span className={`font-bold ${batchSeats.isFull ? "text-red-600" : batchSeats.remainingSeats <= 5 ? "text-amber-600" : "text-emerald-700"}`}>
+                          {batchSeats.isFull ? "Batch Completely Full" : `${batchSeats.remainingSeats} of ${batchSeats.totalSeats} Seats Available`}
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all duration-300 rounded-full ${
+                            batchSeats.isFull
+                              ? "bg-red-500"
+                              : batchSeats.remainingSeats <= 5
+                              ? "bg-amber-500"
+                              : "bg-emerald-500"
+                          }`}
+                          style={{
+                            width: `${Math.min(100, Math.round(((batchSeats.totalSeats - batchSeats.remainingSeats) / batchSeats.totalSeats) * 100))}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   <div>
@@ -1209,10 +1313,10 @@ export default function AdmissionsPage() {
                   <span className="text-[11px] text-[#65706a]">All personal details are encrypted & confidential</span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-xs font-semibold uppercase tracking-wider text-[#24312d] mb-1">
-                      Full Legal Name (as per Aadhar / Marksheet) <span className="text-red-500">*</span>
+                      Full Legal Name (as per Aadhar) <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#65706a]" />
@@ -1227,12 +1331,27 @@ export default function AdmissionsPage() {
                     </div>
                   </div>
 
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-[#24312d] mb-1">
+                      Date of Birth (DOB)
+                    </label>
+                    <div className="relative">
+                      <Calendar size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#65706a]" />
+                      <input
+                        type="date"
+                        value={dob}
+                        onChange={(e) => setDob(e.target.value)}
+                        className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 pl-10 pr-3.5 text-sm focus:border-[#b5623b] focus:bg-white focus:outline-none transition shadow-2xs text-[#24312d]"
+                      />
+                    </div>
+                  </div>
+
                   {/* Gender Selector - Interactive modern pill options */}
                   <div>
                     <label className="block text-xs font-semibold uppercase tracking-wider text-[#24312d] mb-1">
                       Gender <span className="text-red-500">*</span>
                     </label>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-3 gap-1.5">
                       {[
                         { id: "Male", label: "Male", icon: "👨" },
                         { id: "Female", label: "Female", icon: "👩" },
@@ -1244,7 +1363,7 @@ export default function AdmissionsPage() {
                             key={item.id}
                             type="button"
                             onClick={() => setGender(item.id as "Male" | "Female" | "Other")}
-                            className={`flex items-center justify-center gap-1.5 rounded-xl py-2 px-3 text-xs font-semibold border transition ${
+                            className={`flex items-center justify-center gap-1 rounded-xl py-2 px-1 text-xs font-semibold border transition ${
                               isSelected
                                 ? "border-[#b5623b] bg-amber-50/80 text-[#b5623b] ring-2 ring-[#b5623b]/20 font-bold"
                                 : "border-[#d5d9cf] bg-[#fbfaf7] text-[#65706a] hover:border-[#b5623b] hover:bg-white"
@@ -1289,6 +1408,41 @@ export default function AdmissionsPage() {
                         value={emailAddress}
                         onChange={(e) => setEmailAddress(e.target.value)}
                         placeholder="student@example.com"
+                        className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 pl-10 pr-3.5 text-sm focus:border-[#b5623b] focus:bg-white focus:outline-none transition shadow-2xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Guardian / Parent Information */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-[#24312d] mb-1">
+                      Father / Mother / Guardian Name (Optional)
+                    </label>
+                    <div className="relative">
+                      <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#65706a]" />
+                      <input
+                        type="text"
+                        value={guardianName}
+                        onChange={(e) => setGuardianName(e.target.value)}
+                        placeholder="e.g. Ramesh More"
+                        className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 pl-10 pr-3.5 text-sm focus:border-[#b5623b] focus:bg-white focus:outline-none transition shadow-2xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-[#24312d] mb-1">
+                      Guardian / Emergency Contact Phone (Optional)
+                    </label>
+                    <div className="relative">
+                      <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#65706a]" />
+                      <input
+                        type="tel"
+                        value={guardianPhone}
+                        onChange={(e) => setGuardianPhone(e.target.value)}
+                        placeholder="10-digit emergency phone"
                         className="w-full rounded-xl border border-[#d5d9cf] bg-[#fbfaf7] py-2.5 pl-10 pr-3.5 text-sm focus:border-[#b5623b] focus:bg-white focus:outline-none transition shadow-2xs"
                       />
                     </div>
@@ -1915,7 +2069,7 @@ export default function AdmissionsPage() {
                   </div>
                   <div className="flex justify-between border-t border-[#e2e5dc] pt-2 font-bold text-sm">
                     <span className="text-[#24312d] uppercase text-xs">Total Amount to Pay</span>
-                    <span className="text-xl font-serif text-[#24312d]">
+                    <span className="text-xl font-sans font-extrabold text-[#24312d]">
                       ₹{totalAmount.toLocaleString("en-IN")}
                     </span>
                   </div>
@@ -2014,17 +2168,19 @@ export default function AdmissionsPage() {
               {/* Submit / Pay Button */}
               <button
                 type="submit"
-                disabled={isSubmitting || batchSeats.isFull}
+                disabled={isSubmitting || submissionLockedRef.current || batchSeats.isFull}
                 className={`w-full rounded-xl py-4 text-sm font-bold text-white shadow-md transition flex items-center justify-center gap-2 ${
-                  batchSeats.isFull
+                  isSubmitting || submissionLockedRef.current
+                    ? "bg-amber-800/80 cursor-not-allowed opacity-75 pointer-events-none"
+                    : batchSeats.isFull
                     ? "bg-gray-400 cursor-not-allowed opacity-75"
-                    : "bg-[#b5623b] hover:bg-[#954b2c] hover:shadow-lg"
+                    : "bg-[#b5623b] hover:bg-[#954b2c] hover:shadow-lg cursor-pointer"
                 }`}
               >
-                {isSubmitting ? (
+                {isSubmitting || submissionLockedRef.current ? (
                   <>
                     <LoaderCircle size={18} className="animate-spin" />
-                    <span>Processing Admission & Payment...</span>
+                    <span>Processing Admission... Please wait...</span>
                   </>
                 ) : batchSeats.isFull ? (
                   <span>Batch Full — Admissions Closed</span>
@@ -2042,10 +2198,28 @@ export default function AdmissionsPage() {
             </form>
           )}
 
+          {/* Minimalist Portal Trust Footer (Replacing bulky global website footer) */}
+          <footer className="mt-12 pt-6 pb-24 lg:pb-6 border-t border-[#e2e5dc] text-xs text-[#65706a]">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+              <div className="flex items-center gap-2">
+                <img src="/img/parivattanE.png" alt="Parivattan Mission Foundation" className="h-6 w-auto object-contain" />
+                <span className="font-semibold text-[#24312d]">Parivattan Mission Foundation</span>
+                <span className="hidden sm:inline text-[11px] text-[#65706a]">• ISO 9001:2015 Certified Non-Profit</span>
+              </div>
+              <div className="flex items-center gap-4 text-[11px] font-medium text-[#65706a]">
+                <Link to="/student/portal" className="hover:text-[#b5623b]">Student Portal</Link>
+                <Link to="/courses" className="hover:text-[#b5623b]">Courses</Link>
+                <Link to="/rules" className="hover:text-[#b5623b]">Rules & Regulations</Link>
+                <Link to="/contact" className="hover:text-[#b5623b]">Contact Support</Link>
+              </div>
+            </div>
+            <p className="text-center text-[10px] text-[#8e9892] mt-3">
+              Official Admissions Portal • 256-Bit SSL Encrypted & Verified by Parivattan Mission Foundation
+            </p>
+          </footer>
+
         </div>
       </main>
-
-      <Footer />
     </div>
   );
 }

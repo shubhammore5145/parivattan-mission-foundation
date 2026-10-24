@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, Menu, X, GraduationCap } from 'lucide-react';
+import { ChevronDown, Menu, X, GraduationCap, Home, BookOpen, UserCheck } from 'lucide-react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 
 const Header = () => {
@@ -59,8 +59,9 @@ const Header = () => {
   };
 
   return (
+    <>
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 w-full
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 w-full
          ${
         isScrolled
           ? "py-2 bg-white/95 backdrop-blur-lg shadow-[0_10px_30px_-20px_rgba(36,49,45,0.7)] border-b border-[#e1e3d9]"
@@ -154,14 +155,19 @@ const Header = () => {
           </Link>
         </nav>
 
-        {/* Mobile Menu Button */}
+        {/* Mobile Menu Button (Top Right) */}
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className={`lg:hidden rounded-xl p-2.5 transition-colors ${isScrolled ? 'text-[#24312d] hover:bg-[#eef0e8]' : 'text-white hover:bg-white/10'}`}
+          className={`lg:hidden rounded-xl px-2.5 py-1.5 transition-all flex items-center gap-1.5 font-bold text-xs ${
+            isScrolled
+              ? 'text-[#24312d] bg-stone-100 border border-stone-200 hover:bg-stone-200 shadow-2xs'
+              : 'text-white bg-black/40 backdrop-blur-md border border-white/25 hover:bg-black/60'
+          }`}
           aria-label="Toggle menu"
           aria-expanded={mobileMenuOpen}
         >
-          {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          <span>Menu</span>
         </button>
       </div>
 
@@ -340,6 +346,79 @@ const Header = () => {
         </div>
       </div>
     </header>
+
+    {/* Mobile Sticky Bottom Navigation Bar - Accessible anywhere on phone */}
+    <nav
+      aria-label="Mobile Bottom Navigation"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#e2e5dc] shadow-[0_-4px_25px_rgba(36,49,45,0.08)] px-2 py-1.5"
+    >
+      <div className="flex items-center justify-around max-w-md mx-auto">
+        {/* Home */}
+        <Link
+          to="/"
+          onClick={() => setMobileMenuOpen(false)}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition ${
+            location.pathname === "/" ? "text-[#b5623b] font-bold" : "text-[#65706a] hover:text-[#24312d]"
+          }`}
+        >
+          <Home size={19} className={location.pathname === "/" ? "stroke-[2.5]" : "stroke-[1.8]"} />
+          <span className="text-[10px] mt-0.5">Home</span>
+        </Link>
+
+        {/* Courses */}
+        <Link
+          to="/courses"
+          onClick={() => setMobileMenuOpen(false)}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition ${
+            location.pathname.startsWith("/courses") ? "text-[#b5623b] font-bold" : "text-[#65706a] hover:text-[#24312d]"
+          }`}
+        >
+          <BookOpen size={19} className={location.pathname.startsWith("/courses") ? "stroke-[2.5]" : "stroke-[1.8]"} />
+          <span className="text-[10px] mt-0.5">Courses</span>
+        </Link>
+
+        {/* Admissions - Center Highlight Badge */}
+        <Link
+          to="/admissions"
+          onClick={() => setMobileMenuOpen(false)}
+          className="flex flex-col items-center justify-center -mt-3.5 py-1 px-2 group"
+        >
+          <div className={`w-11 h-11 rounded-full flex items-center justify-center text-white shadow-md transition-transform group-active:scale-95 ${
+            location.pathname.startsWith("/admissions") ? "bg-[#b5623b] ring-4 ring-[#b5623b]/20" : "bg-[#24312d] hover:bg-[#b5623b]"
+          }`}>
+            <GraduationCap size={20} />
+          </div>
+          <span className={`text-[10px] mt-0.5 font-bold ${
+            location.pathname.startsWith("/admissions") ? "text-[#b5623b]" : "text-[#24312d]"
+          }`}>
+            Admission
+          </span>
+        </Link>
+
+        {/* Student Portal */}
+        <Link
+          to="/student/portal"
+          onClick={() => setMobileMenuOpen(false)}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition ${
+            location.pathname.startsWith("/student") || location.pathname === "/login" ? "text-[#b5623b] font-bold" : "text-[#65706a] hover:text-[#24312d]"
+          }`}
+        >
+          <UserCheck size={19} className={location.pathname.startsWith("/student") || location.pathname === "/login" ? "stroke-[2.5]" : "stroke-[1.8]"} />
+          <span className="text-[10px] mt-0.5">Portal</span>
+        </Link>
+
+        {/* Full Menu Drawer Toggle */}
+        <button
+          type="button"
+          onClick={() => setMobileMenuOpen(true)}
+          className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-[#65706a] hover:text-[#24312d] transition"
+        >
+          <Menu size={19} className="stroke-[1.8]" />
+          <span className="text-[10px] mt-0.5">Menu</span>
+        </button>
+      </div>
+    </nav>
+  </>
   );
 };
 
