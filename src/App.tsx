@@ -42,6 +42,8 @@ const App = () => (
           <Route path="/rules-and-regulations" element={<RulesPage />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+          <Route path="/login" element={<StudentPortalPage />} />
+          <Route path="/student/login" element={<StudentPortalPage />} />
           <Route path="/student" element={<StudentPortalPage />} />
           <Route path="/student/*" element={<StudentPortalPage />} />
           <Route path="/student-portal" element={<StudentPortalPage />} />

@@ -104,6 +104,40 @@
   font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
 }
 
+.student-portal-app,
+.student-portal-app h1,
+.student-portal-app h2,
+.student-portal-app h3,
+.student-portal-app h4,
+.student-portal-app h5,
+.student-portal-app h6,
+.student-portal-app p,
+.student-portal-app span,
+.student-portal-app button,
+.student-portal-app input,
+.student-portal-app aside,
+.student-portal-app main,
+.admin-dashboard-app,
+.admin-dashboard-app h1,
+.admin-dashboard-app h2,
+.admin-dashboard-app h3,
+.admin-dashboard-app h4,
+.admin-dashboard-app h5,
+.admin-dashboard-app h6,
+.admin-dashboard-app p,
+.admin-dashboard-app span,
+.admin-dashboard-app button,
+.admin-dashboard-app input,
+.admin-dashboard-app select,
+.admin-dashboard-app textarea,
+.admin-dashboard-app table,
+.admin-dashboard-app th,
+.admin-dashboard-app td,
+.admin-dashboard-app aside,
+.admin-dashboard-app main {
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
 @layer components {
   .btn-primary {
     @apply bg-[#b5623b] hover:bg-[#954b2c] text-white font-semibold py-3 px-8 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out text-center inline-block transform hover:-translate-y-0.5;
@@ -151,15 +185,78 @@
 .bg-blue-600, .bg-blue-500, .bg-cyan-500 { background-color: #b5623b !important; }
 .border-blue-100, .border-blue-200, .border-blue-400\/30 { border-color: #e1e3d9 !important; }
 
-/* Keep older component utilities aligned with the current brand palette. */
-[class*="text-blue-"], [class*="text-cyan-"], [class*="text-indigo-"], [class*="text-purple-"], [class*="text-pink-"], [class*="text-emerald-"] { color: #b5623b !important; }
-[class*="hover:text-blue-"]:hover, [class*="hover:text-cyan-"]:hover, [class*="hover:text-indigo-"]:hover, [class*="hover:text-purple-"]:hover { color: #954b2c !important; }
-[class~="bg-blue-50"], [class~="bg-cyan-50"], [class~="bg-indigo-50"], [class~="bg-purple-50"], [class~="bg-pink-50"], [class~="bg-emerald-50"] { background-color: #f6eee8 !important; }
-[class~="bg-blue-100"], [class~="bg-cyan-100"], [class~="bg-indigo-100"], [class~="bg-purple-100"], [class~="bg-pink-100"], [class~="bg-emerald-100"] { background-color: #f2dfd2 !important; }
-[class*="bg-blue-500"], [class*="bg-blue-600"], [class*="bg-cyan-500"], [class*="bg-indigo-500"], [class*="bg-purple-500"] { background-color: #b5623b !important; }
-[class*="border-blue-"], [class*="border-cyan-"], [class*="border-indigo-"], [class*="border-purple-"], [class*="border-pink-"] { border-color: #e1c7b7 !important; }
-[class*="from-blue-"], [class*="from-cyan-"], [class*="from-indigo-"], [class*="from-purple-"] { --tw-gradient-from: #b5623b var(--tw-gradient-from-position) !important; --tw-gradient-to: rgb(181 98 59 / 0) var(--tw-gradient-to-position) !important; }
-[class*="to-blue-"], [class*="to-cyan-"], [class*="to-indigo-"], [class*="to-purple-"] { --tw-gradient-to: #e5a37f var(--tw-gradient-to-position) !important; }
+/* Keep older component utilities aligned with the current brand palette (strictly for marketing website pages). */
+:where(body:not(.student-portal-app):not(.admin-dashboard-app)) :is([class*="text-blue-"], [class*="text-cyan-"], [class*="text-indigo-"], [class*="text-purple-"], [class*="text-pink-"], [class*="text-emerald-"]):not(.student-portal-app *):not(.admin-dashboard-app *) { color: #b5623b !important; }
+:where(body:not(.student-portal-app):not(.admin-dashboard-app)) :is([class*="hover:text-blue-"]:hover, [class*="hover:text-cyan-"]:hover, [class*="hover:text-indigo-"]:hover, [class*="hover:text-purple-"]:hover):not(.student-portal-app *):not(.admin-dashboard-app *) { color: #954b2c !important; }
+:where(body:not(.student-portal-app):not(.admin-dashboard-app)) :is([class~="bg-blue-50"], [class~="bg-cyan-50"], [class~="bg-indigo-50"], [class~="bg-purple-50"], [class~="bg-pink-50"], [class~="bg-emerald-50"]):not(.student-portal-app *):not(.admin-dashboard-app *) { background-color: #f6eee8 !important; }
+:where(body:not(.student-portal-app):not(.admin-dashboard-app)) :is([class~="bg-blue-100"], [class~="bg-cyan-100"], [class~="bg-indigo-100"], [class~="bg-purple-100"], [class~="bg-pink-100"], [class~="bg-emerald-100"]):not(.student-portal-app *):not(.admin-dashboard-app *) { background-color: #f2dfd2 !important; }
+:where(body:not(.student-portal-app):not(.admin-dashboard-app)) :is([class*="bg-blue-500"], [class*="bg-blue-600"], [class*="bg-cyan-500"], [class*="bg-indigo-500"], [class*="bg-purple-500"]):not(.student-portal-app *):not(.admin-dashboard-app *) { background-color: #b5623b !important; }
+:where(body:not(.student-portal-app):not(.admin-dashboard-app)) :is([class*="border-blue-"], [class*="border-cyan-"], [class*="border-indigo-"], [class*="border-purple-"], [class*="border-pink-"]):not(.student-portal-app *):not(.admin-dashboard-app *) { border-color: #e1c7b7 !important; }
+:where(body:not(.student-portal-app):not(.admin-dashboard-app)) :is([class*="from-blue-"], [class*="from-cyan-"], [class*="from-indigo-"], [class*="from-purple-"]):not(.student-portal-app *):not(.admin-dashboard-app *) { --tw-gradient-from: #b5623b var(--tw-gradient-from-position) !important; --tw-gradient-to: rgb(181 98 59 / 0) var(--tw-gradient-to-position) !important; }
+:where(body:not(.student-portal-app):not(.admin-dashboard-app)) :is([class*="to-blue-"], [class*="to-cyan-"], [class*="to-indigo-"], [class*="to-purple-"]):not(.student-portal-app *):not(.admin-dashboard-app *) { --tw-gradient-to: #e5a37f var(--tw-gradient-to-position) !important; }
+
+/* Student Portal Left Blue Sidebar Color Scoping */
+.student-portal-sidebar {
+  color: #ffffff !important;
+}
+.student-portal-sidebar button:not(.bg-white),
+.student-portal-sidebar a {
+  color: rgba(255, 255, 255, 0.88) !important;
+}
+.student-portal-sidebar button.bg-white {
+  color: #0b63e5 !important;
+}
+.student-portal-sidebar span.text-amber-300 {
+  color: #fcd34d !important;
+}
+.student-portal-sidebar span.text-amber-400 {
+  color: #fbbf24 !important;
+}
+.student-portal-sidebar .bg-amber-400 {
+  background-color: #fbbf24 !important;
+}
+.student-portal-sidebar .bg-rose-500 {
+  background-color: #f43f5e !important;
+}
+.student-portal-sidebar .text-emerald-300 {
+  color: #6ee7b7 !important;
+}
+
+/* High-Contrast Calendar Widget Styles */
+.student-calendar-widget {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+.student-calendar-widget .calendar-month-label {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+}
+.student-calendar-widget .calendar-nav-btn {
+  color: #334155 !important;
+  background-color: #f1f5f9 !important;
+}
+.student-calendar-widget .calendar-nav-btn:hover {
+  color: #0f172a !important;
+  background-color: #e2e8f0 !important;
+}
+.student-calendar-widget .calendar-weekday {
+  color: #475569 !important;
+  font-weight: 700 !important;
+}
+.student-calendar-widget .calendar-day-btn {
+  color: #1e293b !important;
+  font-weight: 700 !important;
+  background-color: transparent !important;
+}
+.student-calendar-widget .calendar-day-btn:hover {
+  background-color: #f1f5f9 !important;
+  color: #0b63e5 !important;
+}
+.student-calendar-widget .calendar-day-btn.is-active-day {
+  background-color: #0b63e5 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 6px -1px rgba(11, 99, 229, 0.35) !important;
+}
 
 .animate-on-scroll {
   opacity: 0;
@@ -310,11 +407,19 @@
   align-items: center;
   gap: 2rem;
   flex-shrink: 0;
-  animation: pmfMarqueeScroll 55s linear infinite;
+  animation: pmfMarqueeScroll 110s linear infinite;
   will-change: transform;
 }
 
-.pmf-marquee-container:hover .pmf-marquee-content {
+@media (max-width: 640px) {
+  .pmf-marquee-content {
+    animation: pmfMarqueeScroll 135s linear infinite;
+    gap: 1.5rem;
+  }
+}
+
+.pmf-marquee-container:hover .pmf-marquee-content,
+.pmf-marquee-container:active .pmf-marquee-content {
   animation-play-state: paused;
 }
 

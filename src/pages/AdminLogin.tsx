@@ -1,9 +1,8 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Lock, Eye, EyeOff, Shield } from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
+import { Eye, EyeOff, Shield, ArrowRight, Home } from "lucide-react";
 import { verifyAdminPassword, setAdminAuth } from "@/lib/supabase-admin";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import { StudentPortalIllustration } from "@/components/student/StudentPortalIllustration";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
@@ -18,109 +17,189 @@ const AdminLogin = () => {
     setLoading(true);
 
     try {
-      // Verify password
       if (!verifyAdminPassword(password)) {
-        setError("Invalid password. Please try again.");
+        setError("Invalid password. Please check credentials and try again.");
         setLoading(false);
         return;
       }
 
-      // Set authentication token
       setAdminAuth();
-
-      // Navigate to admin dashboard
       navigate("/parivattan-admin/dashboard");
     } catch (err) {
-      setError("An error occurred. Please try again.");
+      setError("An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-slate-50 flex flex-col">
-      <Header />
-
-      <div className="flex-1 flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md">
-          {/* Logo/Icon */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl mb-6 shadow-xl">
-              <Lock size={36} className="text-white" />
-            </div>
-            <h1 className="text-3xl font-serif font-bold text-slate-800">
-              Admin Login
-            </h1>
-            <p className="text-slate-600 mt-2">
-              Manage donations and view fundraising progress
-            </p>
+    <div className="admin-dashboard-app font-sans min-h-screen bg-[#f3f6fc] flex flex-col justify-between selection:bg-[#3b5bfd]/20">
+      {/* Top Header */}
+      <header className="px-6 sm:px-10 py-4 flex items-center justify-between border-b border-slate-200/80 bg-white/80 backdrop-blur-md">
+        <Link to="/" className="flex items-center gap-3 group">
+          <img
+            src="/img/parivattanE.png"
+            alt="Parivattan Mission Foundation"
+            className="h-9 sm:h-10 w-auto rounded-lg transition group-hover:scale-105"
+          />
+          <div className="hidden sm:block text-left">
+            <span className="block text-slate-800 font-bold text-sm sm:text-base leading-tight tracking-tight">
+              Parivattan Mission Foundation
+            </span>
+            <span className="block text-[#3b5bfd] text-xs font-semibold">
+              Admin & Staff Security Gateway
+            </span>
           </div>
+        </Link>
 
-          {/* Login Form */}
-          <div className="bg-white rounded-2xl shadow-xl p-8 md:p-10 border border-blue-100/50">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Password Field */}
-              <div>
-                <label htmlFor="password" className="block text-sm font-semibold text-slate-800 mb-2">
-                  Admin Password
-                </label>
-                <div className="relative">
+        <div className="flex items-center gap-3 text-xs sm:text-sm font-semibold text-slate-700">
+          <Link
+            to="/"
+            className="hover:text-[#3b5bfd] transition px-3 py-1.5 rounded-lg hover:bg-slate-100 flex items-center gap-1.5"
+          >
+            <Home size={14} />
+            <span className="hidden md:inline">Back to Website</span>
+          </Link>
+          <Link
+            to="/student/portal"
+            className="hover:text-[#3b5bfd] transition px-3 py-1.5 rounded-lg hover:bg-slate-100"
+          >
+            Student Portal
+          </Link>
+        </div>
+      </header>
+
+      {/* Main Centered Login Card */}
+      <main className="flex-1 flex items-center justify-center p-3 sm:p-6 lg:p-8 w-full">
+        <div className="w-full max-w-4xl mx-auto bg-white rounded-2xl sm:rounded-[32px] shadow-2xl border border-slate-100 flex flex-col lg:flex-row overflow-hidden transition-all duration-300">
+          {/* Left Panel: White Login Form */}
+          <div className="flex-1 p-6 sm:p-9 lg:p-12 flex flex-col justify-between">
+            <div className="my-auto py-1">
+              {/* Parivattan Mission Foundation Brand Logo & Identity */}
+              <div className="flex items-center gap-3 mb-6">
+                <img
+                  src="/img/parivattanE.png"
+                  alt="Parivattan Mission Foundation Logo"
+                  className="h-10 sm:h-12 w-auto object-contain rounded-xl p-1 bg-white border border-slate-200/90 shadow-2xs shrink-0"
+                />
+                <div className="min-w-0">
+                  <span className="block text-slate-900 font-extrabold text-sm sm:text-base leading-tight tracking-tight truncate">
+                    Parivattan Mission Foundation
+                  </span>
+                  <span className="block text-[#3b5bfd] text-[10px] sm:text-[11px] font-bold tracking-wider uppercase mt-0.5">
+                    Admin Security Control
+                  </span>
+                </div>
+              </div>
+
+              <div className="mb-6 sm:mb-8">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-[#3b5bfd] text-[11px] font-bold uppercase tracking-wider mb-2.5">
+                  <Shield size={12} />
+                  <span>Authorized Personnel Only</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 tracking-tight font-sans">
+                  Admin Login
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-500 mt-1 font-sans">
+                  Enter your administrative password to continue
+                </p>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
+                {/* Username placeholder for UI fidelity */}
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-slate-500">
+                    Administrator ID
+                  </label>
                   <input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter admin password"
-                    className="w-full px-4 py-3.5 border-2 border-blue-100 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                    disabled={loading}
+                    type="text"
+                    disabled
+                    value="admin@parivattan.org (System Director)"
+                    className="w-full pb-2 pt-1 border-b border-slate-200 text-base sm:text-sm text-slate-500 font-sans bg-transparent cursor-not-allowed"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-blue-600 transition-colors"
-                  >
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                  </button>
                 </div>
-              </div>
 
-              {/* Error Message */}
-              {error && (
-                <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
-                  <p className="text-red-700 font-medium">{error}</p>
+                {/* Password Input (Underline Style with Eye Icon) */}
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-slate-500">
+                    Password
+                  </label>
+                  <div className="relative flex items-center">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••••••"
+                      className="w-full pb-2 pt-1 pr-8 border-b border-slate-200 text-base sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#3b5bfd] transition font-sans bg-transparent"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-0.5 text-slate-400 hover:text-slate-700 transition cursor-pointer focus:outline-none"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
                 </div>
-              )}
 
-              {/* Login Button */}
-              <button
-                type="submit"
-                disabled={loading || !password}
-                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold py-4 rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg hover:shadow-xl"
-              >
-                {loading ? "Verifying..." : "Login to Dashboard"}
-              </button>
+                {error && (
+                  <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold">
+                    {error}
+                  </div>
+                )}
 
-              {/* Security Notice */}
-              <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
-                <Shield size={14} className="text-blue-500" />
-                <span>Secured admin access</span>
-              </div>
-            </form>
+                {/* Primary Button */}
+                <button
+                  type="submit"
+                  disabled={loading || !password}
+                  className="w-full py-3.5 rounded-xl bg-[#3b5bfd] hover:bg-[#2b4be8] text-white font-bold text-sm shadow-md shadow-[#3b5bfd]/25 hover:shadow-lg transition cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60"
+                >
+                  {loading ? "Verifying..." : "Login"}
+                </button>
+              </form>
+
+              {/* Bottom Switch to Student Portal */}
+              <p className="text-xs text-slate-600 text-center mt-7 sm:mt-8 font-sans">
+                Looking for the student portal?{" "}
+                <Link
+                  to="/student/portal"
+                  className="text-[#3b5bfd] font-bold hover:underline ml-1"
+                >
+                  Student Login →
+                </Link>
+              </p>
+            </div>
           </div>
 
-          {/* Back to Home */}
-          <div className="text-center mt-6">
-            <button
-              onClick={() => navigate("/")}
-              className="text-blue-600 hover:text-blue-700 font-medium transition-colors"
-            >
-              ← Back to Home
-            </button>
+          {/* Right Panel: Solid Vibrant Blue Card */}
+          <div className="w-full lg:w-[48%] bg-[#3b5bfd] p-6 sm:p-8 lg:p-10 flex flex-col justify-between items-center text-center text-white relative rounded-2xl sm:rounded-[28px] m-3 sm:m-4 overflow-hidden min-h-[300px] sm:min-h-[380px] lg:min-h-[460px]">
+            <div className="absolute top-0 right-0 w-44 h-44 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+
+            {/* Center Illustration */}
+            <div className="my-auto w-full flex items-center justify-center py-2 sm:py-4">
+              <StudentPortalIllustration className="w-full max-w-[220px] sm:max-w-[270px] lg:max-w-[320px] h-auto drop-shadow-sm select-none" />
+            </div>
+
+            {/* Bottom Title & Subtitle */}
+            <div className="mt-3 sm:mt-4 space-y-1 sm:space-y-1.5 z-10">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight font-sans">
+                <span className="font-extrabold">Welcome</span>{" "}
+                <span className="font-light text-white/95">to Admin Portal</span>
+              </h2>
+              <p className="text-white/80 text-xs sm:text-sm font-medium">
+                Login to access management console
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      </main>
 
-      <Footer />
+      {/* Footer */}
+      <footer className="py-4 px-6 text-center text-xs text-slate-500 border-t border-slate-200/60 bg-white/50">
+        <span>© 2026 Parivattan Mission Foundation. All rights reserved. Secure Administrative Gateway.</span>
+      </footer>
     </div>
   );
 };

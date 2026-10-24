@@ -8,8 +8,18 @@ export interface StudentUser {
   city?: string;
   state?: string;
   avatar?: string;
+  photo?: string;
+  photo_name?: string;
+  identity_proof?: string;
+  identity_proof_name?: string;
+  education_proof?: string;
+  education_proof_name?: string;
+  caste_certificate?: string;
+  caste_certificate_name?: string;
   registeredAt: string;
   firebaseUid?: string;
+  isEmailVerified?: boolean;
+  verificationCode?: string;
 }
 
 export type CourseCategory = 'all' | 'technology' | 'languages' | 'overseas' | 'vocational';

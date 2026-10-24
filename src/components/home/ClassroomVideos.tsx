@@ -20,7 +20,7 @@ export interface YouTubeShortItem {
   badge: string;
   category: "Spoken Practice" | "Live Classroom" | "Global Careers" | "Student Stories";
   title: string;
-  marathiTitle: string;
+  subtitle?: string;
   description: string;
   duration: string;
   views: string;
@@ -34,7 +34,7 @@ export const YOUTUBE_SHORTS: YouTubeShortItem[] = [
     badge: "Session 01",
     category: "Live Classroom",
     title: "Classroom Energy & Language Fundamentals",
-    marathiTitle: "प्रत्यक्ष वर्गखोलीतील ऊर्जा व मूलभूत भाषा शिक्षण",
+    subtitle: "Real Classroom Energy & Core Language Immersion",
     description: "Real glimpses from our classroom sessions showing students enthusiastically learning language phonetics, script basics, and spoken confidence.",
     duration: "0:45",
     views: "2.4K+ Views",
@@ -46,7 +46,7 @@ export const YOUTUBE_SHORTS: YouTubeShortItem[] = [
     badge: "Session 02",
     category: "Spoken Practice",
     title: "Foreign Language Speaking & Confidence Drills",
-    marathiTitle: "विदेशी भाषा संभाषण व विद्यार्थ्यांचा वाढता आत्मविश्वास",
+    subtitle: "Spoken Fluency Drills & Confidence Building",
     description: "Students building real-time spoken fluency through interactive dialogue, partner practice, vocabulary games, and everyday situation drills.",
     duration: "0:52",
     views: "3.1K+ Views",
@@ -58,7 +58,7 @@ export const YOUTUBE_SHORTS: YouTubeShortItem[] = [
     badge: "Session 03",
     category: "Live Classroom",
     title: "Interactive Workshop & Peer Practice Circles",
-    marathiTitle: "इंटरअॅक्टिव्ह कार्यशाळा व समूह अभ्यास पद्धती",
+    subtitle: "Collaborative Learning & Dynamic Workshops",
     description: "Dynamic classroom engagement where first-generation learners practice together in an empowering, supportive community circle without hesitation.",
     duration: "0:48",
     views: "1.9K+ Views",
@@ -70,7 +70,7 @@ export const YOUTUBE_SHORTS: YouTubeShortItem[] = [
     badge: "Session 04",
     category: "Global Careers",
     title: "Global Careers, JLPT & Overseas Guidance",
-    marathiTitle: "आंतरराष्ट्रीय करिअर संधी, JLPT व उच्च शिक्षण मार्गदर्शन",
+    subtitle: "Global Career Pathways & International Exams",
     description: "Comprehensive guidance on international scholarships, JLPT (Japanese) & Goethe (German) certifications, and verified career pathways abroad.",
     duration: "0:59",
     views: "4.2K+ Views",
@@ -82,7 +82,7 @@ export const YOUTUBE_SHORTS: YouTubeShortItem[] = [
     badge: "Session 05",
     category: "Student Stories",
     title: "Parivattan Movement & Transformative Journeys",
-    marathiTitle: "परिवर्तन चळवळ — विद्यार्थ्यांचे प्रेरणादायी अनुभव",
+    subtitle: "Grassroots Transformation & Inspiring Stories",
     description: "Inspiring journey of dedicated students from rural and semi-urban Maharashtra transforming their life prospects through affordable world-class education.",
     duration: "0:50",
     views: "3.8K+ Views",
@@ -168,7 +168,7 @@ export default function ClassroomVideos({ idPrefix = "home", className = "" }: C
             Watch Our Students In Action
           </h2>
           <p className="mt-2 text-sm sm:text-base font-medium text-amber-200/90">
-            परिवर्तन मिशन फाउंडेशन — प्रत्यक्ष वर्गखोलीतील क्षण व विद्यार्थ्यांचे अनुभव
+            Parivattan Mission Foundation — Live Classroom Moments & Student Journeys
           </p>
 
           <p className="mt-4 text-sm sm:text-base text-stone-300 leading-relaxed font-light max-w-2xl">
