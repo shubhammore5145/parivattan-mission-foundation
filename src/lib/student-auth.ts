@@ -8,6 +8,8 @@ import {
   signOut,
   updateProfile,
   sendPasswordResetEmail,
+  sendEmailVerification,
+  applyActionCode,
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
@@ -55,6 +57,14 @@ export const saveStudentToCloud = async (student: StudentUser): Promise<void> =>
       college_name: "Parivattan Student Portal",
       address: `${student.city || "Pune"}, ${student.state || "Maharashtra"}`,
       program: "STUDENT_REGISTRATION",
+      photo: student.photo || student.avatar || undefined,
+      photo_name: student.photo_name || undefined,
+      identity_proof: student.identity_proof || undefined,
+      identity_proof_name: student.identity_proof_name || undefined,
+      education_proof: student.education_proof || undefined,
+      education_proof_name: student.education_proof_name || undefined,
+      caste_certificate: student.caste_certificate || undefined,
+      caste_certificate_name: student.caste_certificate_name || undefined,
       message: JSON.stringify({
         prn: student.prn,
         city: student.city || "Pune",
@@ -63,6 +73,15 @@ export const saveStudentToCloud = async (student: StudentUser): Promise<void> =>
         password: student.password,
         firebaseUid: student.firebaseUid,
         registeredAt: student.registeredAt,
+        avatar: student.avatar || student.photo,
+        photo: student.photo,
+        photo_name: student.photo_name,
+        identity_proof: student.identity_proof,
+        identity_proof_name: student.identity_proof_name,
+        education_proof: student.education_proof,
+        education_proof_name: student.education_proof_name,
+        caste_certificate: student.caste_certificate,
+        caste_certificate_name: student.caste_certificate_name,
       }),
       status: "completed" as const,
     };
@@ -109,6 +128,15 @@ export const fetchRegisteredStudentsFromCloud = async (): Promise<StudentUser[]>
       let registeredAt = row.created_at || new Date().toISOString();
       let password: string | undefined = undefined;
       let firebaseUid: string | undefined = undefined;
+      let photo = row.photo || undefined;
+      let photo_name = row.photo_name || undefined;
+      let avatar = row.photo || undefined;
+      let identity_proof = row.identity_proof || undefined;
+      let identity_proof_name = row.identity_proof_name || undefined;
+      let education_proof = row.education_proof || undefined;
+      let education_proof_name = row.education_proof_name || undefined;
+      let caste_certificate = row.caste_certificate || undefined;
+      let caste_certificate_name = row.caste_certificate_name || undefined;
 
       // Try extracting metadata from JSON message
       if (row.message && typeof row.message === "string" && row.message.trim().startsWith("{")) {
@@ -120,6 +148,15 @@ export const fetchRegisteredStudentsFromCloud = async (): Promise<StudentUser[]>
           if (meta.password) password = meta.password;
           if (meta.firebaseUid) firebaseUid = meta.firebaseUid;
           if (meta.registeredAt) registeredAt = meta.registeredAt;
+          if (meta.avatar) avatar = meta.avatar;
+          if (meta.photo) photo = meta.photo;
+          if (meta.photo_name) photo_name = meta.photo_name;
+          if (meta.identity_proof) identity_proof = meta.identity_proof;
+          if (meta.identity_proof_name) identity_proof_name = meta.identity_proof_name;
+          if (meta.education_proof) education_proof = meta.education_proof;
+          if (meta.education_proof_name) education_proof_name = meta.education_proof_name;
+          if (meta.caste_certificate) caste_certificate = meta.caste_certificate;
+          if (meta.caste_certificate_name) caste_certificate_name = meta.caste_certificate_name;
         } catch {}
       }
 
@@ -151,6 +188,15 @@ export const fetchRegisteredStudentsFromCloud = async (): Promise<StudentUser[]>
         password: password || existing?.password,
         firebaseUid: firebaseUid || existing?.firebaseUid,
         registeredAt: registeredAt || existing?.registeredAt || new Date().toISOString(),
+        avatar: avatar || existing?.avatar || photo || existing?.photo,
+        photo: photo || existing?.photo || avatar || existing?.avatar,
+        photo_name: photo_name || existing?.photo_name,
+        identity_proof: identity_proof || existing?.identity_proof,
+        identity_proof_name: identity_proof_name || existing?.identity_proof_name,
+        education_proof: education_proof || existing?.education_proof,
+        education_proof_name: education_proof_name || existing?.education_proof_name,
+        caste_certificate: caste_certificate || existing?.caste_certificate,
+        caste_certificate_name: caste_certificate_name || existing?.caste_certificate_name,
       };
 
       if (emailKey) studentsMap.set(emailKey, studentUser);
@@ -242,6 +288,41 @@ export const deleteStudentFromCloud = async (id: string): Promise<void> => {
   }
 };
 
+/**
+ * Updates a registered student profile and documents across LocalStorage, Supabase, and MongoDB Atlas.
+ */
+export const updateRegisteredStudent = async (
+  studentData: StudentUser
+): Promise<StudentUser> => {
+  // 1. Update in local storage
+  const all = getAllRegisteredStudents();
+  const idx = all.findIndex(
+    (s) =>
+      (studentData.id && s.id === studentData.id) ||
+      (studentData.prn && s.prn.toLowerCase() === studentData.prn.toLowerCase())
+  );
+  if (idx !== -1) {
+    all[idx] = { ...all[idx], ...studentData };
+  } else {
+    all.unshift(studentData);
+  }
+  localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(all));
+
+  // 2. If this is current student, update current student session
+  const curr = getCurrentStudent();
+  if (
+    curr &&
+    ((studentData.id && curr.id === studentData.id) ||
+      (studentData.prn && curr.prn.toLowerCase() === studentData.prn.toLowerCase()))
+  ) {
+    setCurrentStudent({ ...curr, ...studentData });
+  }
+
+  // 3. Save to cloud (Supabase + MongoDB)
+  await saveStudentToCloud(studentData);
+  return studentData;
+};
+
 export const getAllRegisteredStudents = (): StudentUser[] => {
   try {
     const data = localStorage.getItem(ALL_STUDENTS_KEY);
@@ -289,14 +370,38 @@ export const logoutStudent = async (): Promise<void> => {
   }
 };
 
-export const registerStudent = async (data: {
+export interface PendingRegistration {
   name: string;
   email: string;
   phone: string;
   password: string;
   city?: string;
   state?: string;
-}): Promise<StudentUser> => {
+  verificationCode: string;
+  createdAt: number;
+}
+
+export const getPendingRegistration = (email: string): PendingRegistration | null => {
+  try {
+    const raw = localStorage.getItem(`parivattan_pending_reg_${email.trim().toLowerCase()}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Step 1: Initiate student registration with mandatory email verification code.
+ * Dispatches Firebase verification email and stores pending registration until verified.
+ */
+export const initiateStudentRegistration = async (data: {
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+  city?: string;
+  state?: string;
+}): Promise<{ email: string; verificationCode: string }> => {
   const cleanEmail = data.email.trim().toLowerCase();
   const cleanPhone = data.phone.trim();
   const cleanName = data.name.trim();
@@ -305,54 +410,285 @@ export const registerStudent = async (data: {
     throw new Error("Password must be at least 6 characters long.");
   }
 
-  // 1. Create student in Firebase Authentication
-  let firebaseUid = "";
+  // Check if student with this email is already registered and verified
+  const allStudents = getAllRegisteredStudents();
+  const existing = allStudents.find((s) => s.email.toLowerCase() === cleanEmail);
+  if (existing && existing.isEmailVerified !== false) {
+    throw new Error("An account with this email address already exists. Please log in using your password.");
+  }
+
+  // Generate 6-digit backup code (kept in pending session only, NEVER exposed on screen)
+  const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+  // Try creating in Firebase Auth and dispatching official Firebase email verification link
   try {
+    const actionCodeSettings = {
+      url: `${window.location.origin}/student?emailVerified=true&email=${encodeURIComponent(cleanEmail)}`,
+      handleCodeInApp: false,
+    };
     const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, data.password.trim());
-    firebaseUid = userCredential.user.uid;
     await updateProfile(userCredential.user, { displayName: cleanName });
-  } catch (err: any) {
-    if (err?.code === "auth/email-already-in-use") {
-      throw new Error("An account with this email address already exists. Please log in using your password.");
-    } else if (err?.code === "auth/weak-password") {
+    await sendEmailVerification(userCredential.user, actionCodeSettings);
+  } catch (fbErr: any) {
+    if (fbErr?.code === "auth/email-already-in-use") {
+      // User may have started registration previously; sign in and resend verification link
+      try {
+        const actionCodeSettings = {
+          url: `${window.location.origin}/student?emailVerified=true&email=${encodeURIComponent(cleanEmail)}`,
+          handleCodeInApp: false,
+        };
+        const cred = await signInWithEmailAndPassword(auth, cleanEmail, data.password.trim());
+        await sendEmailVerification(cred.user, actionCodeSettings);
+      } catch {}
+    } else if (fbErr?.code === "auth/weak-password") {
       throw new Error("Password must be at least 6 characters long.");
-    } else if (err?.code === "auth/invalid-email") {
+    } else if (fbErr?.code === "auth/invalid-email") {
       throw new Error("Please enter a valid email address.");
-    } else {
-      console.warn("Firebase Auth registration notice:", err?.code, err?.message);
     }
   }
 
-  // 2. Generate student PRN and prepare profile
-  const newPrn = generateStudentPRN();
-  const uuidId = generateUUID();
-  const newStudent: StudentUser = {
-    id: uuidId,
-    firebaseUid: firebaseUid || undefined,
-    prn: newPrn,
+  const pending: PendingRegistration = {
     name: cleanName,
     email: cleanEmail,
     phone: cleanPhone,
     password: data.password.trim(),
     city: data.city || "Pune",
     state: data.state || "Maharashtra",
-    registeredAt: new Date().toISOString(),
+    verificationCode,
+    createdAt: Date.now(),
   };
 
-  // 3. Update local cache immediately
-  const allStudents = getAllRegisteredStudents();
-  try {
-    const updated = [newStudent, ...allStudents.filter(s => s.email.toLowerCase() !== cleanEmail)];
-    localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(updated));
-  } catch (e) {
-    console.warn("Error persisting student list:", e);
+  localStorage.setItem(`parivattan_pending_reg_${cleanEmail}`, JSON.stringify(pending));
+  return { email: cleanEmail, verificationCode };
+};
+
+/**
+ * Automatically checks if the user has clicked the verification link in their email.
+ * Called automatically by polling or when the user clicks 'I clicked the email link'.
+ */
+export const checkFirebaseEmailVerification = async (
+  email: string
+): Promise<StudentUser | null> => {
+  const cleanEmail = email.trim().toLowerCase();
+  const pending = getPendingRegistration(cleanEmail);
+
+  let isVerified = false;
+
+  // 1. Check active Firebase user instance
+  if (auth.currentUser && auth.currentUser.email?.toLowerCase() === cleanEmail) {
+    try {
+      await auth.currentUser.reload();
+      if (auth.currentUser.emailVerified) {
+        isVerified = true;
+      }
+    } catch (e) {
+      console.warn("Firebase currentUser reload notice:", e);
+    }
   }
 
-  // 4. Save to Supabase Cloud so Admin and other devices see it immediately!
-  await saveStudentToCloud(newStudent);
+  // 2. If not active on this client, sign in in the background to inspect emailVerified state
+  if (!isVerified && pending?.password) {
+    try {
+      const cred = await signInWithEmailAndPassword(auth, cleanEmail, pending.password);
+      if (cred.user.emailVerified) {
+        isVerified = true;
+      }
+    } catch {}
+  }
 
-  setCurrentStudent(newStudent);
-  return newStudent;
+  if (isVerified) {
+    return await completeVerifiedStudentRegistration(cleanEmail);
+  }
+
+  return null;
+};
+
+/**
+ * Handles Firebase action code from email verification link (e.g. ?oobCode=...)
+ */
+export const handleFirebaseEmailVerificationCode = async (
+  oobCode: string,
+  emailHint?: string
+): Promise<StudentUser> => {
+  await applyActionCode(auth, oobCode);
+  const targetEmail = (emailHint || auth.currentUser?.email || "").trim().toLowerCase();
+  if (!targetEmail) {
+    throw new Error("Could not determine email for verification. Please log in.");
+  }
+  return await completeVerifiedStudentRegistration(targetEmail);
+};
+
+/**
+ * Completes verified registration, issues permanent PRN, and activates student session.
+ */
+export const completeVerifiedStudentRegistration = async (
+  email: string
+): Promise<StudentUser> => {
+  const cleanEmail = email.trim().toLowerCase();
+  const pending = getPendingRegistration(cleanEmail);
+
+  if (pending) {
+    const newPrn = generateStudentPRN();
+    const uuidId = generateUUID();
+    const newStudent: StudentUser = {
+      id: uuidId,
+      firebaseUid: auth.currentUser?.uid || undefined,
+      prn: newPrn,
+      name: pending.name,
+      email: pending.email,
+      phone: pending.phone,
+      password: pending.password,
+      city: pending.city || "Pune",
+      state: pending.state || "Maharashtra",
+      registeredAt: new Date().toISOString(),
+      isEmailVerified: true,
+    };
+
+    const allStudents = getAllRegisteredStudents();
+    const updated = [newStudent, ...allStudents.filter((s) => s.email.toLowerCase() !== cleanEmail)];
+    localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(updated));
+
+    await saveStudentToCloud(newStudent);
+    setCurrentStudent(newStudent);
+    localStorage.removeItem(`parivattan_pending_reg_${cleanEmail}`);
+    return newStudent;
+  }
+
+  const allStudents = getAllRegisteredStudents();
+  const existingIdx = allStudents.findIndex((s) => s.email.toLowerCase() === cleanEmail);
+  if (existingIdx !== -1) {
+    allStudents[existingIdx].isEmailVerified = true;
+    localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(allStudents));
+    setCurrentStudent(allStudents[existingIdx]);
+    saveStudentToCloud(allStudents[existingIdx]).catch((e) =>
+      console.warn("Cloud student update notice:", e)
+    );
+    return allStudents[existingIdx];
+  }
+
+  if (auth.currentUser && auth.currentUser.email?.toLowerCase() === cleanEmail) {
+    const fbUser = auth.currentUser;
+    const newStudent: StudentUser = {
+      id: generateUUID(),
+      firebaseUid: fbUser.uid,
+      prn: generateStudentPRN(),
+      name: fbUser.displayName || "Student",
+      email: cleanEmail,
+      phone: "",
+      city: "Pune",
+      state: "Maharashtra",
+      avatar: fbUser.photoURL || undefined,
+      registeredAt: new Date().toISOString(),
+      isEmailVerified: true,
+    };
+    const updated = [newStudent, ...allStudents.filter((s) => s.email.toLowerCase() !== cleanEmail)];
+    localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(updated));
+    setCurrentStudent(newStudent);
+    saveStudentToCloud(newStudent).catch((e) => console.warn("Cloud student update notice:", e));
+    return newStudent;
+  }
+
+  throw new Error("No registration data found for this email. Please register again.");
+};
+
+/**
+ * Step 2: Verify the email link or code to finalize registration and issue PRN.
+ */
+export const verifyEmailAndCompleteRegistration = async (
+  email: string,
+  enteredCode?: string
+): Promise<StudentUser> => {
+  const cleanEmail = email.trim().toLowerCase();
+  const pending = getPendingRegistration(cleanEmail);
+
+  if (!pending) {
+    throw new Error("Registration session expired or not found. Please fill out the registration form again.");
+  }
+
+  // 1. Check Firebase email verification link state
+  let isFirebaseVerified = false;
+  if (auth.currentUser && auth.currentUser.email?.toLowerCase() === cleanEmail) {
+    try {
+      await auth.currentUser.reload();
+      if (auth.currentUser.emailVerified) {
+        isFirebaseVerified = true;
+      }
+    } catch {}
+  }
+
+  if (!isFirebaseVerified && pending.password) {
+    try {
+      const cred = await signInWithEmailAndPassword(auth, cleanEmail, pending.password);
+      if (cred.user.emailVerified) {
+        isFirebaseVerified = true;
+      }
+    } catch {}
+  }
+
+  // 2. Check manual fallback code if provided
+  const cleanEnteredCode = enteredCode ? enteredCode.trim() : "";
+  const isCodeValid = Boolean(cleanEnteredCode && cleanEnteredCode === pending.verificationCode);
+
+  if (!isCodeValid && !isFirebaseVerified) {
+    throw new Error(
+      "Verification link not clicked yet. Please check your email inbox and click the verification link sent by Firebase!"
+    );
+  }
+
+  return await completeVerifiedStudentRegistration(cleanEmail);
+};
+
+/**
+ * Resend the Firebase verification email with action link.
+ */
+export const resendStudentVerificationCode = async (email: string): Promise<string> => {
+  const cleanEmail = email.trim().toLowerCase();
+  const pending = getPendingRegistration(cleanEmail);
+  const existing = getAllRegisteredStudents().find(s => s.email.toLowerCase() === cleanEmail);
+
+  const actionCodeSettings = {
+    url: `${window.location.origin}/student?emailVerified=true&email=${encodeURIComponent(cleanEmail)}`,
+    handleCodeInApp: false,
+  };
+
+  let sent = false;
+
+  if (auth.currentUser && auth.currentUser.email?.toLowerCase() === cleanEmail) {
+    try {
+      await sendEmailVerification(auth.currentUser, actionCodeSettings);
+      sent = true;
+    } catch (e: any) {
+      console.warn("sendEmailVerification currentUser notice:", e);
+    }
+  }
+
+  const pwd = pending?.password || existing?.password;
+  if (!sent && pwd) {
+    try {
+      const cred = await signInWithEmailAndPassword(auth, cleanEmail, pwd);
+      await sendEmailVerification(cred.user, actionCodeSettings);
+      sent = true;
+    } catch (e: any) {
+      console.warn("sendEmailVerification cred notice:", e);
+    }
+  }
+
+  return pending?.verificationCode || "VERIFY";
+};
+
+/**
+ * Direct registration fallback with auto-verification (for administrative/social login use)
+ */
+export const registerStudent = async (data: {
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+  city?: string;
+  state?: string;
+}): Promise<StudentUser> => {
+  const init = await initiateStudentRegistration(data);
+  return await verifyEmailAndCompleteRegistration(init.email, init.verificationCode);
 };
 
 export const loginStudent = async (
@@ -396,6 +732,10 @@ export const loginStudent = async (
 
   // 1. If student exists, verify password
   if (existingStudent) {
+    if (existingStudent.isEmailVerified === false) {
+      throw new Error(`EMAIL_NOT_VERIFIED:${existingStudent.email}`);
+    }
+
     const expectedPassword = (existingStudent.password && existingStudent.password.trim()) || "student123";
     if (expectedPassword !== password.trim()) {
       throw new Error("Invalid password. Please check your password and try again.");
@@ -419,6 +759,10 @@ export const loginStudent = async (
   try {
     const userCredential = await signInWithEmailAndPassword(auth, targetEmail, password.trim());
     const fbUser = userCredential.user;
+
+    if (!fbUser.emailVerified) {
+      throw new Error(`EMAIL_NOT_VERIFIED:${fbUser.email || targetEmail}`);
+    }
 
     const student: StudentUser = {
       id: generateUUID(),
@@ -603,9 +947,324 @@ export const getAllStudentAdmissions = (): StudentAdmissionRecord[] => {
   }
 };
 
-export const getStudentApplications = (studentId: string): StudentAdmissionRecord[] => {
-  const all = getAllStudentAdmissions();
-  return all.filter(a => a.studentId === studentId);
+/**
+ * Retrieves all course admissions and registrations for a student.
+ * Aggregates records from student admissions store, main admissions store,
+ * and standalone course registrations store matching by ID, PRN, email, or mobile.
+ */
+export const getStudentApplications = (
+  studentOrId: string | StudentUser
+): StudentAdmissionRecord[] => {
+  let student: StudentUser | undefined;
+  if (typeof studentOrId === "object" && studentOrId !== null) {
+    student = studentOrId;
+  } else {
+    student = getAllRegisteredStudents().find(
+      (s) =>
+        s.id === studentOrId ||
+        s.prn === studentOrId ||
+        s.email.toLowerCase() === studentOrId.toLowerCase()
+    );
+  }
+
+  const allAdmissions = getAllStudentAdmissions();
+  const cleanPhone = student?.phone ? student.phone.replace(/\D/g, "") : "";
+  const cleanEmail = student?.email
+    ? student.email.toLowerCase()
+    : typeof studentOrId === "string"
+    ? studentOrId.toLowerCase()
+    : "";
+  const targetId = student?.id || (typeof studentOrId === "string" ? studentOrId : "");
+  const targetPrn = student?.prn || "";
+
+  // 1. Filter existing student admissions
+  const matched = allAdmissions.filter((a) => {
+    if (targetId && a.studentId === targetId) return true;
+    if (targetPrn && a.prn === targetPrn) return true;
+    if (cleanEmail && a.studentEmail && a.studentEmail.toLowerCase() === cleanEmail) return true;
+    if (cleanPhone && a.studentPhone && a.studentPhone.replace(/\D/g, "") === cleanPhone) return true;
+    return false;
+  });
+
+  // 2. Also check parivattan_course_registrations to guarantee any standalone course registrations are included!
+  try {
+    const rawCourseRegs = localStorage.getItem("parivattan_course_registrations");
+    if (rawCourseRegs) {
+      const courseRegs = JSON.parse(rawCourseRegs);
+      for (const reg of courseRegs) {
+        const regEmail = (reg.emailAddress || reg.email || "").toLowerCase();
+        const regPhone = (reg.mobileNumber || reg.phone || "").replace(/\D/g, "");
+        const isMatch =
+          (cleanEmail && regEmail === cleanEmail) ||
+          (cleanPhone && regPhone === cleanPhone);
+
+        if (isMatch) {
+          const alreadyExists = matched.some(
+            (m) =>
+              m.paymentId === reg.id ||
+              m.id === reg.id ||
+              (m.courseTitle.includes(reg.language) && m.batchPreference.includes(reg.batch))
+          );
+          if (!alreadyExists) {
+            matched.push({
+              id: reg.id || `reg_${Date.now()}`,
+              applicationNo: `PMF/REG/${reg.id || Date.now()}`,
+              prn: targetPrn || student?.prn || "PMF2026-REG",
+              studentId: targetId,
+              studentName: reg.fullName || student?.name || "Student",
+              studentEmail: reg.emailAddress || student?.email || "",
+              studentPhone: reg.mobileNumber || student?.phone || "",
+              courseId: `course_${(reg.language || "").toLowerCase()}_${(reg.level || "").toLowerCase()}`,
+              courseCode: `PFLS-${(reg.language || "FL").slice(0, 2).toUpperCase()}-${reg.level || "A1"}`,
+              courseTitle: `${reg.language || "Language"} (${reg.level || "Foundation"})`,
+              school: "Parivattan Foreign Language School",
+              batchPreference: `${reg.batch || "Regular"} (${reg.preferredTiming || "Morning"})`,
+              learningMode: "Hybrid Classroom / Live Online",
+              dob: "2002-01-01",
+              gender: "Not Specified",
+              category: "General",
+              bloodGroup: "O+",
+              fatherName: "",
+              motherName: "",
+              address: reg.address || "",
+              city: "Pune",
+              district: "Pune",
+              pincode: "411001",
+              qualification: reg.education || "Graduate",
+              collegeName: reg.collegeName || "Parivattan Mission Institute",
+              passingYear: "2024",
+              percentage: "A Grade",
+              amount: reg.totalAmount || reg.courseFee || 0,
+              paymentId: reg.id,
+              paymentMethod: "razorpay",
+              paymentDate: reg.registeredAt || new Date().toISOString(),
+              status: "completed",
+              createdAt: reg.registeredAt || new Date().toISOString(),
+            });
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Could not parse course registrations:", err);
+  }
+
+  // 3. Check parivattan_admissions_records (from AdmissionsPage.tsx)
+  try {
+    const rawAdmRecords = localStorage.getItem("parivattan_admissions_records");
+    if (rawAdmRecords) {
+      const records = JSON.parse(rawAdmRecords);
+      for (const rec of records) {
+        const recEmail = (rec.emailAddress || rec.email || "").toLowerCase();
+        const recPhone = (rec.mobileNumber || rec.phone || "").replace(/\D/g, "");
+        const recPrn = rec.prn || "";
+        const isMatch =
+          (targetPrn && recPrn === targetPrn) ||
+          (cleanEmail && recEmail === cleanEmail) ||
+          (cleanPhone && recPhone === cleanPhone);
+
+        if (isMatch) {
+          const alreadyExists = matched.some(
+            (m) =>
+              m.id === rec.id ||
+              (rec.paymentId && m.paymentId === rec.paymentId) ||
+              (m.courseTitle.toLowerCase().includes((rec.language || "").toLowerCase()) &&
+                m.batchPreference.toLowerCase().includes((rec.batch || "").toLowerCase()))
+          );
+          if (!alreadyExists) {
+            matched.push({
+              id: rec.id || `adm_rec_${Date.now()}`,
+              applicationNo: rec.id || `PMF/ADM/${Date.now()}`,
+              prn: targetPrn || rec.prn || student?.prn || "PMF2026-ADM",
+              studentId: targetId,
+              studentName: rec.fullName || student?.name || "Student",
+              studentEmail: rec.emailAddress || student?.email || "",
+              studentPhone: rec.mobileNumber || student?.phone || "",
+              courseId: `course_${(rec.language || "course").toLowerCase()}`,
+              courseCode: `PFLS-${(rec.language || "FL").slice(0, 2).toUpperCase()}-${rec.level || "A1"}`,
+              courseTitle: `${rec.language || "Language"} (${rec.level || "Level"})`,
+              school: "Parivattan Foreign Language School",
+              batchPreference: `${rec.batch || "Batch"} (${rec.preferredTiming || "Flexible"})`,
+              learningMode: "Hybrid Classroom / Live Online",
+              dob: "2002-01-01",
+              gender: "Not Specified",
+              category: rec.casteCategory || "General",
+              bloodGroup: "O+",
+              fatherName: "",
+              motherName: "",
+              address: rec.address || "",
+              city: rec.city || "Pune",
+              district: "Pune",
+              pincode: "411001",
+              qualification: rec.education || "Graduate",
+              collegeName: rec.collegeName || "Parivattan Mission Institute",
+              passingYear: "2024",
+              percentage: "A Grade",
+              photoUrl: rec.photoDataUrl,
+              amount: rec.totalAmount || 0,
+              paymentId: rec.paymentId || rec.id,
+              paymentMethod: "razorpay",
+              paymentDate: rec.registeredAt || new Date().toISOString(),
+              status: "completed",
+              createdAt: rec.registeredAt || new Date().toISOString(),
+            });
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Could not parse admissions records:", err);
+  }
+
+  // 4. Check parivattan_admissions (supabase-admin local cache)
+  try {
+    const rawLocalAdms = localStorage.getItem("parivattan_admissions");
+    if (rawLocalAdms) {
+      const localAdms = JSON.parse(rawLocalAdms);
+      for (const adm of localAdms) {
+        if (adm.program === "STUDENT_REGISTRATION") continue;
+        const admEmail = (adm.email || "").toLowerCase();
+        const admPhone = (adm.phone || "").replace(/\D/g, "");
+        const isMatch =
+          (cleanEmail && admEmail === cleanEmail) ||
+          (cleanPhone && admPhone === cleanPhone);
+
+        if (isMatch) {
+          const alreadyExists = matched.some(
+            (m) =>
+              m.id === adm.id ||
+              (adm.payment_id && m.paymentId === adm.payment_id) ||
+              m.courseTitle === adm.program
+          );
+          if (!alreadyExists) {
+            matched.push({
+              id: adm.id || `adm_loc_${Date.now()}`,
+              applicationNo: `PMF/ADM/${Date.now()}`,
+              prn: targetPrn || student?.prn || "PMF2026-ADM",
+              studentId: targetId,
+              studentName: adm.name || adm.student_name || student?.name || "Student",
+              studentEmail: adm.email || student?.email || "",
+              studentPhone: adm.phone || student?.phone || "",
+              courseId: adm.course_id || "course_academic",
+              courseCode: adm.program?.match(/PFLS-[A-Z0-9-]+/)
+                ? adm.program.match(/PFLS-[A-Z0-9-]+/)![0]
+                : "PFLS-GEN",
+              courseTitle: adm.program || "Language Program",
+              school: "Parivattan Foreign Language School",
+              batchPreference: adm.message || "Regular Batch",
+              learningMode: "Hybrid Classroom / Live Online",
+              dob: "2002-01-01",
+              gender: adm.gender || "Not Specified",
+              category: "General",
+              bloodGroup: "O+",
+              fatherName: "",
+              motherName: "",
+              address: adm.address || "",
+              city: "Pune",
+              district: "Pune",
+              pincode: "411001",
+              qualification: adm.education || "Graduate",
+              collegeName: adm.college_name || "Parivattan Mission Institute",
+              passingYear: "2024",
+              percentage: "Pass",
+              photoUrl: adm.photo,
+              amount: adm.amount || 0,
+              paymentId: adm.payment_id || adm.id,
+              paymentMethod: "razorpay",
+              paymentDate: adm.created_at || new Date().toISOString(),
+              status: adm.status || "completed",
+              createdAt: adm.created_at || new Date().toISOString(),
+            });
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Could not parse local admissions:", err);
+  }
+
+  return matched;
+};
+
+/**
+ * Cloud sync: Fetches all admissions from Supabase cloud database for this student,
+ * caches them into the student admissions store, and returns the unified list.
+ */
+export const fetchStudentApplicationsFromCloud = async (
+  student: StudentUser
+): Promise<StudentAdmissionRecord[]> => {
+  try {
+    const cleanEmail = student.email.trim().toLowerCase();
+    const cleanPhone = student.phone.replace(/\D/g, "");
+
+    const { data: cloudRows, error } = await supabase
+      .from("admissions")
+      .select("*")
+      .or(`email.ilike.${cleanEmail},phone.eq.${cleanPhone}`);
+
+    if (error) {
+      console.warn("[CloudSync] Supabase admissions query notice:", error.message);
+    }
+
+    const fetchedRecords: StudentAdmissionRecord[] = [];
+    if (cloudRows && cloudRows.length > 0) {
+      for (const row of cloudRows) {
+        if (row.program === "STUDENT_REGISTRATION") continue;
+
+        const randomSuffix = Math.floor(10000 + Math.random() * 90000);
+        fetchedRecords.push({
+          id: row.id || `adm_${Date.now()}_${randomSuffix}`,
+          applicationNo: `PMF/ADM/2026/${randomSuffix}`,
+          prn: student.prn,
+          studentId: student.id,
+          studentName: row.name || student.name,
+          studentEmail: row.email || student.email,
+          studentPhone: row.phone || student.phone,
+          courseId: row.program ? row.program.toLowerCase().replace(/[^a-z0-9]/g, "_") : "course_gen",
+          courseCode: row.program ? (row.program.match(/PFLS-[A-Z0-9-]+/) ? row.program.match(/PFLS-[A-Z0-9-]+/)![0] : "PFLS-COURSE") : "PFLS-COURSE",
+          courseTitle: row.program || "Academic Course",
+          school: "Parivattan Foreign Language School",
+          batchPreference: row.message || "Regular Batch",
+          learningMode: "Hybrid Classroom / Live Online",
+          dob: "2002-01-01",
+          gender: row.gender || "Not Specified",
+          category: row.caste_certificate_name || "General",
+          bloodGroup: "O+",
+          fatherName: "",
+          motherName: "",
+          address: row.address || "",
+          city: student.city || "Pune",
+          district: "Pune",
+          pincode: "411001",
+          qualification: row.education || "Graduate",
+          collegeName: row.college_name || "Parivattan Mission Institute",
+          passingYear: "2024",
+          percentage: "A Grade",
+          photoUrl: row.photo,
+          amount: row.amount || 0,
+          paymentId: row.payment_id || `PAY-${row.id}`,
+          paymentMethod: "razorpay",
+          paymentDate: row.created_at || new Date().toISOString(),
+          status: "completed",
+          createdAt: row.created_at || new Date().toISOString(),
+        });
+      }
+    }
+
+    const local = getAllStudentAdmissions();
+    const existingPaymentIds = new Set(local.map((l) => l.paymentId || l.id));
+    const newItems = fetchedRecords.filter((f) => !existingPaymentIds.has(f.paymentId || f.id));
+
+    if (newItems.length > 0) {
+      const merged = [...newItems, ...local];
+      localStorage.setItem(STUDENT_ADMISSIONS_KEY, JSON.stringify(merged));
+    }
+
+    return getStudentApplications(student);
+  } catch (err) {
+    console.warn("fetchStudentApplicationsFromCloud error:", err);
+    return getStudentApplications(student);
+  }
 };
 
 export const saveStudentAdmissionRecord = async (

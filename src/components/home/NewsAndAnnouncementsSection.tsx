@@ -140,22 +140,30 @@ export default function NewsAndAnnouncementsSection() {
                 align-items: center;
                 gap: 2rem;
                 flex-shrink: 0;
-                animation: pmfMarqueeScroll 55s linear infinite;
+                animation: pmfMarqueeScroll 110s linear infinite;
                 will-change: transform;
               }
-              .pmf-marquee-container:hover .pmf-marquee-content {
+              @media (max-width: 640px) {
+                .pmf-marquee-content {
+                  animation: pmfMarqueeScroll 135s linear infinite;
+                  gap: 1.5rem;
+                }
+              }
+              .pmf-marquee-container:hover .pmf-marquee-content,
+              .pmf-marquee-container:active .pmf-marquee-content {
                 animation-play-state: paused;
               }
             `}</style>
 
-            {/* Left Badge with Pulse Live Indicator */}
-            <div className="shrink-0 flex items-center gap-2 rounded-xl bg-[#b5623b] px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider text-white shadow-sm z-20">
+            {/* Left Badge with Pulse Live Indicator - Compact on mobile for maximum reading width */}
+            <div className="shrink-0 flex items-center gap-1.5 sm:gap-2 rounded-xl bg-[#b5623b] px-2.5 sm:px-3.5 py-1.5 text-[11px] sm:text-xs font-bold uppercase tracking-wider text-white shadow-sm z-20">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-300 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-200"></span>
               </span>
               <Bell size={13} className="animate-bounce" />
-              <span className="font-extrabold tracking-wider">Latest Updates</span>
+              <span className="font-extrabold tracking-wider hidden sm:inline">Latest Updates</span>
+              <span className="font-extrabold tracking-wider sm:hidden">Updates</span>
             </div>
 
             {/* Continuous Running Marquee across full width */}
@@ -219,7 +227,7 @@ export default function NewsAndAnnouncementsSection() {
               <Sparkles size={13} />
               <span>Notices & Happenings</span>
             </div>
-            <h2 className="mt-2 text-2xl sm:text-3xl md:text-4xl font-serif font-bold text-[#24312d] tracking-tight">
+            <h2 className="mt-2 text-2xl sm:text-3xl md:text-4xl font-sans font-extrabold text-[#24312d] tracking-tight">
               Announcements & Latest News
             </h2>
             <p className="mt-1 text-xs sm:text-sm text-[#65706a] max-w-2xl leading-relaxed">
@@ -250,11 +258,11 @@ export default function NewsAndAnnouncementsSection() {
                     <Bell size={18} />
                   </div>
                   <div>
-                    <h3 className="text-lg sm:text-xl font-serif font-bold text-[#24312d]">
+                    <h3 className="text-lg sm:text-xl font-sans font-bold text-[#24312d]">
                       Notice Board & Circulars
                     </h3>
                     <p className="text-[11px] text-[#65706a]">
-                      महत्त्वाच्या सूचना व परिपत्रके
+                      Important academic notices and circulars
                     </p>
                   </div>
                 </div>
@@ -439,7 +447,7 @@ export default function NewsAndAnnouncementsSection() {
                   <span>More Campus Updates</span>
                 </h4>
                 <span className="text-[11px] text-[#65706a]">
-                  ताज्या बातम्या
+                  Recent Press & Media
                 </span>
               </div>
 

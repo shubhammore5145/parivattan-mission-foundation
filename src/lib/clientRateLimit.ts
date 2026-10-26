@@ -62,8 +62,8 @@ export function resetCooldown(actionKey: string): void {
 }
 
 /**
- * Formats a friendly Marathi/English cooldown error message.
+ * Formats a friendly English cooldown message.
  */
-export function getCooldownMessage(remainingSeconds: number, actionName = "अर्ज (Submission)"): string {
-  return `कृपया ${remainingSeconds} सेकंद थांबा. ${actionName} आधीच प्रक्रियेत आहे. (Please wait ${remainingSeconds}s before submitting again.)`;
+export function getCooldownMessage(remainingSeconds: number, actionName = "Submission"): string {
+  return `Please wait ${remainingSeconds} seconds. Your ${actionName} is already being processed.`;
 }

@@ -181,8 +181,8 @@ export const createAdmission = async (
     recalculateBatchSeatsFromAdmissions();
   } catch {}
 
-  // 1. SAVE NEW ADMISSION DIRECTLY TO MONGODB DATABASE (Primary destination for new admissions)
-  let savedInMongo = false;
+  // 1. SAVE NEW ADMISSION DIRECTLY TO MONGODB DATABASE
+  let mongoData: any = null;
   try {
     const res = await fetch("/api/admissions", {
       method: "POST",
@@ -193,15 +193,14 @@ export const createAdmission = async (
     if (res.ok) {
       const result = await res.json();
       if (result.success && result.data) {
-        console.log("[MongoDB Atlas] New student admission saved successfully to MongoDB:", result.data);
-        savedInMongo = true;
-        return { ...newAdmission, ...result.data };
+        console.log("[MongoDB Atlas] New student admission saved to MongoDB:", result.data);
+        mongoData = result.data;
       }
     } else if (res.status === 429) {
       const result = await res.json().catch(() => ({}));
       const errorMsg =
         result.error ||
-        "विनंती मर्यादा गाठली आहे (Rate limit exceeded). कृपया १५ मिनिटांनंतर प्रयत्न करा.";
+        "Request limit exceeded. Please wait 15 minutes before trying again.";
       console.warn("[RateLimit] Admission blocked by server rate limit:", errorMsg);
       throw new Error(errorMsg);
     }
@@ -212,36 +211,47 @@ export const createAdmission = async (
     console.warn("[MongoDB Atlas] Notice saving to MongoDB admissions API:", mongoErr);
   }
 
-  // Fallback: If MongoDB is waiting for password or unreachable, save to Supabase cloud database
-  // so no applicant data is ever lost
-  if (!savedInMongo) {
-    try {
-      const supabasePayload = sanitizeAdmissionForSupabase(newAdmission);
-      const { data, error } = await supabase
+  // 2. ALWAYS ALSO SAVE TO SUPABASE CLOUD DATABASE
+  // This guarantees BOTH databases have the complete, identical record at all times!
+  let supabaseData: any = null;
+  try {
+    const supabasePayload = sanitizeAdmissionForSupabase(newAdmission);
+    const { data, error } = await supabase
+      .from("admissions")
+      .upsert([supabasePayload], { onConflict: "id" })
+      .select()
+      .single();
+
+    if (!error && data) {
+      console.log("[Supabase] Admission successfully synced to Supabase:", data.id);
+      supabaseData = data;
+    } else if (error) {
+      // Fallback insert if upsert encountered conflict
+      const { data: insData, error: insErr } = await supabase
         .from("admissions")
         .insert([supabasePayload])
         .select()
         .single();
-
-      if (!error && data) {
-        return { ...newAdmission, ...data };
+      if (!insErr && insData) {
+        supabaseData = insData;
+      } else {
+        console.warn("Supabase admissions insert notice:", error.message || insErr?.message);
       }
-      if (error) {
-        console.warn("Supabase admissions insert notice:", error.message);
-      }
-    } catch (e) {
-      console.warn("Supabase admissions insert notice:", e);
     }
+  } catch (e) {
+    console.warn("Supabase admissions insert notice:", e);
   }
 
-  return newAdmission;
+  return { ...newAdmission, ...(supabaseData || {}), ...(mongoData || {}) };
 };
 
 export const isRealCourseAdmission = (row: any): boolean => {
   if (!row) return false;
   if (
     row.id === "00000000-0000-0000-0000-000000000001" ||
-    row.name === "SYSTEM_BATCH_OVERRIDES"
+    row.id === "00000000-0000-0000-0000-000000000002" ||
+    row.name === "SYSTEM_BATCH_OVERRIDES" ||
+    row.name === "SYSTEM_CUSTOM_COURSES"
   ) {
     return false;
   }
@@ -251,7 +261,8 @@ export const isRealCourseAdmission = (row: any): boolean => {
     prog === "REGISTERED_ACCOUNT" ||
     prog === "ACCOUNT_SIGNUP" ||
     prog === "USER_REGISTRATION" ||
-    prog === "SYSTEM_BATCH_SETTINGS"
+    prog === "SYSTEM_BATCH_SETTINGS" ||
+    prog === "SYSTEM_CUSTOM_COURSES"
   ) {
     return false;
   }
@@ -352,16 +363,47 @@ export const getAllAdmissions = async (): Promise<Admission[]> => {
     if (adm.id) admissionsMap.set(adm.id, adm);
   }
 
-  const mergedAdmissions = Array.from(admissionsMap.values()).sort(
+  const rawMerged = Array.from(admissionsMap.values()).sort(
     (a, b) => new Date(b.created_at || "").getTime() - new Date(a.created_at || "").getTime()
   );
 
-  if (mergedAdmissions.length > 0) {
+  // Secondary deduplication: prevent double entries from rapid multiple clicks or dual-sync
+  const deduplicatedAdmissions: Admission[] = [];
+  const seenPaymentIds = new Set<string>();
+  const seenSubmissions = new Set<string>();
+
+  for (const adm of rawMerged) {
+    // 1. Payment ID deduplication
+    const pid = adm.payment_id?.trim();
+    if (pid && pid !== "OFFLINE_RECORD" && !pid.startsWith("PAY_ADM_")) {
+      if (seenPaymentIds.has(pid)) {
+        continue; // Skip duplicate record with identical payment reference
+      }
+      seenPaymentIds.add(pid);
+    }
+
+    // 2. Near-identical submission deduplication (same student contact + course within 5-min window)
+    const contactKey = (adm.email || adm.phone || "").trim().toLowerCase();
+    const programKey = (adm.program || "").trim().toLowerCase();
+    if (contactKey && programKey) {
+      const timeMs = new Date(adm.created_at || "").getTime();
+      const timeBucket = Math.floor(timeMs / (5 * 60 * 1000));
+      const submissionKey = `${contactKey}::${programKey}::${timeBucket}`;
+      if (seenSubmissions.has(submissionKey)) {
+        continue; // Skip double submission
+      }
+      seenSubmissions.add(submissionKey);
+    }
+
+    deduplicatedAdmissions.push(adm);
+  }
+
+  if (deduplicatedAdmissions.length > 0) {
     try {
-      localStorage.setItem("parivattan_admissions", JSON.stringify(mergedAdmissions));
-      recalculateBatchSeatsFromAdmissions(mergedAdmissions);
+      localStorage.setItem("parivattan_admissions", JSON.stringify(deduplicatedAdmissions));
+      recalculateBatchSeatsFromAdmissions(deduplicatedAdmissions);
     } catch {}
-    return mergedAdmissions;
+    return deduplicatedAdmissions;
   }
 
   return [];
@@ -491,6 +533,10 @@ export const updateAdmission = async (
           courseTitle: updatedFields.program !== undefined ? updatedFields.program : rec.courseTitle,
           status: updatedFields.status !== undefined ? updatedFields.status : rec.status,
           amount: updatedFields.amount !== undefined ? updatedFields.amount : rec.amount,
+          photoDataUrl: updatedFields.photo !== undefined ? updatedFields.photo : rec.photoDataUrl,
+          identityProofName: updatedFields.identity_proof_name !== undefined ? updatedFields.identity_proof_name : rec.identityProofName,
+          casteCertificateName: updatedFields.caste_certificate_name !== undefined ? updatedFields.caste_certificate_name : rec.casteCertificateName,
+          educationProofName: updatedFields.education_proof_name !== undefined ? updatedFields.education_proof_name : rec.educationProofName,
         };
       }
       return rec;
@@ -514,6 +560,10 @@ export const updateAdmission = async (
           collegeName: updatedFields.college_name !== undefined ? updatedFields.college_name : app.collegeName,
           address: updatedFields.address !== undefined ? updatedFields.address : app.address,
           status: updatedFields.status !== undefined ? updatedFields.status : app.status,
+          photoUrl: updatedFields.photo !== undefined ? updatedFields.photo : app.photoUrl,
+          identityProofUrl: updatedFields.identity_proof !== undefined ? updatedFields.identity_proof : app.identityProofUrl,
+          casteCertUrl: updatedFields.caste_certificate !== undefined ? updatedFields.caste_certificate : app.casteCertUrl,
+          marksheetUrl: updatedFields.education_proof !== undefined ? updatedFields.education_proof : app.marksheetUrl,
         };
       }
       return app;

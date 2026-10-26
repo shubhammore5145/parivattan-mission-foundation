@@ -33,6 +33,13 @@ import {
   Eye,
   AlertCircle,
   X,
+  Home,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Menu,
+  Globe,
+  Laptop,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -57,11 +64,42 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
   onLogout,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<
-    "courses" | "idcard" | "receipts" | "schedule" | "notifications"
-  >("courses");
+    "home" | "courses" | "idcard" | "receipts" | "schedule" | "notifications"
+  >("home");
   const [copiedPrn, setCopiedPrn] = useState(false);
   const [expandedSyllabusId, setExpandedSyllabusId] = useState<string | null>(null);
   const [previewPdf, setPreviewPdf] = useState<{ url: string; title: string; subtitle?: string } | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Interactive Mini Calendar state (Oct 2026 default)
+  const [calendarDate, setCalendarDate] = useState<Date>(new Date(2026, 9, 25));
+  const [selectedDay, setSelectedDay] = useState<number>(25);
+
+  const prevMonth = () => {
+    setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() - 1, 1));
+  };
+  const nextMonth = () => {
+    setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 1));
+  };
+
+  const monthLabel = calendarDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const daysInMonth = new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 0).getDate();
+  const startDay = (new Date(calendarDate.getFullYear(), calendarDate.getMonth(), 1).getDay() + 6) % 7; // Monday = 0
+
+  // Interactive Student Tasks
+  const [tasks, setTasks] = useState([
+    { id: "1", title: "Verify PRN & Enrollment Status", color: "bg-amber-400", done: true, subTab: "home" as const },
+    { id: "2", title: "Download Digital Student ID Card", color: "bg-emerald-500", done: false, subTab: "idcard" as const },
+    { id: "3", title: "Check Batch Class Timetable", color: "bg-blue-500", done: false, subTab: "schedule" as const },
+    { id: "4", title: "Review Official Notice & Circulars", color: "bg-rose-500", done: false, subTab: "notifications" as const },
+  ]);
+
+  const toggleTask = (id: string) => {
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
+    );
+  };
 
   const handleCopyPrn = () => {
     navigator.clipboard.writeText(student.prn);
@@ -89,199 +127,618 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-6">
-      {/* Student Profile & PRN Master Card */}
-      <div className="rounded-3xl border border-[#e2e5dc] bg-white p-6 sm:p-8 shadow-sm relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-[#b5623b]/10 to-transparent rounded-full blur-3xl pointer-events-none" />
+    <div className="student-portal-app min-h-screen bg-[#f0f4f9] text-slate-800 flex flex-col lg:flex-row selection:bg-[#0b63e5]/20 font-sans w-full relative">
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-xs"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-[#eef0e8] relative">
-          <div className="flex items-start sm:items-center gap-4">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-[#b5623b] to-[#954b2c] text-white flex items-center justify-center font-bold text-2xl sm:text-3xl shrink-0 shadow-md">
-              {student.avatar ? (
-                <img
-                  src={student.avatar}
-                  alt={student.name}
-                  className="w-full h-full object-cover rounded-2xl"
-                />
-              ) : (
-                student.name.charAt(0).toUpperCase()
-              )}
-            </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl sm:text-2xl md:text-3xl font-serif font-bold text-[#24312d]">
-                  {student.name}
-                </h2>
-                <span className="rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-0.5 text-xs font-bold flex items-center gap-1">
-                  <CheckCircle2 size={13} /> Active & Verified Student
-                </span>
+      {/* 1. LEFT COBALT SIDEBAR (#0b63e5) */}
+      <aside
+        className={`student-portal-sidebar fixed inset-y-0 left-0 z-50 w-72 bg-[#0b63e5] text-white flex flex-col justify-between p-6 overflow-y-auto transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen shadow-xl lg:shadow-none shrink-0 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="space-y-6">
+          {/* Brand Header */}
+          <div className="flex items-center justify-between pb-3 border-b border-white/15">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center font-black shadow-md shrink-0">
+                <GraduationCap size={22} className="text-slate-950" />
               </div>
-
-              {/* High-visibility PRN Number Block */}
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span className="text-xs font-semibold text-[#65706a]">
-                  Permanent Registration Number (PRN):
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-xl bg-[#b5623b]/10 px-3 py-1 font-mono text-base font-extrabold text-[#b5623b] border border-[#b5623b]/30">
-                  {student.prn}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleCopyPrn}
-                  className="rounded-lg border border-[#e2e5dc] bg-white px-2.5 py-1 text-xs font-semibold text-[#525f59] hover:bg-[#fbfaf7] hover:text-[#b5623b] transition flex items-center gap-1 shadow-2xs"
-                  title="Copy PRN"
-                >
-                  {copiedPrn ? (
-                    <>
-                      <Check size={13} className="text-emerald-600" />
-                      <span className="text-emerald-700">Copied</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={13} />
-                      <span>Copy PRN</span>
-                    </>
-                  )}
-                </button>
+              <div className="min-w-0">
+                <h1 className="font-extrabold text-base sm:text-lg tracking-tight text-white leading-tight font-sans">
+                  PMF Campus
+                </h1>
+                <p className="text-[11px] text-white/75 font-medium tracking-wide font-sans mt-0.5">
+                  Student Portal
+                </p>
               </div>
-
-              <p className="text-xs text-[#65706a] mt-1">
-                Academic Session 2026-27 · Certification & Examination Eligible
-              </p>
             </div>
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white cursor-pointer transition"
+              aria-label="Close Sidebar"
+            >
+              <X size={18} />
+            </button>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
+          {/* Navigation Items */}
+          <nav className="space-y-1.5 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveSubTab("home");
+                setSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer focus:outline-none ${
+                activeSubTab === "home"
+                  ? "bg-white text-[#0b63e5] font-bold shadow-md shadow-blue-950/25"
+                  : "text-white/85 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <Home size={18} className={activeSubTab === "home" ? "text-[#0b63e5]" : "text-white/85"} />
+              <span>Home</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveSubTab("courses");
+                setSidebarOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer focus:outline-none ${
+                activeSubTab === "courses"
+                  ? "bg-white text-[#0b63e5] font-bold shadow-md shadow-blue-950/25"
+                  : "text-white/85 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <div className="flex items-center gap-3.5">
+                <BookOpen size={18} className={activeSubTab === "courses" ? "text-[#0b63e5]" : "text-white/85"} />
+                <span>My Courses</span>
+              </div>
+              <span className={`text-xs font-extrabold px-2 py-0.5 rounded-full ${
+                activeSubTab === "courses"
+                  ? "bg-[#0b63e5] text-white"
+                  : "bg-amber-400 text-slate-950"
+              }`}>
+                {applications.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveSubTab("receipts");
+                setSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer focus:outline-none ${
+                activeSubTab === "receipts"
+                  ? "bg-white text-[#0b63e5] font-bold shadow-md shadow-blue-950/25"
+                  : "text-white/85 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <Printer size={18} className={activeSubTab === "receipts" ? "text-[#0b63e5]" : "text-white/85"} />
+              <span>Fee Receipts</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveSubTab("schedule");
+                setSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer focus:outline-none ${
+                activeSubTab === "schedule"
+                  ? "bg-white text-[#0b63e5] font-bold shadow-md shadow-blue-950/25"
+                  : "text-white/85 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <Clock size={18} className={activeSubTab === "schedule" ? "text-[#0b63e5]" : "text-white/85"} />
+              <span>Class Schedule</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveSubTab("idcard");
+                setSidebarOpen(false);
+              }}
+              className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer focus:outline-none ${
+                activeSubTab === "idcard"
+                  ? "bg-white text-[#0b63e5] font-bold shadow-md shadow-blue-950/25"
+                  : "text-white/85 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <QrCode size={18} className={activeSubTab === "idcard" ? "text-[#0b63e5]" : "text-white/85"} />
+              <span>Digital ID Card</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveSubTab("notifications");
+                setSidebarOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer focus:outline-none ${
+                activeSubTab === "notifications"
+                  ? "bg-white text-[#0b63e5] font-bold shadow-md shadow-blue-950/25"
+                  : "text-white/85 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <div className="flex items-center gap-3.5">
+                <Bell size={18} className={activeSubTab === "notifications" ? "text-[#0b63e5]" : "text-white/85"} />
+                <span>Notice & Circulars</span>
+              </div>
+              <span className="text-[10px] bg-rose-500 text-white font-extrabold px-2 py-0.5 rounded-full shadow-2xs">
+                2 PDFs
+              </span>
+            </button>
+
+            <div className="pt-3 pb-1">
+              <div className="h-px bg-white/15" />
+            </div>
+
             <Link
               to={`/admissions?prn=${student.prn}`}
-              className="rounded-2xl bg-[#b5623b] hover:bg-[#974a27] text-white px-5 py-2.5 text-xs sm:text-sm font-bold shadow transition flex items-center gap-1.5"
+              className="w-full flex items-center justify-between px-4 py-2.5 rounded-2xl text-sm font-medium text-white/85 hover:text-white hover:bg-white/10 transition"
             >
-              <Plus size={16} />
-              Enroll in Course (Admissions)
+              <div className="flex items-center gap-3.5">
+                <Plus size={18} className="text-amber-300" />
+                <span>Enroll in Course</span>
+              </div>
+              <ExternalLink size={13} className="text-white/60" />
             </Link>
+
+            <Link
+              to="/"
+              className="w-full flex items-center justify-between px-4 py-2.5 rounded-2xl text-sm font-medium text-white/85 hover:text-white hover:bg-white/10 transition"
+            >
+              <div className="flex items-center gap-3.5">
+                <Globe size={18} className="text-white/80" />
+                <span>Public Website</span>
+              </div>
+              <ExternalLink size={13} className="text-white/60" />
+            </Link>
+
             <button
+              id="student-signout-btn-sidebar"
               type="button"
               onClick={() => {
                 logoutStudent();
                 onLogout();
               }}
-              className="rounded-2xl border border-gray-300 text-gray-700 hover:bg-gray-100 px-4 py-2.5 text-xs sm:text-sm font-semibold transition flex items-center gap-1.5"
+              className="w-full flex items-center justify-between px-4 py-2.5 rounded-2xl text-sm font-medium text-rose-200 hover:text-white hover:bg-rose-500/20 transition cursor-pointer"
             >
-              <LogOut size={15} />
-              Sign Out
+              <div className="flex items-center gap-3.5">
+                <LogOut size={18} className="text-rose-300" />
+                <span>Sign Out</span>
+              </div>
+            </button>
+          </nav>
+        </div>
+
+        {/* Bottom Session Progress Indicator */}
+        <div className="pt-5 border-t border-white/15 space-y-3.5">
+          <div>
+            <div className="flex items-center justify-between text-xs font-semibold text-white">
+              <span className="text-white/90">Academic Session 2026-27</span>
+              <span className="text-amber-300 font-bold">Term 2 of 3</span>
+            </div>
+            <div className="w-full bg-white/20 h-2 rounded-full mt-2 overflow-hidden">
+              <div className="bg-amber-400 h-full rounded-full w-2/3 shadow-xs" />
+            </div>
+          </div>
+
+          <div className="bg-[#084db8]/90 backdrop-blur-xs p-3 rounded-2xl border border-white/20 flex items-center justify-between gap-2 shadow-xs">
+            <div className="truncate min-w-0">
+              <span className="text-[10px] text-white/70 block uppercase font-bold tracking-wider">
+                Permanent Reg. No (PRN)
+              </span>
+              <span className="font-mono text-xs font-extrabold text-amber-300 truncate block mt-0.5 tracking-wider">
+                {student.prn}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleCopyPrn}
+              className="w-8 h-8 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 text-white flex items-center justify-center transition shrink-0 cursor-pointer"
+              title="Copy PRN"
+              aria-label="Copy PRN"
+            >
+              {copiedPrn ? <Check size={14} className="text-emerald-300" /> : <Copy size={14} />}
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* 2. CENTER MAIN WORKSPACE (#f8fafc) */}
+      <main className="flex-1 bg-[#f8fafc] p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 overflow-y-auto">
+        {/* Top Header Row with Mobile Menu & Rounded Search Pill */}
+        <div className="flex items-center justify-between gap-4">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="lg:hidden w-11 h-11 rounded-2xl bg-white border border-slate-200 text-slate-700 flex items-center justify-center shadow-xs shrink-0"
+          >
+            <Menu size={20} />
+          </button>
+
+          {/* Rounded Search Bar ("What do you want to learn today?") */}
+          <div className="relative flex-1 max-w-xl">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+              <Search size={18} />
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="What do you want to learn today?"
+              className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-full text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0b63e5] focus:border-transparent shadow-xs transition"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+
+          {/* Top User Status & Prominent Log Out Pill */}
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setActiveSubTab("notifications")}
+              className="w-10 h-10 rounded-full bg-white border border-slate-200 text-slate-600 hover:text-slate-900 flex items-center justify-center relative shadow-xs transition cursor-pointer"
+              title="Notifications"
+            >
+              <Bell size={18} />
+              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500" />
+            </button>
+
+            <div className="flex items-center gap-2 pl-1 pr-2.5 py-1 bg-white border border-slate-200 rounded-full shadow-xs">
+              <div className="w-8 h-8 rounded-full bg-[#0b63e5] text-white font-bold flex items-center justify-center text-xs overflow-hidden">
+                {student.avatar ? (
+                  <img src={student.avatar} alt={student.name} className="w-full h-full object-cover" />
+                ) : (
+                  student.name.charAt(0).toUpperCase()
+                )}
+              </div>
+              <span className="text-xs font-bold text-slate-700 hidden md:inline-block max-w-[110px] truncate">
+                {student.name}
+              </span>
+            </div>
+
+            {/* Prominent High-Visibility Log Out Button */}
+            <button
+              id="student-signout-btn-header"
+              type="button"
+              onClick={async () => {
+                await logoutStudent();
+                onLogout();
+              }}
+              className="px-3 sm:px-3.5 py-2 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200/90 font-bold text-xs flex items-center gap-1.5 shadow-xs transition active:scale-95 cursor-pointer"
+              title="Log Out of Student Account"
+            >
+              <LogOut size={14} className="text-rose-600 shrink-0" />
+              <span className="hidden sm:inline-block font-bold">Log Out</span>
             </button>
           </div>
         </div>
 
-        {/* Student Metadata Bar */}
-        <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-[#525f59]">
-          <div className="flex items-center gap-2.5 bg-[#fbfaf7] p-3 rounded-2xl border border-[#eceee7]">
-            <Mail size={16} className="text-[#b5623b] shrink-0" />
-            <div className="truncate">
-              <span className="text-[10px] text-[#65706a] block">Email Address</span>
-              <span className="font-semibold text-[#24312d] truncate block">{student.email}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2.5 bg-[#fbfaf7] p-3 rounded-2xl border border-[#eceee7]">
-            <Phone size={16} className="text-[#b5623b] shrink-0" />
-            <div>
-              <span className="text-[10px] text-[#65706a] block">Registered Mobile</span>
-              <span className="font-semibold text-[#24312d]">{student.phone}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2.5 bg-[#fbfaf7] p-3 rounded-2xl border border-[#eceee7]">
-            <Calendar size={16} className="text-[#b5623b] shrink-0" />
-            <div>
-              <span className="text-[10px] text-[#65706a] block">Registration Date</span>
-              <span className="font-semibold text-[#24312d]">
-                {new Date(student.registeredAt).toLocaleDateString("en-IN", {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                })}
-              </span>
-            </div>
-          </div>
+        {/* SUB-TABS NAVIGATION PILLS (Top Bar for Fast Switching) */}
+        <div className="flex flex-wrap items-center gap-2 pb-2 border-b border-slate-200">
+          {[
+            { id: "home", label: "Dashboard Overview", icon: Home },
+            { id: "courses", label: "My Courses & Syllabus", icon: BookOpen, count: applications.length },
+            { id: "idcard", label: "Digital Student ID Card", icon: QrCode },
+            { id: "receipts", label: "Fee Receipts & Slips", icon: Printer },
+            { id: "schedule", label: "Class Timetable", icon: Clock },
+            { id: "notifications", label: "Official Circulars", icon: Bell, badge: "2 New" },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeSubTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveSubTab(tab.id as any)}
+                className={`rounded-2xl px-4 py-2 text-xs sm:text-sm font-bold transition flex items-center gap-2 cursor-pointer ${
+                  isActive
+                    ? "bg-[#0b63e5] text-white shadow-xs"
+                    : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+                }`}
+              >
+                <Icon size={15} />
+                <span>{tab.label}</span>
+                {tab.count !== undefined && (
+                  <span
+                    className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${
+                      isActive ? "bg-white text-[#0b63e5]" : "bg-slate-100 text-slate-700"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                )}
+                {tab.badge && (
+                  <span
+                    className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${
+                      isActive ? "bg-amber-300 text-slate-900" : "bg-rose-500 text-white"
+                    }`}
+                  >
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
-      </div>
 
-      {/* Navigation Sub-Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-[#e2e5dc] pb-2">
-        <button
-          type="button"
-          onClick={() => setActiveSubTab("courses")}
-          className={`rounded-2xl px-4 py-2.5 text-xs sm:text-sm font-bold transition flex items-center gap-2 ${
-            activeSubTab === "courses"
-              ? "bg-[#24312d] text-white shadow"
-              : "bg-white text-[#65706a] hover:bg-[#fbfaf7] border border-[#e2e5dc]"
-          }`}
-        >
-          <BookOpen size={16} />
-          <span>My Enrolled Courses</span>
-          <span className="rounded-full bg-[#b5623b] text-white text-[11px] px-2 py-0.2">
-            {applications.length}
-          </span>
-        </button>
+        {/* ================= TAB 0: HOME OVERVIEW (Visible ONLY when activeSubTab === 'home') ================= */}
+        {activeSubTab === "home" && (
+          <div className="space-y-6">
+            {/* HERO CARD: "Your Profile" */}
+            <div className="rounded-3xl bg-white border border-slate-100 p-6 sm:p-8 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+              <div className="space-y-4 max-w-lg z-10 text-center md:text-left">
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight font-sans">
+                  Your Profile
+                </h2>
+                <p className="text-slate-600 text-sm sm:text-base leading-relaxed font-sans">
+                  <span className="font-bold text-slate-900">Hi {student.name}</span>, You have completed{" "}
+                  <span className="font-bold text-[#0b63e5]">70%</span> of your academic milestones. Keep learning with Parivattan Mission Foundation!
+                </p>
 
-        <button
-          type="button"
-          onClick={() => setActiveSubTab("idcard")}
-          className={`rounded-2xl px-4 py-2.5 text-xs sm:text-sm font-bold transition flex items-center gap-2 ${
-            activeSubTab === "idcard"
-              ? "bg-[#24312d] text-white shadow"
-              : "bg-white text-[#65706a] hover:bg-[#fbfaf7] border border-[#e2e5dc]"
-          }`}
-        >
-          <QrCode size={16} />
-          <span>Digital Student ID Card</span>
-        </button>
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleCopyPrn}
+                    className="rounded-full bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold px-6 py-2.5 text-xs sm:text-sm shadow-sm transition flex items-center gap-2 cursor-pointer"
+                  >
+                    {copiedPrn ? (
+                      <>
+                        <Check size={16} className="text-emerald-800" />
+                        <span>PRN Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={16} />
+                        <span>Copy PRN: {student.prn}</span>
+                      </>
+                    )}
+                  </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveSubTab("receipts")}
-          className={`rounded-2xl px-4 py-2.5 text-xs sm:text-sm font-bold transition flex items-center gap-2 ${
-            activeSubTab === "receipts"
-              ? "bg-[#24312d] text-white shadow"
-              : "bg-white text-[#65706a] hover:bg-[#fbfaf7] border border-[#e2e5dc]"
-          }`}
-        >
-          <Printer size={16} />
-          <span>Fee Receipts & Slips</span>
-        </button>
+                  <Link
+                    to={`/admissions?prn=${student.prn}`}
+                    className="rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold px-5 py-2.5 text-xs sm:text-sm transition flex items-center gap-1.5"
+                  >
+                    <Plus size={16} />
+                    <span>+ Enroll in Course</span>
+                  </Link>
+                </div>
+              </div>
 
-        <button
-          type="button"
-          onClick={() => setActiveSubTab("schedule")}
-          className={`rounded-2xl px-4 py-2.5 text-xs sm:text-sm font-bold transition flex items-center gap-2 ${
-            activeSubTab === "schedule"
-              ? "bg-[#24312d] text-white shadow"
-              : "bg-white text-[#65706a] hover:bg-[#fbfaf7] border border-[#e2e5dc]"
-          }`}
-        >
-          <Clock size={16} />
-          <span>Class Schedule & Timings</span>
-        </button>
+              {/* Student Study Vector Illustration */}
+              <div className="shrink-0 flex items-center justify-center z-10">
+                <svg
+                  className="w-56 h-44 sm:w-64 sm:h-48 drop-shadow-xs"
+                  viewBox="0 0 260 200"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <ellipse cx="130" cy="180" rx="95" ry="16" fill="#f1f5f9" />
+                  <circle cx="175" cy="45" r="16" fill="#fef3c7" />
+                  <path
+                    d="M175 34 C169 34 164 38 164 44 C164 48 167 52 170 54 L170 58 L180 58 L180 54 C183 52 186 48 186 44 C186 38 181 34 175 34 Z"
+                    fill="#f59e0b"
+                  />
+                  <line x1="175" y1="26" x2="175" y2="21" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" />
+                  <line x1="187" y1="31" x2="191" y2="27" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" />
+                  <line x1="163" y1="31" x2="159" y2="27" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" />
+                  <rect x="205" y="55" width="40" height="30" rx="6" fill="#ffffff" stroke="#cbd5e1" strokeWidth="1.5" />
+                  <line x1="211" y1="64" x2="238" y2="64" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
+                  <line x1="211" y1="70" x2="232" y2="70" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
+                  <line x1="211" y1="76" x2="224" y2="76" stroke="#0b63e5" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M100 175 C100 135 120 120 145 120 C170 120 190 135 190 175 Z" fill="#0b63e5" />
+                  <path d="M136 120 L145 132 L154 120 Z" fill="#ffffff" />
+                  <rect x="140" y="105" width="10" height="18" fill="#fed7aa" rx="3" />
+                  <circle cx="145" cy="92" r="18" fill="#fed7aa" />
+                  <path
+                    d="M127 88 C127 75 137 68 145 68 C155 68 165 74 164 88 C160 84 153 82 145 82 C137 82 131 85 127 88 Z"
+                    fill="#1e293b"
+                  />
+                  <circle cx="140" cy="91" r="2.5" fill="#1e293b" />
+                  <circle cx="150" cy="91" r="2.5" fill="#1e293b" />
+                  <path d="M141 99 Q145 103 149 99" stroke="#ea580c" strokeWidth="1.5" strokeLinecap="round" />
+                  <path d="M120 135 L95 105" stroke="#fed7aa" strokeWidth="6" strokeLinecap="round" />
+                  <circle cx="95" cy="105" r="4" fill="#fed7aa" />
+                  <rect x="45" y="172" width="170" height="8" rx="4" fill="#64748b" />
+                  <rect x="70" y="132" width="55" height="38" rx="4" fill="#334155" />
+                  <rect x="75" y="136" width="45" height="28" rx="2" fill="#38bdf8" opacity="0.95" />
+                  <line x1="79" y1="142" x2="100" y2="142" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
+                  <line x1="79" y1="148" x2="114" y2="148" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
+                  <line x1="79" y1="154" x2="94" y2="154" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M65 170 L130 170 L125 173 L70 173 Z" fill="#94a3b8" />
+                </svg>
+              </div>
+            </div>
 
-        <button
-          type="button"
-          onClick={() => setActiveSubTab("notifications")}
-          className={`rounded-2xl px-4 py-2.5 text-xs sm:text-sm font-bold transition flex items-center gap-2 relative ${
-            activeSubTab === "notifications"
-              ? "bg-[#24312d] text-white shadow"
-              : "bg-white text-[#65706a] hover:bg-[#fbfaf7] border border-[#e2e5dc]"
-          }`}
-        >
-          <Bell size={16} className={activeSubTab === "notifications" ? "text-amber-400" : "text-[#b5623b]"} />
-          <span>Notifications & Circulars</span>
-          <span className="rounded-full bg-amber-500 text-white text-[10px] font-extrabold px-2 py-0.5 shadow-2xs">
-            2 PDFs
-          </span>
-        </button>
-      </div>
+            {/* SECTION: "Your Assignments" -> "Your Enrolled Courses" (3 Cards Row) */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg sm:text-xl font-extrabold text-slate-800 font-sans">
+                  Your Enrolled Courses
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setActiveSubTab("courses")}
+                  className="text-xs font-bold text-[#0b63e5] hover:underline flex items-center gap-1 cursor-pointer font-sans"
+                >
+                  <span>View All Courses</span>
+                  <ArrowRight size={13} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {applications.length > 0 ? (
+                  applications.slice(0, 3).map((app, idx) => (
+                    <div
+                      key={app.id || idx}
+                      onClick={() => {
+                        setActiveSubTab("courses");
+                        setExpandedSyllabusId(app.id);
+                      }}
+                      className="rounded-3xl bg-white border border-slate-100 p-5 shadow-xs hover:shadow-md transition cursor-pointer text-center flex flex-col justify-between group"
+                    >
+                      <div className="space-y-1">
+                        <h4 className="font-bold text-slate-800 text-sm group-hover:text-[#0b63e5] transition truncate font-sans">
+                          {app.courseTitle}
+                        </h4>
+                        <p className="text-[11px] text-slate-400 font-medium font-sans">
+                          {app.batchPreference || "Morning Batch (10:00 AM)"}
+                        </p>
+                      </div>
+
+                      {/* Circular Icon in Middle */}
+                      <div className="my-4 flex items-center justify-center">
+                        <div className="w-12 h-12 rounded-full bg-blue-50 text-[#0b63e5] flex items-center justify-center border border-blue-100 group-hover:scale-110 transition-transform">
+                          {idx % 3 === 0 ? <BookOpen size={20} /> : idx % 3 === 1 ? <Laptop size={20} /> : <GraduationCap size={20} />}
+                        </div>
+                      </div>
+
+                      {/* Progress / Status Bar */}
+                      <div className="space-y-1.5 pt-2 border-t border-slate-100 font-sans">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
+                          <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                            Active
+                          </span>
+                          <span className="text-[#0b63e5]">75%</span>
+                        </div>
+                        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                          <div className="bg-[#0b63e5] h-full rounded-full w-3/4" />
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-3 rounded-3xl bg-white border border-dashed border-slate-200 p-8 text-center space-y-3">
+                    <BookOpen size={32} className="mx-auto text-slate-400" />
+                    <h4 className="font-bold text-slate-700 font-sans">No active course enrollments yet</h4>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto font-sans">
+                      Browse Parivattan Mission Foundation's accredited courses and enroll today with your PRN.
+                    </p>
+                    <Link
+                      to={`/admissions?prn=${student.prn}`}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-[#0b63e5] text-white text-xs font-bold px-5 py-2.5 shadow-sm hover:bg-blue-700 transition"
+                    >
+                      <Plus size={15} />
+                      <span>Explore & Enroll in Courses</span>
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* SECTION: "Lessons for you" -> "Student Services" (Amber & Coral Colored Cards) */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg sm:text-xl font-extrabold text-slate-800 font-sans">
+                  Student Services & Slips
+                </h3>
+                <span className="text-xs font-semibold text-slate-400 font-sans">Instant Access</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Amber / Gold Card (Digital Student ID) */}
+                <div
+                  onClick={() => setActiveSubTab("idcard")}
+                  className="rounded-3xl bg-gradient-to-r from-amber-400 to-amber-500 p-6 text-slate-950 shadow-sm hover:shadow-md transition cursor-pointer flex items-center justify-between group overflow-hidden relative"
+                >
+                  <div className="space-y-1 z-10">
+                    <h4 className="text-xl font-black tracking-tight text-slate-950 group-hover:translate-x-1 transition-transform font-sans">
+                      Digital Student ID
+                    </h4>
+                    <p className="text-xs font-semibold text-amber-950/80 font-sans">
+                      Instant Verification & Printable QR Card
+                    </p>
+                    <div className="pt-2">
+                      <span className="inline-flex items-center gap-1 text-xs font-extrabold bg-slate-950 text-white px-3.5 py-1.5 rounded-full shadow-xs">
+                        <QrCode size={13} />
+                        <span>View & Print Card →</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="w-16 h-16 rounded-2xl bg-white/30 backdrop-blur-xs flex items-center justify-center text-slate-900 border border-white/40 shadow-xs shrink-0 group-hover:scale-105 transition-transform z-10">
+                    <QrCode size={32} />
+                  </div>
+                  <div className="absolute -right-6 -bottom-6 w-32 h-32 rounded-full bg-white/10 pointer-events-none" />
+                </div>
+
+                {/* Coral / Rose Red Card (Fee Receipts & Slips) */}
+                <div
+                  onClick={() => setActiveSubTab("receipts")}
+                  className="rounded-3xl bg-gradient-to-r from-rose-500 to-rose-600 p-6 text-white shadow-sm hover:shadow-md transition cursor-pointer flex items-center justify-between group overflow-hidden relative"
+                >
+                  <div className="space-y-1 z-10">
+                    <h4 className="text-xl font-black tracking-tight text-white group-hover:translate-x-1 transition-transform font-sans">
+                      Fee Receipts & Slips
+                    </h4>
+                    <p className="text-xs font-medium text-rose-100 font-sans">
+                      Official Invoices & Payment History
+                    </p>
+                    <div className="pt-2">
+                      <span className="inline-flex items-center gap-1 text-xs font-extrabold bg-white text-rose-700 px-3.5 py-1.5 rounded-full shadow-xs">
+                        <Printer size={13} />
+                        <span>Download Slips →</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-white border border-white/30 shadow-xs shrink-0 group-hover:scale-105 transition-transform z-10">
+                    <Printer size={32} />
+                  </div>
+                  <div className="absolute -right-6 -bottom-6 w-32 h-32 rounded-full bg-white/10 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
       {/* ================= TAB 1: ENROLLED COURSES ================= */}
       {activeSubTab === "courses" && (
         <div className="space-y-6">
+          {/* Breadcrumb Header Banner */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
+            <div>
+              <div className="flex items-center gap-2 text-xs text-slate-500 mb-1 font-sans">
+                <span onClick={() => setActiveSubTab("home")} className="hover:text-[#0b63e5] cursor-pointer font-semibold">🏠 Home</span>
+                <span>/</span>
+                <span className="text-[#0b63e5] font-bold">My Courses & Syllabus</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-bold font-sans text-slate-800">
+                My Enrolled Courses & Academic Syllabus
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5 font-sans">
+                Confirmed course admissions, batch schedules, tuition receipts, and comprehensive curricula.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveSubTab("home")}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition cursor-pointer shadow-2xs shrink-0 font-sans self-start sm:self-auto"
+            >
+              <ChevronLeft size={14} />
+              <span>Back to Overview</span>
+            </button>
+          </div>
           {applications.length > 0 ? (
             <div className="space-y-5">
               {applications.map((app, index) => {
@@ -456,23 +913,38 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
       {/* ================= TAB 2: DIGITAL STUDENT ID CARD ================= */}
       {activeSubTab === "idcard" && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
             <div>
-              <h3 className="font-serif text-xl font-bold text-[#24312d]">
+              <div className="flex items-center gap-2 text-xs text-slate-500 mb-1 font-sans">
+                <span onClick={() => setActiveSubTab("home")} className="hover:text-[#0b63e5] cursor-pointer font-semibold">🏠 Home</span>
+                <span>/</span>
+                <span className="text-[#0b63e5] font-bold">Digital Student ID Card</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-bold font-sans text-slate-800">
                 Official Digital Student Identity Card
-              </h3>
-              <p className="text-xs text-[#65706a]">
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5 font-sans">
                 This digital ID is valid for classroom verification, lab attendance, and official examinations.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handlePrintIdCard}
-              className="rounded-xl bg-[#24312d] hover:bg-[#b5623b] text-white px-4 py-2 text-xs font-bold transition flex items-center gap-1.5 shadow"
-            >
-              <Printer size={14} />
-              Print / Save ID Card (PDF)
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setActiveSubTab("home")}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition cursor-pointer shadow-2xs font-sans"
+              >
+                <ChevronLeft size={14} />
+                <span>Back to Overview</span>
+              </button>
+              <button
+                type="button"
+                onClick={handlePrintIdCard}
+                className="rounded-xl bg-[#0b63e5] hover:bg-blue-700 text-white px-4 py-2 text-xs font-bold transition flex items-center gap-1.5 shadow-xs font-sans cursor-pointer"
+              >
+                <Printer size={14} />
+                <span>Print / Save ID Card (PDF)</span>
+              </button>
+            </div>
           </div>
 
           {/* Printable Identity Card Design */}
@@ -571,16 +1043,29 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
 
       {/* ================= TAB 3: FEES & RECEIPTS ================= */}
       {activeSubTab === "receipts" && (
-        <div className="rounded-3xl border border-[#e2e5dc] bg-white p-6 sm:p-8 shadow-sm space-y-5">
-          <div className="flex items-center justify-between border-b border-[#f1f3ed] pb-4">
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
             <div>
-              <h3 className="font-serif text-lg sm:text-xl font-bold text-[#24312d]">
+              <div className="flex items-center gap-2 text-xs text-slate-500 mb-1 font-sans">
+                <span onClick={() => setActiveSubTab("home")} className="hover:text-[#0b63e5] cursor-pointer font-semibold">🏠 Home</span>
+                <span>/</span>
+                <span className="text-[#0b63e5] font-bold">Fee Receipts & Slips</span>
+              </div>
+              <h2 className="font-bold text-xl sm:text-2xl font-sans text-slate-800">
                 Tuition Fees & Official Receipts
-              </h3>
-              <p className="text-xs text-[#65706a]">
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5 font-sans">
                 All official digital receipts and payment confirmations are available below.
               </p>
             </div>
+            <button
+              type="button"
+              onClick={() => setActiveSubTab("home")}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition cursor-pointer shadow-2xs font-sans shrink-0 self-start sm:self-auto"
+            >
+              <ChevronLeft size={14} />
+              <span>Back to Overview</span>
+            </button>
           </div>
 
           {applications.length > 0 ? (
@@ -635,14 +1120,29 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
 
       {/* ================= TAB 4: SCHEDULE & TIMETABLE ================= */}
       {activeSubTab === "schedule" && (
-        <div className="rounded-3xl border border-[#e2e5dc] bg-white p-6 sm:p-8 shadow-sm space-y-5">
-          <div className="border-b border-[#f1f3ed] pb-4">
-            <h3 className="font-serif text-lg sm:text-xl font-bold text-[#24312d]">
-              Class Schedule & Batch Guidelines
-            </h3>
-            <p className="text-xs text-[#65706a]">
-              Parivattan Mission Foundation Academic Session 2026-27 Class Timetable
-            </p>
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
+            <div>
+              <div className="flex items-center gap-2 text-xs text-slate-500 mb-1 font-sans">
+                <span onClick={() => setActiveSubTab("home")} className="hover:text-[#0b63e5] cursor-pointer font-semibold">🏠 Home</span>
+                <span>/</span>
+                <span className="text-[#0b63e5] font-bold">Class Schedule</span>
+              </div>
+              <h2 className="font-bold text-xl sm:text-2xl font-sans text-slate-800">
+                Class Schedule & Batch Guidelines
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5 font-sans">
+                Parivattan Mission Foundation Academic Session 2026-27 Class Timetable
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveSubTab("home")}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition cursor-pointer shadow-2xs font-sans shrink-0 self-start sm:self-auto"
+            >
+              <ChevronLeft size={14} />
+              <span>Back to Overview</span>
+            </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
@@ -690,23 +1190,36 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
       {activeSubTab === "notifications" && (
         <div className="space-y-6">
           {/* Header Banner */}
-          <div className="rounded-3xl border border-[#e2e5dc] bg-gradient-to-br from-white via-[#fcfbfa] to-[#f7f5ef] p-6 sm:p-8 shadow-sm relative overflow-hidden">
+          <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-blue-50/20 p-6 sm:p-8 shadow-sm relative overflow-hidden">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="space-y-1">
-                <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 text-amber-900 border border-amber-200 px-3 py-1 text-xs font-bold">
+                <div className="flex items-center gap-2 text-xs text-slate-500 mb-1 font-sans">
+                  <span onClick={() => setActiveSubTab("home")} className="hover:text-[#0b63e5] cursor-pointer font-semibold">🏠 Home</span>
+                  <span>/</span>
+                  <span className="text-[#0b63e5] font-bold">Notices & Circulars</span>
+                </div>
+                <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 text-amber-900 border border-amber-200 px-3 py-1 text-xs font-bold font-sans">
                   <Bell size={13} className="text-amber-600" />
                   <span>Academic Session 2026-27 · Official Student Notice Board</span>
                 </div>
-                <h3 className="font-serif text-xl sm:text-2xl font-bold text-[#24312d] pt-1">
+                <h2 className="font-bold text-xl sm:text-2xl font-sans text-slate-800 pt-1">
                   Notifications, Circulars & Study Guidelines
-                </h3>
-                <p className="text-xs sm:text-sm text-[#65706a]">
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-500 font-sans">
                   Official notices, course prospectuses, and academic circulars. Click below to preview or download the documents.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 px-3.5 py-2 text-xs font-bold shadow-2xs">
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setActiveSubTab("home")}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition cursor-pointer shadow-2xs font-sans"
+                >
+                  <ChevronLeft size={14} />
+                  <span>Back to Overview</span>
+                </button>
+                <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 px-3.5 py-2 text-xs font-bold shadow-2xs font-sans">
                   <FileCheck size={15} /> 2 Verified Documents
                 </span>
               </div>
@@ -900,6 +1413,177 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
           </div>
         </div>
       )}
+      </main>
+
+      {/* 3. RIGHT PANEL (White #ffffff, calendar + tasks + support) */}
+      <aside className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-slate-200/80 bg-white p-5 sm:p-6 space-y-6 shrink-0 flex flex-col justify-between">
+        <div className="space-y-6">
+          {/* Top User Bar */}
+          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setActiveSubTab("notifications")}
+                className="w-10 h-10 rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-600 flex items-center justify-center relative border border-slate-200/60 transition cursor-pointer"
+                title="Notifications & Circulars"
+              >
+                <Bell size={18} />
+                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500" />
+              </button>
+
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <div className="w-10 h-10 rounded-2xl bg-[#0b63e5] text-white font-bold flex items-center justify-center text-sm shadow-xs overflow-hidden">
+                    {student.avatar ? (
+                      <img src={student.avatar} alt={student.name} className="w-full h-full object-cover" />
+                    ) : (
+                      student.name.charAt(0).toUpperCase()
+                    )}
+                  </div>
+                  <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" />
+                </div>
+                <div className="truncate">
+                  <p className="text-xs font-bold text-slate-800 truncate">{student.name}</p>
+                  <p className="text-[10px] text-emerald-600 font-semibold">Online</p>
+                </div>
+              </div>
+            </div>
+
+            <button
+              id="student-signout-btn-desktop"
+              type="button"
+              onClick={async () => {
+                await logoutStudent();
+                onLogout();
+              }}
+              className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200/90 font-bold text-xs flex items-center gap-1.5 transition shadow-2xs cursor-pointer active:scale-95"
+              title="Log Out of Student Account"
+            >
+              <LogOut size={13} className="text-rose-600 shrink-0" />
+              <span>Log Out</span>
+            </button>
+          </div>
+
+          {/* Interactive Mini Calendar Widget (High-Contrast & Beautifully Visible) */}
+          <div className="student-calendar-widget bg-white border border-slate-200/90 rounded-3xl p-4 sm:p-4.5 space-y-3.5 shadow-xs">
+            <div className="flex items-center justify-between px-1">
+              <button
+                type="button"
+                onClick={prevMonth}
+                className="calendar-nav-btn w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center transition cursor-pointer active:scale-95 shadow-2xs"
+                title="Previous Month"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="calendar-month-label text-sm font-extrabold text-slate-900 tracking-tight">
+                {monthLabel}
+              </span>
+              <button
+                type="button"
+                onClick={nextMonth}
+                className="calendar-nav-btn w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center transition cursor-pointer active:scale-95 shadow-2xs"
+                title="Next Month"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+
+            {/* Weekdays Row: M T W TH F SA SU */}
+            <div className="calendar-weekday grid grid-cols-7 text-center text-[11px] font-extrabold text-slate-600 uppercase tracking-wider">
+              <span>M</span>
+              <span>T</span>
+              <span>W</span>
+              <span>TH</span>
+              <span>F</span>
+              <span>SA</span>
+              <span>SU</span>
+            </div>
+
+            {/* Days Grid with Crisp High-Contrast Numbers */}
+            <div className="grid grid-cols-7 gap-y-1.5 text-center text-xs">
+              {Array.from({ length: startDay }).map((_, i) => (
+                <div key={`empty-${i}`} className="h-8 w-8 mx-auto" />
+              ))}
+              {Array.from({ length: daysInMonth }).map((_, i) => {
+                const dayNum = i + 1;
+                const isSelected = selectedDay === dayNum;
+                return (
+                  <button
+                    key={`day-${dayNum}`}
+                    type="button"
+                    onClick={() => setSelectedDay(dayNum)}
+                    style={
+                      isSelected
+                        ? { backgroundColor: "#0b63e5", color: "#ffffff" }
+                        : { color: "#0f172a" }
+                    }
+                    className={`calendar-day-btn h-8 w-8 rounded-full mx-auto flex items-center justify-center text-xs font-bold transition cursor-pointer ${
+                      isSelected
+                        ? "is-active-day bg-[#0b63e5] text-white font-extrabold shadow-md shadow-[#0b63e5]/30 scale-105"
+                        : "text-slate-900 hover:bg-slate-100 hover:text-[#0b63e5]"
+                    }`}
+                  >
+                    {dayNum}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* "Your Tasks Today" Section (Colored Dots + Checklist) */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-extrabold text-slate-800">
+              Your Tasks Today
+            </h4>
+
+            <div className="space-y-2">
+              {tasks.map((task) => (
+                <div
+                  key={task.id}
+                  onClick={() => {
+                    toggleTask(task.id);
+                    setActiveSubTab(task.subTab);
+                  }}
+                  className={`flex items-center gap-3 p-2.5 rounded-2xl transition cursor-pointer ${
+                    task.done ? "bg-slate-50/80 text-slate-400" : "hover:bg-slate-50 text-slate-800 font-medium"
+                  }`}
+                >
+                  <span className={`w-2.5 h-2.5 rounded-full ${task.color} shrink-0`} />
+                  <span className={`text-xs flex-1 truncate ${task.done ? "line-through text-slate-400" : "text-slate-800 font-semibold"}`}>
+                    {task.title}
+                  </span>
+                  {task.done && <Check size={13} className="text-emerald-600 shrink-0" />}
+                </div>
+              ))}
+            </div>
+
+            <Link
+              to={`/admissions?prn=${student.prn}`}
+              className="w-full py-2.5 px-4 rounded-full border border-[#0b63e5] text-[#0b63e5] hover:bg-blue-50 text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs"
+            >
+              <Plus size={14} />
+              <span>+ Enroll in New Course</span>
+            </Link>
+          </div>
+        </div>
+
+        {/* Student Support & Helpline Card (Mockup "Refer a friend" location) */}
+        <div className="bg-slate-50 border border-slate-200/70 p-4 rounded-3xl text-center space-y-2 mt-4">
+          <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
+            <Phone size={18} />
+          </div>
+          <div>
+            <h5 className="font-bold text-xs text-slate-800">Need Help or Guidance?</h5>
+            <p className="text-[11px] text-slate-500">Parivattan Student Support Desk</p>
+          </div>
+          <a
+            href="tel:+917820831901"
+            className="block text-xs font-mono font-bold text-[#0b63e5] hover:underline"
+          >
+            +91 7820831901
+          </a>
+        </div>
+      </aside>
 
       {/* PDF Modal Viewer */}
       {previewPdf && (
@@ -923,7 +1607,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                 <a
                   href={previewPdf.url}
                   download
-                  className="rounded-xl bg-[#b5623b] hover:bg-[#974a27] text-white px-3.5 py-1.5 text-xs font-bold transition flex items-center gap-1.5 shadow"
+                  className="rounded-xl bg-[#0b63e5] hover:bg-blue-700 text-white px-3.5 py-1.5 text-xs font-bold transition flex items-center gap-1.5 shadow"
                 >
                   <Download size={14} />
                   <span>Download</span>

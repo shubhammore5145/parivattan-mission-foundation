@@ -51,12 +51,20 @@ import {
   UserPlus,
   PlusCircle,
   CreditCard,
+  Upload,
+  RefreshCw,
+  Menu,
+  ChevronDown,
+  Wifi,
+  ShoppingCart,
+  Share2,
 } from "lucide-react";
 import { StudentUser } from "@/types/student";
 import {
   getAllRegisteredStudents,
   fetchRegisteredStudentsFromCloud,
   deleteRegisteredStudent,
+  updateRegisteredStudent,
 } from "@/lib/student-auth";
 import {
   getAllBatchesSeatsList,
@@ -96,19 +104,44 @@ import {
 import { sendCourseAdmissionEmail } from "@/lib/courseEmailService";
 import { CountryFlagIcon } from "@/components/common/CountryFlagIcon";
 import { toast } from "sonner";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import CourseManager from "@/components/admin/CourseManager";
 import NewsAndAnnouncementsManager from "@/components/admin/NewsAndAnnouncementsManager";
+import TrashManager from "@/components/admin/TrashManager";
 import { getStoredAnnouncements } from "@/data/newsAndAnnouncementsData";
+import {
+  getDeletedAdmissions,
+  getDeletedStudents,
+  fetchCloudDeletedAdmissions,
+  softDeleteAdmission,
+  restoreAdmission,
+  permanentDeleteAdmission,
+  softDeleteStudent,
+  restoreStudent,
+  permanentDeleteStudent,
+  emptyTrash,
+  DeletedAdmissionItem,
+  DeletedStudentItem,
+} from "@/lib/trash-service";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
 
-  // Active Tab: "admissions" | "students" | "courses" | "news" | "donations" | "contacts" | "visitors"
+  // Active Tab: "admissions" | "students" | "courses" | "news" | "donations" | "contacts" | "visitors" | "trash"
   const [activeTab, setActiveTab] = useState<
-    "admissions" | "students" | "courses" | "news" | "donations" | "contacts" | "visitors"
+    "admissions" | "students" | "courses" | "news" | "donations" | "contacts" | "visitors" | "trash"
   >("admissions");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Recycle Bin / Trash State
+  const [deletedAdmissions, setDeletedAdmissions] = useState<DeletedAdmissionItem[]>(() =>
+    getDeletedAdmissions()
+  );
+  const [deletedStudents, setDeletedStudents] = useState<DeletedStudentItem[]>(() =>
+    getDeletedStudents()
+  );
+  const [trashCategoryFilter, setTrashCategoryFilter] = useState<"all" | "admissions" | "students">("all");
+  const [trashSearchQuery, setTrashSearchQuery] = useState("");
+  const [restoringId, setRestoringId] = useState<string | null>(null);
 
   const [coursesCount, setCoursesCount] = useState<number>(() => getStoredCourses().length);
   const [announcementsCount, setAnnouncementsCount] = useState<number>(
@@ -159,6 +192,9 @@ export default function AdminDashboard() {
   const [studentsLoading, setStudentsLoading] = useState(false);
   const [studentsSearch, setStudentsSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<StudentUser | null>(null);
+  const [editingStudent, setEditingStudent] = useState<StudentUser | null>(null);
+  const [studentFormData, setStudentFormData] = useState<Partial<StudentUser>>({});
+  const [isSavingStudent, setIsSavingStudent] = useState(false);
   const [deletingStudentId, setDeletingStudentId] = useState<string | null>(null);
 
   // Admissions State
@@ -207,6 +243,14 @@ export default function AdminDashboard() {
     payment_method: "Razorpay / Online",
     status: "completed" as "completed" | "pending",
     prn: "",
+    photo: "",
+    photo_name: "",
+    identity_proof: "",
+    identity_proof_name: "",
+    education_proof: "",
+    education_proof_name: "",
+    caste_certificate: "",
+    caste_certificate_name: "",
     sendEmailNotification: true,
   });
 
@@ -269,19 +313,34 @@ export default function AdminDashboard() {
     const handleBatchUpdate = () => loadBatchSeats();
     const handleCoursesUpdate = () => setCoursesCount(getStoredCourses().length);
     const handleNewsUpdate = () => setAnnouncementsCount(getStoredAnnouncements().length);
+    const handleTrashUpdate = () => {
+      setDeletedAdmissions(getDeletedAdmissions());
+      setDeletedStudents(getDeletedStudents());
+    };
 
     window.addEventListener("batch-seats-updated", handleBatchUpdate);
     window.addEventListener("courses-updated", handleCoursesUpdate);
     window.addEventListener("parivattan-news-announcements-updated", handleNewsUpdate);
+    window.addEventListener("parivattan-trash-updated", handleTrashUpdate);
     return () => {
       window.removeEventListener("batch-seats-updated", handleBatchUpdate);
       window.removeEventListener("courses-updated", handleCoursesUpdate);
       window.removeEventListener("parivattan-news-announcements-updated", handleNewsUpdate);
+      window.removeEventListener("parivattan-trash-updated", handleTrashUpdate);
     };
   }, []);
 
   const loadAllDashboardData = async () => {
     setLoading(true);
+    setDeletedAdmissions(getDeletedAdmissions());
+    setDeletedStudents(getDeletedStudents());
+
+    fetchCloudDeletedAdmissions()
+      .then((cloudAdm) => {
+        setDeletedAdmissions(cloudAdm);
+      })
+      .catch(() => {});
+
     await Promise.all([
       loadDonationData(),
       loadVisitorData(),
@@ -548,6 +607,97 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleDocumentUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    onSuccess: (dataUrl: string, name: string) => void
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File size exceeds 5MB limit. Please choose a smaller file.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      onSuccess(result, file.name);
+      toast.success(`Document uploaded: ${file.name}`);
+    };
+    reader.onerror = () => {
+      toast.error("Failed to read file.");
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleOpenEditStudent = (student: StudentUser) => {
+    setEditingStudent(student);
+    setStudentFormData({
+      id: student.id,
+      prn: student.prn || "",
+      name: student.name || "",
+      email: student.email || "",
+      phone: student.phone || "",
+      city: student.city || "Pune",
+      state: student.state || "Maharashtra",
+      password: student.password || "",
+      avatar: student.avatar || student.photo || "",
+      photo: student.photo || student.avatar || "",
+      photo_name: student.photo_name || "",
+      identity_proof: student.identity_proof || "",
+      identity_proof_name: student.identity_proof_name || "",
+      education_proof: student.education_proof || "",
+      education_proof_name: student.education_proof_name || "",
+      caste_certificate: student.caste_certificate || "",
+      caste_certificate_name: student.caste_certificate_name || "",
+      registeredAt: student.registeredAt || new Date().toISOString(),
+    });
+  };
+
+  const handleSaveStudentEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStudent) return;
+    if (!studentFormData.name?.trim()) {
+      toast.error("Student name is required.");
+      return;
+    }
+
+    setIsSavingStudent(true);
+    try {
+      const updated: StudentUser = {
+        ...editingStudent,
+        ...studentFormData,
+        id: editingStudent.id,
+        prn: studentFormData.prn?.trim() || editingStudent.prn,
+        name: studentFormData.name?.trim() || editingStudent.name,
+        email: studentFormData.email?.trim() || editingStudent.email,
+        phone: studentFormData.phone?.trim() || editingStudent.phone,
+        city: studentFormData.city?.trim() || "Pune",
+        state: studentFormData.state?.trim() || "Maharashtra",
+      };
+
+      await updateRegisteredStudent(updated);
+
+      setStudents((prev) =>
+        prev.map((s) => (s.id === updated.id || s.prn === updated.prn ? updated : s))
+      );
+
+      if (selectedStudent && (selectedStudent.id === updated.id || selectedStudent.prn === updated.prn)) {
+        setSelectedStudent(updated);
+      }
+
+      toast.success(`Student profile & documents for "${updated.name}" updated successfully!`);
+      setEditingStudent(null);
+    } catch (err: any) {
+      console.error("Error updating student:", err);
+      toast.error(`Failed to update student: ${err?.message || "Unknown error"}`);
+    } finally {
+      setIsSavingStudent(false);
+    }
+  };
+
   const handleOpenEditAdmission = (admission: Admission) => {
     setEditingAdmission(admission);
     const resolvedBatchId =
@@ -571,6 +721,14 @@ export default function AdminDashboard() {
       amount: admission.amount !== undefined ? admission.amount : 100,
       payment_id: admission.payment_id || "",
       status: admission.status || "completed",
+      photo: admission.photo || "",
+      photo_name: admission.photo_name || "",
+      identity_proof: admission.identity_proof || "",
+      identity_proof_name: admission.identity_proof_name || "",
+      education_proof: admission.education_proof || "",
+      education_proof_name: admission.education_proof_name || "",
+      caste_certificate: admission.caste_certificate || "",
+      caste_certificate_name: admission.caste_certificate_name || "",
     });
   };
 
@@ -724,6 +882,14 @@ export default function AdminDashboard() {
         phone: student.phone || "",
         prn: student.prn || "",
         address: student.city ? `${student.city}, ${student.state || "Maharashtra"}` : prev.address,
+        photo: student.photo || student.avatar || "",
+        photo_name: student.photo_name || "",
+        identity_proof: student.identity_proof || "",
+        identity_proof_name: student.identity_proof_name || "",
+        education_proof: student.education_proof || "",
+        education_proof_name: student.education_proof_name || "",
+        caste_certificate: student.caste_certificate || "",
+        caste_certificate_name: student.caste_certificate_name || "",
         payment_id: `PAY_ADM_${Date.now().toString().slice(-6)}`,
       }));
     } else {
@@ -747,6 +913,14 @@ export default function AdminDashboard() {
         phone: found.phone || prev.phone,
         prn: found.prn || prev.prn,
         address: found.city ? `${found.city}, ${found.state || "Maharashtra"}` : prev.address,
+        photo: found.photo || found.avatar || prev.photo,
+        photo_name: found.photo_name || prev.photo_name,
+        identity_proof: found.identity_proof || prev.identity_proof,
+        identity_proof_name: found.identity_proof_name || prev.identity_proof_name,
+        education_proof: found.education_proof || prev.education_proof,
+        education_proof_name: found.education_proof_name || prev.education_proof_name,
+        caste_certificate: found.caste_certificate || prev.caste_certificate,
+        caste_certificate_name: found.caste_certificate_name || prev.caste_certificate_name,
       }));
       toast.success(`Selected student "${found.name}" (${found.prn})`);
     }
@@ -794,6 +968,14 @@ export default function AdminDashboard() {
         payment_id: paymentRef,
         batch_id: newAdmissionData.batchId,
         batchId: newAdmissionData.batchId,
+        identity_proof: newAdmissionData.identity_proof || undefined,
+        identity_proof_name: newAdmissionData.identity_proof_name || undefined,
+        photo: newAdmissionData.photo || undefined,
+        photo_name: newAdmissionData.photo_name || undefined,
+        education_proof: newAdmissionData.education_proof || undefined,
+        education_proof_name: newAdmissionData.education_proof_name || undefined,
+        caste_certificate: newAdmissionData.caste_certificate || undefined,
+        caste_certificate_name: newAdmissionData.caste_certificate_name || undefined,
         status: newAdmissionData.status,
       });
 
@@ -839,6 +1021,14 @@ export default function AdminDashboard() {
         payment_method: "Razorpay / Online",
         status: "completed",
         prn: "",
+        photo: "",
+        photo_name: "",
+        identity_proof: "",
+        identity_proof_name: "",
+        education_proof: "",
+        education_proof_name: "",
+        caste_certificate: "",
+        caste_certificate_name: "",
         sendEmailNotification: true,
       });
       setSelectedStudentForAdmission("");
@@ -851,17 +1041,27 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteAdmission = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this admission record?"))
+    const target = admissions.find((a) => a.id === id);
+    if (!target) return;
+    if (!window.confirm(`Are you sure you want to delete admission for "${target.name}"? It will be moved to the Recycle Bin / Trash where you can restore it anytime.`))
       return;
     try {
       setDeletingAdmissionId(id);
-      await deleteAdmission(id);
+      await softDeleteAdmission(target, "Admin");
       setAdmissions((prev) => prev.filter((a) => a.id !== id));
       if (selectedAdmission && selectedAdmission.id === id) {
         setSelectedAdmission(null);
       }
       setBatchSeatsList(getAllBatchesSeatsList());
-      toast.success("Admission deleted.");
+      setDeletedAdmissions(getDeletedAdmissions());
+
+      toast.success(`Admission for "${target.name}" moved to Recycle Bin.`, {
+        action: {
+          label: "Undo",
+          onClick: () => handleRestoreAdmission(id),
+        },
+        duration: 10000,
+      });
     } catch (err) {
       console.error("Error deleting admission:", err);
       toast.error("Failed to delete admission.");
@@ -870,22 +1070,111 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleRestoreAdmission = async (id: string) => {
+    try {
+      setRestoringId(id);
+      const restored = await restoreAdmission(id);
+      if (restored) {
+        setAdmissions((prev) => [restored, ...prev.filter((a) => a.id !== restored.id)]);
+        setDeletedAdmissions(getDeletedAdmissions());
+        setBatchSeatsList(getAllBatchesSeatsList());
+        toast.success(`Admission for "${restored.name}" restored successfully!`);
+      } else {
+        toast.error("Could not restore admission record.");
+      }
+    } catch (err: any) {
+      console.error("Error restoring admission:", err);
+      toast.error("Failed to restore admission.");
+    } finally {
+      setRestoringId(null);
+    }
+  };
+
+  const handlePermanentDeleteAdmission = async (id: string, name?: string) => {
+    if (!window.confirm(`Permanently delete admission record for "${name || "this applicant"}"? This action cannot be undone.`))
+      return;
+    try {
+      await permanentDeleteAdmission(id);
+      setDeletedAdmissions(getDeletedAdmissions());
+      toast.success("Admission permanently deleted.");
+    } catch (err) {
+      console.error("Error permanently deleting admission:", err);
+      toast.error("Failed to permanently delete.");
+    }
+  };
+
   const handleDeleteStudent = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this student user?"))
+    const target = students.find((s) => s.id === id);
+    if (!target) return;
+    if (!window.confirm(`Are you sure you want to delete student "${target.name}"? It will be moved to the Recycle Bin / Trash where you can restore it anytime.`))
       return;
     try {
       setDeletingStudentId(id);
-      await deleteRegisteredStudent(id);
+      await softDeleteStudent(target, "Admin");
       setStudents((prev) => prev.filter((s) => s.id !== id));
       if (selectedStudent && selectedStudent.id === id) {
         setSelectedStudent(null);
       }
-      toast.success("Student user deleted.");
+      setDeletedStudents(getDeletedStudents());
+
+      toast.success(`Student "${target.name}" moved to Recycle Bin.`, {
+        action: {
+          label: "Undo",
+          onClick: () => handleRestoreStudent(id),
+        },
+        duration: 10000,
+      });
     } catch (err) {
       console.error("Error deleting student:", err);
       toast.error("Failed to delete student.");
     } finally {
       setDeletingStudentId(null);
+    }
+  };
+
+  const handleRestoreStudent = async (id: string) => {
+    try {
+      setRestoringId(id);
+      const restored = await restoreStudent(id);
+      if (restored) {
+        setStudents((prev) => [restored, ...prev.filter((s) => s.id !== restored.id)]);
+        setDeletedStudents(getDeletedStudents());
+        toast.success(`Student "${restored.name}" restored successfully!`);
+      } else {
+        toast.error("Could not restore student user.");
+      }
+    } catch (err: any) {
+      console.error("Error restoring student:", err);
+      toast.error("Failed to restore student.");
+    } finally {
+      setRestoringId(null);
+    }
+  };
+
+  const handlePermanentDeleteStudent = async (id: string, name?: string) => {
+    if (!window.confirm(`Permanently delete student "${name || "this user"}"? This cannot be undone.`))
+      return;
+    try {
+      await permanentDeleteStudent(id);
+      setDeletedStudents(getDeletedStudents());
+      toast.success("Student permanently deleted.");
+    } catch (err) {
+      console.error("Error permanently deleting student:", err);
+      toast.error("Failed to permanently delete.");
+    }
+  };
+
+  const handleEmptyTrash = async () => {
+    if (!window.confirm("Are you sure you want to completely empty the Recycle Bin? All deleted records will be permanently erased."))
+      return;
+    try {
+      await emptyTrash("all");
+      setDeletedAdmissions([]);
+      setDeletedStudents([]);
+      toast.success("Recycle Bin emptied successfully.");
+    } catch (err) {
+      console.error("Error emptying trash:", err);
+      toast.error("Failed to empty trash.");
     }
   };
 
@@ -1153,450 +1442,898 @@ export default function AdminDashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] text-[#1b2b25] selection:bg-[#b5623b]/20">
-      <Header />
+    <div className="admin-dashboard-app font-sans min-h-screen bg-[#f4f7fa] text-slate-800 flex selection:bg-[#1abc9c]/20">
+      {/* Mobile Sidebar Backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-xs lg:hidden animate-in fade-in duration-200"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-      <main className="pt-24 pb-20">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          {/* ==================== 1. TOP APP BAR ==================== */}
-          <div className="mt-4 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white rounded-3xl p-6 sm:p-7 border border-stone-200/80 shadow-xs">
-            <div className="flex items-center gap-4">
-              <div className="h-14 w-14 rounded-2xl bg-[#1b2b25] text-white flex items-center justify-center shadow-md shrink-0">
-                <Shield size={28} className="text-[#fedb41]" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#b5623b]">
-                    Administrative Control Center
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold border border-emerald-200">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Live Cloud Sync
-                  </span>
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#1b2b25] mt-0.5">
-                  Parivattan Foundation Admin
-                </h1>
-                <p className="text-xs text-stone-500 mt-0.5">
-                  Manage Admissions, Registered Students, Donations, and Website Inquiries.
-                </p>
-              </div>
+      {/* ==================== FLAT ABLE LEFT SIDEBAR ==================== */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#1f2d3d] text-slate-300 flex flex-col transition-transform duration-300 ease-in-out border-r border-slate-700/60 shadow-xl ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        }`}
+      >
+        {/* Brand / Logo Header */}
+        <div className="h-16 flex items-center justify-between px-5 bg-[#182430] border-b border-slate-700/60 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[#1abc9c] to-[#16a085] text-white flex items-center justify-center font-bold shadow-md shadow-[#1abc9c]/30">
+              <Shield size={20} className="text-white" />
             </div>
-
-            {/* Quick Actions in Top Bar */}
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <a
-                href="/admissions"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-xs font-bold text-[#1b2b25] transition shadow-xs"
-              >
-                <span>Live Admission Form</span>
-                <ExternalLink size={13} />
-              </a>
-
-              <button
-                onClick={() => setShowAddDonationModal(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#b5623b] hover:bg-[#984f2d] text-white text-xs font-bold transition shadow-sm"
-              >
-                <Plus size={15} />
-                <span>Add Donation</span>
-              </button>
-
-              <button
-                onClick={handleLogout}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition"
-                title="Sign out of Admin Dashboard"
-              >
-                <LogOut size={14} />
-                <span>Logout</span>
-              </button>
+            <div>
+              <span className="font-extrabold text-white text-base tracking-wider block font-sans">
+                PARIVATTAN
+              </span>
+              <span className="text-[10px] text-[#1abc9c] font-bold tracking-widest uppercase block -mt-1">
+                Admin Control
+              </span>
             </div>
           </div>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
-          {/* ==================== 2. EXECUTIVE KPI CARDS RIBBON ==================== */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 sm:gap-4 mb-8">
-            {/* Admissions KPI */}
-            <button
-              onClick={() => setActiveTab("admissions")}
-              className={`rounded-2xl p-4 sm:p-5 text-left transition-all border ${
-                activeTab === "admissions"
-                  ? "bg-[#1b2b25] text-white border-[#1b2b25] shadow-md ring-2 ring-[#1b2b25]/20"
-                  : "bg-white text-[#1b2b25] border-stone-200/80 hover:border-[#b5623b] shadow-xs"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div
-                  className={`h-9 w-9 rounded-xl flex items-center justify-center ${
-                    activeTab === "admissions"
-                      ? "bg-white/10 text-amber-300"
-                      : "bg-amber-50 text-[#b5623b]"
-                  }`}
-                >
-                  <GraduationCap size={18} />
-                </div>
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    activeTab === "admissions"
-                      ? "bg-white/15 text-stone-200"
-                      : "bg-stone-100 text-stone-600"
-                  }`}
-                >
-                  Admissions
-                </span>
-              </div>
-              <div className="text-2xl sm:text-3xl font-serif font-bold">
-                {admissions.length}
-              </div>
-              <div
-                className={`text-[11px] mt-1 font-medium ${
-                  activeTab === "admissions" ? "text-stone-300" : "text-stone-500"
-                }`}
-              >
-                {admissions.filter((a) => a.status === "completed").length} Verified Applications
-              </div>
-            </button>
-
-            {/* Students Directory KPI */}
-            <button
-              onClick={() => setActiveTab("students")}
-              className={`rounded-2xl p-4 sm:p-5 text-left transition-all border ${
-                activeTab === "students"
-                  ? "bg-[#1b2b25] text-white border-[#1b2b25] shadow-md ring-2 ring-[#1b2b25]/20"
-                  : "bg-white text-[#1b2b25] border-stone-200/80 hover:border-emerald-600 shadow-xs"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div
-                  className={`h-9 w-9 rounded-xl flex items-center justify-center ${
-                    activeTab === "students"
-                      ? "bg-white/10 text-emerald-300"
-                      : "bg-emerald-50 text-emerald-700"
-                  }`}
-                >
-                  <Users size={18} />
-                </div>
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    activeTab === "students"
-                      ? "bg-white/15 text-stone-200"
-                      : "bg-stone-100 text-stone-600"
-                  }`}
-                >
-                  PRN Users
-                </span>
-              </div>
-              <div className="text-2xl sm:text-3xl font-serif font-bold">
-                {students.length}
-              </div>
-              <div
-                className={`text-[11px] mt-1 font-medium ${
-                  activeTab === "students" ? "text-stone-300" : "text-stone-500"
-                }`}
-              >
-                Registered Student Accounts
-              </div>
-            </button>
-
-            {/* Courses Management KPI */}
-            <button
-              onClick={() => setActiveTab("courses")}
-              className={`rounded-2xl p-4 sm:p-5 text-left transition-all border ${
-                activeTab === "courses"
-                  ? "bg-[#1b2b25] text-white border-[#1b2b25] shadow-md ring-2 ring-[#1b2b25]/20"
-                  : "bg-white text-[#1b2b25] border-stone-200/80 hover:border-[#b5623b] shadow-xs"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div
-                  className={`h-9 w-9 rounded-xl flex items-center justify-center ${
-                    activeTab === "courses"
-                      ? "bg-white/10 text-emerald-300"
-                      : "bg-emerald-50 text-emerald-700"
-                  }`}
-                >
-                  <BookOpen size={18} />
-                </div>
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    activeTab === "courses"
-                      ? "bg-white/15 text-stone-200"
-                      : "bg-emerald-100 text-emerald-800"
-                  }`}
-                >
-                  Manage
-                </span>
-              </div>
-              <div className="text-2xl sm:text-3xl font-serif font-bold">
-                {coursesCount}
-              </div>
-              <div
-                className={`text-[11px] mt-1 font-medium ${
-                  activeTab === "courses" ? "text-stone-300" : "text-stone-500"
-                }`}
-              >
-                Courses, Levels & Batches
-              </div>
-            </button>
-
-            {/* Donations KPI */}
-            <button
-              onClick={() => setActiveTab("donations")}
-              className={`rounded-2xl p-4 sm:p-5 text-left transition-all border ${
-                activeTab === "donations"
-                  ? "bg-[#1b2b25] text-white border-[#1b2b25] shadow-md ring-2 ring-[#1b2b25]/20"
-                  : "bg-white text-[#1b2b25] border-stone-200/80 hover:border-[#b5623b] shadow-xs"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div
-                  className={`h-9 w-9 rounded-xl flex items-center justify-center ${
-                    activeTab === "donations"
-                      ? "bg-white/10 text-amber-300"
-                      : "bg-orange-50 text-[#b5623b]"
-                  }`}
-                >
-                  <Heart size={18} />
-                </div>
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    activeTab === "donations"
-                      ? "bg-white/15 text-stone-200"
-                      : "bg-stone-100 text-stone-600"
-                  }`}
-                >
-                  Raised
-                </span>
-              </div>
-              <div className="text-xl sm:text-2xl font-serif font-bold truncate">
-                ₹{stats.total_amount.toLocaleString("en-IN")}
-              </div>
-              <div
-                className={`text-[11px] mt-1 font-medium ${
-                  activeTab === "donations" ? "text-stone-300" : "text-stone-500"
-                }`}
-              >
-                {stats.completed} Completed Donations
-              </div>
-            </button>
-
-            {/* Inquiries KPI */}
-            <button
-              onClick={() => setActiveTab("contacts")}
-              className={`rounded-2xl p-4 sm:p-5 text-left transition-all border ${
-                activeTab === "contacts"
-                  ? "bg-[#1b2b25] text-white border-[#1b2b25] shadow-md ring-2 ring-[#1b2b25]/20"
-                  : "bg-white text-[#1b2b25] border-stone-200/80 hover:border-blue-600 shadow-xs"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div
-                  className={`h-9 w-9 rounded-xl flex items-center justify-center ${
-                    activeTab === "contacts"
-                      ? "bg-white/10 text-blue-300"
-                      : "bg-blue-50 text-blue-700"
-                  }`}
-                >
-                  <MessageSquare size={18} />
-                </div>
-                {unreadContactsCount > 0 ? (
-                  <span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
-                    {unreadContactsCount} New
-                  </span>
-                ) : (
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      activeTab === "contacts"
-                        ? "bg-white/15 text-stone-200"
-                        : "bg-stone-100 text-stone-600"
-                    }`}
-                  >
-                    Messages
-                  </span>
-                )}
-              </div>
-              <div className="text-2xl sm:text-3xl font-serif font-bold">
-                {contacts.length}
-              </div>
-              <div
-                className={`text-[11px] mt-1 font-medium ${
-                  activeTab === "contacts" ? "text-stone-300" : "text-stone-500"
-                }`}
-              >
-                Inquiries & Feedback
-              </div>
-            </button>
-
-            {/* Live Visitors KPI */}
-            <button
-              onClick={() => setActiveTab("visitors")}
-              className={`col-span-2 lg:col-span-1 rounded-2xl p-4 sm:p-5 text-left transition-all border ${
-                activeTab === "visitors"
-                  ? "bg-[#1b2b25] text-white border-[#1b2b25] shadow-md ring-2 ring-[#1b2b25]/20"
-                  : "bg-white text-[#1b2b25] border-stone-200/80 hover:border-teal-600 shadow-xs"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div
-                  className={`h-9 w-9 rounded-xl flex items-center justify-center ${
-                    activeTab === "visitors"
-                      ? "bg-white/10 text-teal-300"
-                      : "bg-teal-50 text-teal-700"
-                  }`}
-                >
-                  <Activity size={18} />
-                </div>
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
-                  Live Sync
-                </span>
-              </div>
-              <div className="text-2xl sm:text-3xl font-serif font-bold">
-                {visitorStats.today}
-              </div>
-              <div
-                className={`text-[11px] mt-1 font-medium ${
-                  activeTab === "visitors" ? "text-stone-300" : "text-stone-500"
-                }`}
-              >
-                Today ({visitorStats.total} All-Time)
-              </div>
-            </button>
+        {/* User Profile Box (Matches Flat Able styling) */}
+        <div className="p-4 mx-3 my-3 rounded-2xl bg-[#182430] border border-slate-700/50 flex items-center gap-3 shrink-0 shadow-inner">
+          <div className="relative">
+            <div className="h-11 w-11 rounded-full bg-gradient-to-tr from-[#1abc9c] to-emerald-400 text-white font-bold text-base flex items-center justify-center shadow-sm">
+              PM
+            </div>
+            <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-500 border-2 border-[#182430]" />
           </div>
+          <div className="min-w-0 flex-1">
+            <h4 className="text-sm font-bold text-white truncate">Admin Officer</h4>
+            <div className="flex items-center justify-between text-xs text-[#1abc9c]">
+              <span className="truncate">System Director</span>
+              <ChevronDown size={14} className="text-slate-400 shrink-0" />
+            </div>
+          </div>
+        </div>
 
-          {/* ==================== 3. MODERN SEGMENTED TAB NAVIGATION ==================== */}
-          <div className="mb-8 flex items-center justify-between flex-wrap gap-4 border-b border-stone-200 pb-3">
-            <div className="inline-flex p-1.5 bg-stone-200/60 rounded-2xl gap-1 overflow-x-auto max-w-full scrollbar-none">
-              {/* Tab 1 */}
+        {/* Sidebar Nav Links */}
+        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-6 scrollbar-thin scrollbar-thumb-slate-700">
+          {/* Section 1: Navigation */}
+          <div>
+            <div className="px-3 mb-2 text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+              Navigation
+            </div>
+            <nav className="space-y-1">
               <button
-                onClick={() => setActiveTab("admissions")}
-                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
+                onClick={() => {
+                  setActiveTab("admissions");
+                  setSidebarOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   activeTab === "admissions"
-                    ? "bg-white text-[#1b2b25] shadow-sm font-extrabold"
-                    : "text-stone-600 hover:text-[#1b2b25] hover:bg-white/50"
+                    ? "bg-[#1abc9c] text-white shadow-md shadow-[#1abc9c]/25 font-extrabold"
+                    : "text-slate-300 hover:text-white hover:bg-slate-800/60"
                 }`}
               >
-                <GraduationCap size={15} />
-                <span>Admissions</span>
-                <span className="px-2 py-0.5 rounded-full bg-stone-100 text-[11px] text-stone-700 font-mono">
+                <div className="flex items-center gap-3">
+                  <GraduationCap size={17} />
+                  <span>Admissions</span>
+                </div>
+                <span
+                  className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
+                    activeTab === "admissions"
+                      ? "bg-white/20 text-white font-bold"
+                      : "bg-slate-800 text-slate-400"
+                  }`}
+                >
                   {admissions.length}
                 </span>
               </button>
 
-              {/* Tab 2 */}
               <button
-                onClick={() => setActiveTab("students")}
-                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
+                onClick={() => {
+                  setActiveTab("students");
+                  setSidebarOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   activeTab === "students"
-                    ? "bg-white text-[#1b2b25] shadow-sm font-extrabold"
-                    : "text-stone-600 hover:text-[#1b2b25] hover:bg-white/50"
+                    ? "bg-[#1abc9c] text-white shadow-md shadow-[#1abc9c]/25 font-extrabold"
+                    : "text-slate-300 hover:text-white hover:bg-slate-800/60"
                 }`}
               >
-                <Users size={15} />
-                <span>Students Directory</span>
-                <span className="px-2 py-0.5 rounded-full bg-stone-100 text-[11px] text-stone-700 font-mono">
+                <div className="flex items-center gap-3">
+                  <Users size={17} />
+                  <span>Student Accounts</span>
+                </div>
+                <span
+                  className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
+                    activeTab === "students"
+                      ? "bg-white/20 text-white font-bold"
+                      : "bg-slate-800 text-slate-400"
+                  }`}
+                >
                   {students.length}
                 </span>
               </button>
 
-              {/* Tab Courses */}
               <button
-                onClick={() => setActiveTab("courses")}
-                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
+                onClick={() => {
+                  setActiveTab("courses");
+                  setSidebarOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   activeTab === "courses"
-                    ? "bg-white text-[#1b2b25] shadow-sm font-extrabold"
-                    : "text-stone-600 hover:text-[#1b2b25] hover:bg-white/50"
+                    ? "bg-[#1abc9c] text-white shadow-md shadow-[#1abc9c]/25 font-extrabold"
+                    : "text-slate-300 hover:text-white hover:bg-slate-800/60"
                 }`}
               >
-                <BookOpen size={15} />
-                <span>Courses & Batches</span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[11px] text-emerald-800 font-mono font-bold">
+                <div className="flex items-center gap-3">
+                  <BookOpen size={17} />
+                  <span>Courses & Batches</span>
+                </div>
+                <span
+                  className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
+                    activeTab === "courses"
+                      ? "bg-white/20 text-white font-bold"
+                      : "bg-slate-800 text-slate-400"
+                  }`}
+                >
                   {coursesCount}
                 </span>
               </button>
+            </nav>
+          </div>
 
-              {/* Tab News & Announcements */}
+          {/* Section 2: Communications & Outreach */}
+          <div>
+            <div className="px-3 mb-2 text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+              Communications
+            </div>
+            <nav className="space-y-1">
               <button
-                onClick={() => setActiveTab("news")}
-                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
-                  activeTab === "news"
-                    ? "bg-white text-[#1b2b25] shadow-sm font-extrabold"
-                    : "text-stone-600 hover:text-[#1b2b25] hover:bg-white/50"
-                }`}
-              >
-                <Bell size={15} />
-                <span>News & Announcements</span>
-                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-[11px] text-amber-900 font-mono font-bold">
-                  {announcementsCount}
-                </span>
-              </button>
-
-              {/* Tab 3 */}
-              <button
-                onClick={() => setActiveTab("donations")}
-                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
-                  activeTab === "donations"
-                    ? "bg-white text-[#1b2b25] shadow-sm font-extrabold"
-                    : "text-stone-600 hover:text-[#1b2b25] hover:bg-white/50"
-                }`}
-              >
-                <Heart size={15} />
-                <span>Donations</span>
-                <span className="px-2 py-0.5 rounded-full bg-stone-100 text-[11px] text-stone-700 font-mono">
-                  {donations.length}
-                </span>
-              </button>
-
-              {/* Tab 4 */}
-              <button
-                onClick={() => setActiveTab("contacts")}
-                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
+                onClick={() => {
+                  setActiveTab("contacts");
+                  setSidebarOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   activeTab === "contacts"
-                    ? "bg-white text-[#1b2b25] shadow-sm font-extrabold"
-                    : "text-stone-600 hover:text-[#1b2b25] hover:bg-white/50"
+                    ? "bg-[#1abc9c] text-white shadow-md shadow-[#1abc9c]/25 font-extrabold"
+                    : "text-slate-300 hover:text-white hover:bg-slate-800/60"
                 }`}
               >
-                <MessageSquare size={15} />
-                <span>Inquiries</span>
+                <div className="flex items-center gap-3">
+                  <MessageSquare size={17} />
+                  <span>Inquiries & Feedback</span>
+                </div>
                 {unreadContactsCount > 0 ? (
-                  <span className="px-2 py-0.5 rounded-full bg-rose-500 text-[11px] text-white font-mono">
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-rose-500 text-white font-bold animate-pulse">
                     {unreadContactsCount}
                   </span>
                 ) : (
-                  <span className="px-2 py-0.5 rounded-full bg-stone-100 text-[11px] text-stone-700 font-mono">
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
                     {contacts.length}
                   </span>
                 )}
               </button>
 
-              {/* Tab 5 */}
+              <button
+                onClick={() => {
+                  setActiveTab("news");
+                  setSidebarOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === "news"
+                    ? "bg-[#1abc9c] text-white shadow-md shadow-[#1abc9c]/25 font-extrabold"
+                    : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Bell size={17} />
+                  <span>News & Updates</span>
+                </div>
+                <span
+                  className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
+                    activeTab === "news"
+                      ? "bg-white/20 text-white font-bold"
+                      : "bg-slate-800 text-slate-400"
+                  }`}
+                >
+                  {announcementsCount}
+                </span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveTab("donations");
+                  setSidebarOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === "donations"
+                    ? "bg-[#1abc9c] text-white shadow-md shadow-[#1abc9c]/25 font-extrabold"
+                    : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Heart size={17} />
+                  <span>Donations</span>
+                </div>
+                <span
+                  className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
+                    activeTab === "donations"
+                      ? "bg-white/20 text-white font-bold"
+                      : "bg-slate-800 text-slate-400"
+                  }`}
+                >
+                  {donations.length}
+                </span>
+              </button>
+            </nav>
+          </div>
+
+          {/* Section 3: System & Recovery */}
+          <div>
+            <div className="px-3 mb-2 text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+              System & Recovery
+            </div>
+            <nav className="space-y-1">
+              <button
+                onClick={() => {
+                  setActiveTab("visitors");
+                  setSidebarOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === "visitors"
+                    ? "bg-[#1abc9c] text-white shadow-md shadow-[#1abc9c]/25 font-extrabold"
+                    : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Activity size={17} />
+                  <span>Visitor Traffic</span>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  Live
+                </span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveTab("trash");
+                  setSidebarOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === "trash"
+                    ? "bg-rose-600 text-white shadow-md shadow-rose-600/30 font-extrabold"
+                    : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Trash2
+                    size={17}
+                    className={
+                      deletedAdmissions.length + deletedStudents.length > 0
+                        ? "text-rose-400"
+                        : ""
+                    }
+                  />
+                  <span>Recycle Bin</span>
+                </div>
+                {deletedAdmissions.length + deletedStudents.length > 0 && (
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-rose-500 text-white font-bold animate-pulse">
+                    {deletedAdmissions.length + deletedStudents.length}
+                  </span>
+                )}
+              </button>
+
+              <a
+                href="/admissions"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800/60 transition"
+              >
+                <div className="flex items-center gap-3">
+                  <ExternalLink size={17} />
+                  <span>Public Form</span>
+                </div>
+                <ArrowUpRight size={13} className="text-slate-500" />
+              </a>
+
+              <a
+                href="/student/portal"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800/60 transition"
+              >
+                <div className="flex items-center gap-3">
+                  <GraduationCap size={17} />
+                  <span>Student Portal</span>
+                </div>
+                <ArrowUpRight size={13} className="text-slate-500" />
+              </a>
+            </nav>
+          </div>
+        </div>
+
+        {/* Sidebar Footer */}
+        <div className="p-3 border-t border-slate-700/60 bg-[#182430] shrink-0 space-y-2">
+          <div className="flex items-center justify-between px-2 text-[11px] text-slate-400">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              MongoDB Atlas
+            </span>
+            <span className="text-emerald-400 font-bold">Connected</span>
+          </div>
+
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 transition"
+          >
+            <LogOut size={14} />
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* ==================== MAIN DASHBOARD WORKSPACE ==================== */}
+      <div className="lg:pl-64 flex-1 flex flex-col min-w-0">
+        {/* Top Navbar */}
+        <header className="sticky top-0 z-30 h-16 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between gap-4 shadow-2xs">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100 transition"
+              title="Open Navigation"
+            >
+              <Menu size={20} />
+            </button>
+
+            {/* Global Search Bar */}
+            <div className="relative max-w-md w-full hidden sm:block">
+              <Search
+                size={16}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                type="text"
+                value={
+                  activeTab === "trash"
+                    ? trashSearchQuery
+                    : activeTab === "students"
+                    ? studentsSearch
+                    : activeTab === "contacts"
+                    ? contactsSearch
+                    : activeTab === "donations"
+                    ? donationSearchQuery
+                    : admissionsSearch
+                }
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (activeTab === "trash") setTrashSearchQuery(val);
+                  else if (activeTab === "students") setStudentsSearch(val);
+                  else if (activeTab === "contacts") setContactsSearch(val);
+                  else if (activeTab === "donations") setDonationSearchQuery(val);
+                  else setAdmissionsSearch(val);
+                }}
+                placeholder={
+                  activeTab === "trash"
+                    ? "Search deleted records by name, course..."
+                    : activeTab === "students"
+                    ? "Search students by name, email, PRN..."
+                    : activeTab === "contacts"
+                    ? "Search inquiries by name, message..."
+                    : activeTab === "donations"
+                    ? "Search donations by donor name, email..."
+                    : "Search admissions by student name, phone, PRN, course..."
+                }
+                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#1abc9c]/30 focus:border-[#1abc9c] transition"
+              />
+            </div>
+          </div>
+
+          {/* Right Header Controls */}
+          <div className="flex items-center gap-2.5">
+            <span className="hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              Live Cloud Sync
+            </span>
+
+            <button
+              onClick={() => setShowNewAdmissionModal(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#1abc9c] hover:bg-[#16a085] text-white text-xs font-bold transition shadow-sm cursor-pointer"
+            >
+              <Plus size={15} />
+              <span className="hidden sm:inline">New Admission</span>
+            </button>
+
+            <button
+              onClick={() => setShowAddDonationModal(true)}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
+            >
+              <Plus size={14} />
+              <span>Donation</span>
+            </button>
+
+            <button
+              onClick={loadAllDashboardData}
+              className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition"
+              title="Refresh Dashboard Data"
+            >
+              <RotateCcw size={16} className={loading ? "animate-spin text-[#1abc9c]" : ""} />
+            </button>
+
+            {/* Notification Bell */}
+            <div className="relative">
+              <button
+                onClick={() => setActiveTab("contacts")}
+                className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition relative"
+                title="Notifications"
+              >
+                <Bell size={16} />
+                {unreadContactsCount + deletedAdmissions.length > 0 && (
+                  <span className="absolute -top-1 -right-1 h-4 min-w-[16px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
+                    {unreadContactsCount + deletedAdmissions.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Profile Pill */}
+            <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+              <div className="h-8 w-8 rounded-full bg-[#1abc9c] text-white font-bold text-xs flex items-center justify-center">
+                AD
+              </div>
+              <button
+                onClick={handleLogout}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                title="Logout"
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Workspace Canvas */}
+        <main className="p-4 sm:p-6 lg:p-8 space-y-6 flex-1 max-w-[1600px] w-full mx-auto">
+          {/* Breadcrumb Header Bar (Matches Flat Able) */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold font-sans text-slate-800 capitalize tracking-tight">
+                {activeTab === "admissions"
+                  ? "Dashboard Analytics & Admissions"
+                  : activeTab === "students"
+                  ? "Student Accounts & PRN Directory"
+                  : activeTab === "courses"
+                  ? "Courses & Batch Allocation"
+                  : activeTab === "news"
+                  ? "News & Announcements Management"
+                  : activeTab === "donations"
+                  ? "Donations & Campaign Contributions"
+                  : activeTab === "contacts"
+                  ? "Inquiries & Website Feedback"
+                  : activeTab === "visitors"
+                  ? "Live Visitor Analytics"
+                  : "Recycle Bin & Data Recovery"}
+              </h1>
+              <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
+                <span className="cursor-pointer hover:text-[#1abc9c]" onClick={() => setActiveTab("admissions")}>
+                  🏠 Home
+                </span>
+                <span>/</span>
+                <span>Dashboard Analytics</span>
+                <span>/</span>
+                <span className="text-[#1abc9c] font-bold capitalize">{activeTab}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={loadAllDashboardData}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 shadow-2xs transition"
+              >
+                <RotateCcw size={13} className={loading ? "animate-spin" : ""} />
+                <span>Sync Data</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  if (activeTab === "donations") exportDonationsCSV();
+                  else if (activeTab === "students") exportStudentsCSV();
+                  else exportAdmissionsCSV();
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 shadow-2xs transition"
+              >
+                <Download size={13} />
+                <span>Export CSV</span>
+              </button>
+            </div>
+          </div>
+
+          {/* ==================== FLAT ABLE KPI METRIC WIDGETS ==================== */}
+          {activeTab === "admissions" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            {/* Widget 1: 2x2 Multi-Stat Quadrant Box */}
+            <div className="rounded-2xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden">
+              <div className="grid grid-cols-2 divide-x divide-y divide-slate-100">
+                {/* Quadrant 1: Visitors */}
+                <div
+                  onClick={() => setActiveTab("visitors")}
+                  className="p-5 hover:bg-slate-50/60 transition cursor-pointer flex items-center gap-4"
+                >
+                  <div className="h-12 w-12 rounded-xl bg-teal-50 text-[#1abc9c] flex items-center justify-center shrink-0">
+                    <Eye size={22} />
+                  </div>
+                  <div>
+                    <div className="text-xl font-bold font-sans text-slate-800">
+                      {visitorStats.today}
+                    </div>
+                    <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+                      VISITORS
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quadrant 2: Verified Volume */}
+                <div
+                  onClick={() => setActiveTab("admissions")}
+                  className="p-5 hover:bg-slate-50/60 transition cursor-pointer flex items-center gap-4"
+                >
+                  <div className="h-12 w-12 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center shrink-0">
+                    <CheckCircle2 size={22} />
+                  </div>
+                  <div>
+                    <div className="text-xl font-bold font-sans text-slate-800">
+                      {admissions.filter((a) => a.status === "completed").length}
+                    </div>
+                    <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+                      VERIFIED
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quadrant 3: Total Files / Admissions */}
+                <div
+                  onClick={() => setActiveTab("admissions")}
+                  className="p-5 hover:bg-slate-50/60 transition cursor-pointer flex items-center gap-4"
+                >
+                  <div className="h-12 w-12 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center shrink-0">
+                    <FileText size={22} />
+                  </div>
+                  <div>
+                    <div className="text-xl font-bold font-sans text-slate-800">
+                      {admissions.length}
+                    </div>
+                    <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+                      FILES
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quadrant 4: Inquiries / Mails */}
+                <div
+                  onClick={() => setActiveTab("contacts")}
+                  className="p-5 hover:bg-slate-50/60 transition cursor-pointer flex items-center gap-4"
+                >
+                  <div className="h-12 w-12 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
+                    <Mail size={22} />
+                  </div>
+                  <div>
+                    <div className="text-xl font-bold font-sans text-slate-800">
+                      {contacts.length}
+                    </div>
+                    <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+                      MAILS
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Widget 2: 2x2 Multi-Stat Quadrant Box */}
+            <div className="rounded-2xl border border-slate-200/90 bg-white shadow-2xs overflow-hidden">
+              <div className="grid grid-cols-2 divide-x divide-y divide-slate-100">
+                {/* Quadrant 1: Students */}
+                <div
+                  onClick={() => setActiveTab("students")}
+                  className="p-5 hover:bg-slate-50/60 transition cursor-pointer flex items-center gap-4"
+                >
+                  <div className="h-12 w-12 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
+                    <Share2 size={22} />
+                  </div>
+                  <div>
+                    <div className="text-xl font-bold font-sans text-slate-800">
+                      {students.length}
+                    </div>
+                    <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+                      STUDENTS
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quadrant 2: Network / Batches */}
+                <div
+                  onClick={() => setActiveTab("courses")}
+                  className="p-5 hover:bg-slate-50/60 transition cursor-pointer flex items-center gap-4"
+                >
+                  <div className="h-12 w-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                    <Wifi size={22} />
+                  </div>
+                  <div>
+                    <div className="text-xl font-bold font-sans text-slate-800">
+                      {coursesCount}
+                    </div>
+                    <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+                      BATCHES
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quadrant 3: Returns / Recycle Bin */}
+                <div
+                  onClick={() => setActiveTab("trash")}
+                  className="p-5 hover:bg-slate-50/60 transition cursor-pointer flex items-center gap-4"
+                >
+                  <div className="h-12 w-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                    <RotateCcw size={22} />
+                  </div>
+                  <div>
+                    <div className="text-xl font-bold font-sans text-slate-800">
+                      {deletedAdmissions.length + deletedStudents.length}
+                    </div>
+                    <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+                      IN TRASH
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quadrant 4: Donations / Orders */}
+                <div
+                  onClick={() => setActiveTab("donations")}
+                  className="p-5 hover:bg-slate-50/60 transition cursor-pointer flex items-center gap-4"
+                >
+                  <div className="h-12 w-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0">
+                    <ShoppingCart size={22} />
+                  </div>
+                  <div>
+                    <div className="text-xl font-bold font-sans text-slate-800">
+                      {donations.length}
+                    </div>
+                    <div className="text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+                      DONATIONS
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Widget 3: Big Sparkline / Support Requests Box */}
+            <div className="rounded-2xl border border-slate-200/90 bg-white shadow-2xs p-6 flex flex-col justify-between md:col-span-2 xl:col-span-1">
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="text-3xl font-bold font-sans text-slate-800">
+                    {admissions.length + contacts.length}
+                  </div>
+                  <span className="text-xs font-bold text-[#1abc9c] bg-[#1abc9c]/10 px-2.5 py-1 rounded-full">
+                    Active Flow
+                  </span>
+                </div>
+                <h4 className="text-sm font-bold text-slate-700 mt-1">Applications & Inquiries</h4>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Total student applications and inquiries processed this season.
+                </p>
+              </div>
+
+              {/* Sparkline Wave Chart (SVG) */}
+              <div className="my-4 relative h-16 w-full">
+                <svg
+                  viewBox="0 0 300 70"
+                  className="w-full h-full overflow-visible"
+                  preserveAspectRatio="none"
+                >
+                  <defs>
+                    <linearGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#1abc9c" stopOpacity="0.35" />
+                      <stop offset="100%" stopColor="#1abc9c" stopOpacity="0.0" />
+                    </linearGradient>
+                  </defs>
+                  <path
+                    d="M0,50 Q40,15 80,40 T160,25 T240,45 T300,20 L300,70 L0,70 Z"
+                    fill="url(#waveGradient)"
+                  />
+                  <path
+                    d="M0,50 Q40,15 80,40 T160,25 T240,45 T300,20"
+                    fill="none"
+                    stroke="#1abc9c"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </div>
+
+              {/* Split 3 bottom metric counters */}
+              <div className="grid grid-cols-3 divide-x divide-slate-100 pt-3 border-t border-slate-100 text-center">
+                <div>
+                  <div className="text-lg font-bold text-emerald-600">
+                    {admissions.filter((a) => a.status === "completed").length}
+                  </div>
+                  <div className="text-[11px] font-semibold text-slate-400">Verified</div>
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-amber-500">
+                    {admissions.filter((a) => a.status === "pending").length}
+                  </div>
+                  <div className="text-[11px] font-semibold text-slate-400">Review</div>
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-blue-500">
+                    {unreadContactsCount}
+                  </div>
+                  <div className="text-[11px] font-semibold text-slate-400">Inquiries</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Widget 4: Solid Teal Accent Card (#1abc9c) */}
+            <div className="rounded-2xl bg-[#1abc9c] text-white p-6 shadow-sm flex items-center gap-5">
+              <div className="h-14 w-14 rounded-2xl bg-white/15 flex items-center justify-center shrink-0 text-white">
+                <Sparkles size={28} />
+              </div>
+              <div className="min-w-0">
+                <div className="text-2xl sm:text-3xl font-extrabold font-sans">
+                  ₹{stats.total_amount.toLocaleString("en-IN")}
+                </div>
+                <div className="text-xs font-semibold text-white/90 mt-0.5">
+                  Total Funds Raised & Verified Admissions
+                </div>
+              </div>
+            </div>
+
+            {/* Widget 5: Solid Green/Emerald Accent Card (#2ecc71) */}
+            <div className="rounded-2xl bg-[#2ecc71] text-white p-6 shadow-sm flex items-center gap-5 md:col-span-2 xl:col-span-2">
+              <div className="h-14 w-14 rounded-2xl bg-white/15 flex items-center justify-center shrink-0 text-white">
+                <Award size={28} />
+              </div>
+              <div className="min-w-0">
+                <div className="text-2xl sm:text-3xl font-extrabold font-sans">
+                  {coursesCount} Active Courses & Batches
+                </div>
+                <div className="text-xs font-semibold text-white/90 mt-0.5">
+                  100% Batches & Real-Time Seat Tracking Active
+                </div>
+              </div>
+            </div>
+          </div>
+          )}
+
+          {/* ==================== SECONDARY SEGMENTED TABS ==================== */}
+          <div className="flex items-center justify-between flex-wrap gap-3 border-b border-slate-200 pb-2">
+            <div className="inline-flex p-1 bg-slate-200/70 rounded-2xl gap-1 overflow-x-auto max-w-full scrollbar-none">
+              <button
+                onClick={() => setActiveTab("admissions")}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                  activeTab === "admissions"
+                    ? "bg-white text-slate-900 shadow-xs font-extrabold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <GraduationCap size={15} />
+                <span>Admissions</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-slate-100 text-[10px] text-slate-700 font-mono">
+                  {admissions.length}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab("students")}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                  activeTab === "students"
+                    ? "bg-white text-slate-900 shadow-xs font-extrabold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <Users size={15} />
+                <span>Students Directory</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-slate-100 text-[10px] text-slate-700 font-mono">
+                  {students.length}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab("courses")}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                  activeTab === "courses"
+                    ? "bg-white text-slate-900 shadow-xs font-extrabold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <BookOpen size={15} />
+                <span>Courses & Batches</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 text-[10px] text-emerald-800 font-mono font-bold">
+                  {coursesCount}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab("news")}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                  activeTab === "news"
+                    ? "bg-white text-slate-900 shadow-xs font-extrabold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <Bell size={15} />
+                <span>News & Updates</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-[10px] text-amber-900 font-mono font-bold">
+                  {announcementsCount}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab("donations")}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                  activeTab === "donations"
+                    ? "bg-white text-slate-900 shadow-xs font-extrabold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <Heart size={15} />
+                <span>Donations</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-slate-100 text-[10px] text-slate-700 font-mono">
+                  {donations.length}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab("contacts")}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                  activeTab === "contacts"
+                    ? "bg-white text-slate-900 shadow-xs font-extrabold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <MessageSquare size={15} />
+                <span>Inquiries</span>
+                {unreadContactsCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-rose-500 text-white font-mono text-[10px] font-bold">
+                    {unreadContactsCount}
+                  </span>
+                )}
+              </button>
+
               <button
                 onClick={() => setActiveTab("visitors")}
-                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
                   activeTab === "visitors"
-                    ? "bg-white text-[#1b2b25] shadow-sm font-extrabold"
-                    : "text-stone-600 hover:text-[#1b2b25] hover:bg-white/50"
+                    ? "bg-white text-slate-900 shadow-xs font-extrabold"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 <Activity size={15} />
                 <span>Visitor Traffic</span>
               </button>
+
+              <button
+                onClick={() => setActiveTab("trash")}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                  activeTab === "trash"
+                    ? "bg-rose-600 text-white shadow-xs font-extrabold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <Trash2
+                  size={15}
+                  className={deletedAdmissions.length + deletedStudents.length > 0 ? "text-rose-500" : ""}
+                />
+                <span>Recycle Bin</span>
+                {deletedAdmissions.length + deletedStudents.length > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-rose-500 text-white font-mono text-[10px] font-bold animate-pulse">
+                    {deletedAdmissions.length + deletedStudents.length}
+                  </span>
+                )}
+              </button>
             </div>
-
-            {/* Quick Refresh All Data */}
-            <button
-              onClick={loadAllDashboardData}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-stone-600 hover:text-[#1b2b25] hover:bg-stone-200/50 transition"
-              title="Refresh all data"
-            >
-              <RotateCcw size={14} className={loading ? "animate-spin" : ""} />
-              <span>Refresh Data</span>
-            </button>
           </div>
-
-          {/* ==================== 4. TAB CONTENTS ==================== */}
-
-          {/* ==================== TAB A: ADMISSIONS ==================== */}
           {activeTab === "admissions" && (
             <div className="space-y-6">
               {/* Informational Separation Banner */}
@@ -2419,9 +3156,24 @@ export default function AdminDashboard() {
                               {/* Student Name */}
                               <td className="px-4 py-3.5">
                                 <div className="flex items-center gap-2.5">
-                                  <div className="h-8 w-8 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-xs shrink-0">
-                                    {s.name.charAt(0).toUpperCase()}
-                                  </div>
+                                  {s.photo || s.avatar ? (
+                                    <img
+                                      src={s.photo || s.avatar}
+                                      alt={s.name}
+                                      onClick={() =>
+                                        setViewingDoc({
+                                          title: `${s.name} - Photo`,
+                                          url: (s.photo || s.avatar)!,
+                                          isImage: true,
+                                        })
+                                      }
+                                      className="h-8 w-8 rounded-full object-cover border border-emerald-300 shadow-2xs cursor-pointer hover:scale-105 transition shrink-0"
+                                    />
+                                  ) : (
+                                    <div className="h-8 w-8 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-xs shrink-0">
+                                      {s.name.charAt(0).toUpperCase()}
+                                    </div>
+                                  )}
                                   <div>
                                     <div className="font-bold text-[#1b2b25]">{s.name}</div>
                                     <div className="text-[10px] text-stone-400 font-mono">ID: {s.id}</div>
@@ -2511,8 +3263,15 @@ export default function AdminDashboard() {
                                     <UserPlus size={16} />
                                   </button>
                                   <button
+                                    onClick={() => handleOpenEditStudent(s)}
+                                    className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition cursor-pointer"
+                                    title="Edit Student Information & Documents"
+                                  >
+                                    <Edit2 size={16} />
+                                  </button>
+                                  <button
                                     onClick={() => setSelectedStudent(s)}
-                                    className="p-1.5 text-emerald-700 hover:bg-emerald-50 rounded-lg transition"
+                                    className="p-1.5 text-emerald-700 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
                                     title="View Student Profile"
                                   >
                                     <Eye size={16} />
@@ -2914,8 +3673,27 @@ export default function AdminDashboard() {
               <NewsAndAnnouncementsManager />
             </div>
           )}
-        </div>
-      </main>
+
+          {/* ==================== TAB TRASH: RECYCLE BIN & DATA RESTORATION ==================== */}
+          {activeTab === "trash" && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              <TrashManager
+                onAdmissionRestored={() => {
+                  loadAdmissions();
+                  loadBatchSeats();
+                  setDeletedAdmissions(getDeletedAdmissions());
+                }}
+                onStudentRestored={() => {
+                  loadStudents();
+                  setDeletedStudents(getDeletedStudents());
+                }}
+                onNavigateToAdmissions={() => setActiveTab("admissions")}
+                onNavigateToStudents={() => setActiveTab("students")}
+              />
+            </div>
+          )}
+        </main>
+      </div>
 
       {/* ==================== MODALS ==================== */}
 
@@ -3144,8 +3922,12 @@ export default function AdminDashboard() {
           <div className="bg-white rounded-3xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto border border-stone-200">
             <div className="sticky top-0 flex justify-between items-center p-5 px-6 border-b border-stone-200 bg-white">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-2xl bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center">
-                  {selectedStudent.name.charAt(0).toUpperCase()}
+                <div className="h-10 w-10 rounded-2xl bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center overflow-hidden border border-emerald-200">
+                  {selectedStudent.photo ? (
+                    <img src={selectedStudent.photo} alt={selectedStudent.name} className="h-full w-full object-cover" />
+                  ) : (
+                    selectedStudent.name.charAt(0).toUpperCase()
+                  )}
                 </div>
                 <div>
                   <h3 className="font-serif font-bold text-lg text-[#1b2b25]">
@@ -3161,7 +3943,7 @@ export default function AdminDashboard() {
               </div>
               <button
                 onClick={() => setSelectedStudent(null)}
-                className="p-1.5 hover:bg-stone-100 rounded-full text-stone-500 transition"
+                className="p-1.5 hover:bg-stone-100 rounded-full text-stone-500 transition cursor-pointer"
               >
                 <X size={20} />
               </button>
@@ -3194,23 +3976,756 @@ export default function AdminDashboard() {
                   </span>
                 </div>
               </div>
+
+              {/* Uploaded Documents List in Student Profile */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-bold text-stone-700 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <FileText size={13} className="text-[#b5623b]" />
+                    <span>Attached Verification Documents</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cur = selectedStudent;
+                      setSelectedStudent(null);
+                      handleOpenEditStudent(cur);
+                    }}
+                    className="text-[11px] font-bold text-[#b5623b] hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Upload size={11} /> Upload / Change Documents
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {/* Photo */}
+                  <div className="p-3 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-between">
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <Camera size={14} className="text-stone-500 shrink-0" />
+                      <div className="truncate">
+                        <span className="font-bold text-stone-800 block text-[11px]">Passport Photo</span>
+                        <span className="text-[10px] text-stone-500 truncate block">
+                          {selectedStudent.photo_name || (selectedStudent.photo ? "Photo Attached" : "Not Uploaded")}
+                        </span>
+                      </div>
+                    </div>
+                    {selectedStudent.photo ? (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setViewingDoc({
+                              title: `${selectedStudent.name} - Photo`,
+                              url: selectedStudent.photo!,
+                              isImage: true,
+                            })
+                          }
+                          className="p-1 rounded hover:bg-stone-200 text-stone-700"
+                          title="View Photo"
+                        >
+                          <Eye size={13} />
+                        </button>
+                        <a
+                          href={selectedStudent.photo}
+                          download={`${selectedStudent.name}_photo`}
+                          className="p-1 rounded hover:bg-stone-200 text-stone-700"
+                          title="Download"
+                        >
+                          <Download size={13} />
+                        </a>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-stone-400 font-medium">None</span>
+                    )}
+                  </div>
+
+                  {/* ID Proof */}
+                  <div className="p-3 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-between">
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <Shield size={14} className="text-stone-500 shrink-0" />
+                      <div className="truncate">
+                        <span className="font-bold text-stone-800 block text-[11px]">Identity Proof</span>
+                        <span className="text-[10px] text-stone-500 truncate block">
+                          {selectedStudent.identity_proof_name || (selectedStudent.identity_proof ? "ID Attached" : "Not Uploaded")}
+                        </span>
+                      </div>
+                    </div>
+                    {selectedStudent.identity_proof ? (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setViewingDoc({
+                              title: `${selectedStudent.name} - Identity Proof`,
+                              url: selectedStudent.identity_proof!,
+                              isImage: !selectedStudent.identity_proof!.startsWith("data:application/pdf"),
+                            })
+                          }
+                          className="p-1 rounded hover:bg-stone-200 text-stone-700"
+                          title="View ID"
+                        >
+                          <Eye size={13} />
+                        </button>
+                        <a
+                          href={selectedStudent.identity_proof}
+                          download={`${selectedStudent.name}_id_proof`}
+                          className="p-1 rounded hover:bg-stone-200 text-stone-700"
+                          title="Download"
+                        >
+                          <Download size={13} />
+                        </a>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-stone-400 font-medium">None</span>
+                    )}
+                  </div>
+
+                  {/* Education / Marksheet */}
+                  <div className="p-3 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-between">
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <GraduationCap size={14} className="text-stone-500 shrink-0" />
+                      <div className="truncate">
+                        <span className="font-bold text-stone-800 block text-[11px]">Marksheet / Education</span>
+                        <span className="text-[10px] text-stone-500 truncate block">
+                          {selectedStudent.education_proof_name || (selectedStudent.education_proof ? "Marksheet Attached" : "Not Uploaded")}
+                        </span>
+                      </div>
+                    </div>
+                    {selectedStudent.education_proof ? (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setViewingDoc({
+                              title: `${selectedStudent.name} - Marksheet`,
+                              url: selectedStudent.education_proof!,
+                              isImage: !selectedStudent.education_proof!.startsWith("data:application/pdf"),
+                            })
+                          }
+                          className="p-1 rounded hover:bg-stone-200 text-stone-700"
+                          title="View Marksheet"
+                        >
+                          <Eye size={13} />
+                        </button>
+                        <a
+                          href={selectedStudent.education_proof}
+                          download={`${selectedStudent.name}_education_proof`}
+                          className="p-1 rounded hover:bg-stone-200 text-stone-700"
+                          title="Download"
+                        >
+                          <Download size={13} />
+                        </a>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-stone-400 font-medium">None</span>
+                    )}
+                  </div>
+
+                  {/* Caste Certificate */}
+                  <div className="p-3 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-between">
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <Award size={14} className="text-stone-500 shrink-0" />
+                      <div className="truncate">
+                        <span className="font-bold text-stone-800 block text-[11px]">Caste Certificate</span>
+                        <span className="text-[10px] text-stone-500 truncate block">
+                          {selectedStudent.caste_certificate_name || (selectedStudent.caste_certificate ? "Certificate Attached" : "Not Uploaded")}
+                        </span>
+                      </div>
+                    </div>
+                    {selectedStudent.caste_certificate ? (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setViewingDoc({
+                              title: `${selectedStudent.name} - Caste Certificate`,
+                              url: selectedStudent.caste_certificate!,
+                              isImage: !selectedStudent.caste_certificate!.startsWith("data:application/pdf"),
+                            })
+                          }
+                          className="p-1 rounded hover:bg-stone-200 text-stone-700"
+                          title="View Caste Cert"
+                        >
+                          <Eye size={13} />
+                        </button>
+                        <a
+                          href={selectedStudent.caste_certificate}
+                          download={`${selectedStudent.name}_caste_cert`}
+                          className="p-1 rounded hover:bg-stone-200 text-stone-700"
+                          title="Download"
+                        >
+                          <Download size={13} />
+                        </a>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-stone-400 font-medium">None</span>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="p-4 px-6 border-t border-stone-200 flex justify-between items-center bg-stone-50">
+            <div className="p-4 px-6 border-t border-stone-200 flex flex-wrap justify-between items-center gap-2 bg-stone-50">
               <button
                 onClick={() => handleDeleteStudent(selectedStudent.id)}
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 hover:text-rose-700"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 cursor-pointer"
               >
                 <Trash2 size={14} />
                 <span>Delete Student</span>
               </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const st = selectedStudent;
+                    setSelectedStudent(null);
+                    handleOpenAddAdmissionForStudent(st);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <PlusCircle size={14} />
+                  <span>Add Admission</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const st = selectedStudent;
+                    setSelectedStudent(null);
+                    handleOpenEditStudent(st);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-[#b5623b] hover:bg-[#9d502d] text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Edit2 size={14} />
+                  <span>Edit Info & Docs</span>
+                </button>
+                <button
+                  onClick={() => setSelectedStudent(null)}
+                  className="px-4 py-2 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-700 text-xs font-bold transition cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2b. Edit Student Information & Documents Modal */}
+      {editingStudent && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[92vh] overflow-hidden flex flex-col border border-stone-200">
+            {/* Modal Header */}
+            <div className="p-5 px-6 border-b border-stone-200 flex justify-between items-center bg-[#1b2b25] text-white shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-white/10 text-[#fedb41] font-bold flex items-center justify-center">
+                  <UserPlus size={20} />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-lg text-white">
+                    Edit Student Information & Documents
+                  </h3>
+                  <p className="text-[11px] text-stone-300 font-mono">
+                    PRN: {studentFormData.prn || editingStudent.prn}
+                  </p>
+                </div>
+              </div>
               <button
-                onClick={() => setSelectedStudent(null)}
-                className="px-4 py-2 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-700 text-xs font-bold transition"
+                type="button"
+                onClick={() => setEditingStudent(null)}
+                className="p-1.5 hover:bg-white/10 rounded-full text-stone-300 hover:text-white transition cursor-pointer"
               >
-                Close
+                <X size={20} />
               </button>
             </div>
+
+            {/* Modal Body / Form */}
+            <form onSubmit={handleSaveStudentEdit} className="flex-1 overflow-y-auto p-6 space-y-6 text-xs bg-white">
+              {/* Section 1: Personal & Contact Information */}
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#b5623b] mb-3 flex items-center gap-1.5">
+                  <User size={14} /> 1. Student Personal & Contact Details
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Student Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={studentFormData.name || ""}
+                      onChange={(e) =>
+                        setStudentFormData({ ...studentFormData, name: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900 font-medium"
+                      placeholder="Student full name"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      PRN Number (Student ID)
+                    </label>
+                    <input
+                      type="text"
+                      value={studentFormData.prn || ""}
+                      onChange={(e) =>
+                        setStudentFormData({ ...studentFormData, prn: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900 font-mono"
+                      placeholder="e.g. PMF2026-1234"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      value={studentFormData.email || ""}
+                      onChange={(e) =>
+                        setStudentFormData({ ...studentFormData, email: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900"
+                      placeholder="student@example.com"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Mobile Number *
+                    </label>
+                    <input
+                      type="tel"
+                      value={studentFormData.phone || ""}
+                      onChange={(e) =>
+                        setStudentFormData({ ...studentFormData, phone: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900 font-mono"
+                      placeholder="10-digit mobile number"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      City / District
+                    </label>
+                    <input
+                      type="text"
+                      value={studentFormData.city || ""}
+                      onChange={(e) =>
+                        setStudentFormData({ ...studentFormData, city: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900"
+                      placeholder="e.g. Pune"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      State
+                    </label>
+                    <input
+                      type="text"
+                      value={studentFormData.state || ""}
+                      onChange={(e) =>
+                        setStudentFormData({ ...studentFormData, state: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900"
+                      placeholder="Maharashtra"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Password (Minimum 6 characters — fill only to update password)
+                    </label>
+                    <input
+                      type="text"
+                      value={studentFormData.password || ""}
+                      onChange={(e) =>
+                        setStudentFormData({ ...studentFormData, password: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900 font-mono text-xs"
+                      placeholder="Leave unchanged or enter new student password"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Upload, Change & Manage Documents */}
+              <div className="pt-2 border-t border-stone-100">
+                <div className="mb-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#b5623b] flex items-center gap-1.5">
+                    <Upload size={14} /> 2. Upload, Change & Replace Verification Documents
+                  </h4>
+                  <p className="text-[11px] text-stone-500 mt-0.5">
+                    Upload new files or change/replace already uploaded documents (JPG, PNG, PDF up to 5MB).
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Document Card 1: Passport Photo */}
+                  <div className="p-3.5 rounded-2xl border border-stone-200 bg-stone-50/70 hover:border-amber-300 transition flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-stone-800 flex items-center gap-1.5">
+                          <Camera size={14} className="text-[#b5623b]" />
+                          <span>Student Photo</span>
+                        </span>
+                        {studentFormData.photo ? (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                            Attached
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md bg-stone-200 text-stone-600 font-medium text-[10px]">
+                            No File
+                          </span>
+                        )}
+                      </div>
+
+                      {studentFormData.photo && (
+                        <div className="mb-2 flex items-center gap-2 p-1.5 bg-white rounded-xl border border-stone-200">
+                          <img
+                            src={studentFormData.photo}
+                            alt="Student preview"
+                            className="h-10 w-10 rounded-lg object-cover border border-stone-200 shrink-0"
+                          />
+                          <span className="text-[11px] font-mono text-stone-600 truncate flex-1">
+                            {studentFormData.photo_name || "passport_photo.jpg"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-stone-200/60 flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1">
+                        {studentFormData.photo && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${studentFormData.name || "Student"} - Photo`,
+                                  url: studentFormData.photo!,
+                                  isImage: true,
+                                })
+                              }
+                              className="px-2 py-1 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-700 text-[11px] font-bold flex items-center gap-1"
+                            >
+                              <Eye size={11} /> View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setStudentFormData((prev) => ({
+                                  ...prev,
+                                  photo: "",
+                                  photo_name: "",
+                                  avatar: "",
+                                }))
+                              }
+                              className="px-2 py-1 rounded-lg hover:bg-rose-100 text-rose-600 text-[11px] font-bold"
+                            >
+                              Remove
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      <label className="px-3 py-1.5 rounded-xl bg-[#b5623b] hover:bg-[#9d502d] text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs">
+                        <Upload size={12} />
+                        <span>{studentFormData.photo ? "Change Photo" : "Upload Photo"}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) =>
+                            handleDocumentUpload(e, (dataUrl, name) => {
+                              setStudentFormData((prev) => ({
+                                ...prev,
+                                photo: dataUrl,
+                                photo_name: name,
+                                avatar: dataUrl,
+                              }));
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Document Card 2: Identity Proof */}
+                  <div className="p-3.5 rounded-2xl border border-stone-200 bg-stone-50/70 hover:border-amber-300 transition flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-stone-800 flex items-center gap-1.5">
+                          <Shield size={14} className="text-[#b5623b]" />
+                          <span>Identity Proof (Aadhaar / Voter)</span>
+                        </span>
+                        {studentFormData.identity_proof ? (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                            Attached
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md bg-stone-200 text-stone-600 font-medium text-[10px]">
+                            No File
+                          </span>
+                        )}
+                      </div>
+
+                      {studentFormData.identity_proof && (
+                        <div className="mb-2 p-1.5 bg-white rounded-xl border border-stone-200 text-[11px] font-mono text-stone-700 truncate">
+                          📄 {studentFormData.identity_proof_name || "id_proof_document"}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-stone-200/60 flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1">
+                        {studentFormData.identity_proof && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${studentFormData.name || "Student"} - Identity Proof`,
+                                  url: studentFormData.identity_proof!,
+                                  isImage: !studentFormData.identity_proof!.startsWith("data:application/pdf"),
+                                })
+                              }
+                              className="px-2 py-1 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-700 text-[11px] font-bold flex items-center gap-1"
+                            >
+                              <Eye size={11} /> View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setStudentFormData((prev) => ({
+                                  ...prev,
+                                  identity_proof: "",
+                                  identity_proof_name: "",
+                                }))
+                              }
+                              className="px-2 py-1 rounded-lg hover:bg-rose-100 text-rose-600 text-[11px] font-bold"
+                            >
+                              Remove
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      <label className="px-3 py-1.5 rounded-xl bg-[#b5623b] hover:bg-[#9d502d] text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs">
+                        <Upload size={12} />
+                        <span>{studentFormData.identity_proof ? "Change File" : "Upload ID Proof"}</span>
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          className="hidden"
+                          onChange={(e) =>
+                            handleDocumentUpload(e, (dataUrl, name) => {
+                              setStudentFormData((prev) => ({
+                                ...prev,
+                                identity_proof: dataUrl,
+                                identity_proof_name: name,
+                              }));
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Document Card 3: Marksheet / Education Proof */}
+                  <div className="p-3.5 rounded-2xl border border-stone-200 bg-stone-50/70 hover:border-amber-300 transition flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-stone-800 flex items-center gap-1.5">
+                          <GraduationCap size={14} className="text-[#b5623b]" />
+                          <span>Marksheet / Qualification</span>
+                        </span>
+                        {studentFormData.education_proof ? (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                            Attached
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md bg-stone-200 text-stone-600 font-medium text-[10px]">
+                            No File
+                          </span>
+                        )}
+                      </div>
+
+                      {studentFormData.education_proof && (
+                        <div className="mb-2 p-1.5 bg-white rounded-xl border border-stone-200 text-[11px] font-mono text-stone-700 truncate">
+                          🎓 {studentFormData.education_proof_name || "marksheet_document"}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-stone-200/60 flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1">
+                        {studentFormData.education_proof && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${studentFormData.name || "Student"} - Education Proof`,
+                                  url: studentFormData.education_proof!,
+                                  isImage: !studentFormData.education_proof!.startsWith("data:application/pdf"),
+                                })
+                              }
+                              className="px-2 py-1 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-700 text-[11px] font-bold flex items-center gap-1"
+                            >
+                              <Eye size={11} /> View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setStudentFormData((prev) => ({
+                                  ...prev,
+                                  education_proof: "",
+                                  education_proof_name: "",
+                                }))
+                              }
+                              className="px-2 py-1 rounded-lg hover:bg-rose-100 text-rose-600 text-[11px] font-bold"
+                            >
+                              Remove
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      <label className="px-3 py-1.5 rounded-xl bg-[#b5623b] hover:bg-[#9d502d] text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs">
+                        <Upload size={12} />
+                        <span>{studentFormData.education_proof ? "Change File" : "Upload Marksheet"}</span>
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          className="hidden"
+                          onChange={(e) =>
+                            handleDocumentUpload(e, (dataUrl, name) => {
+                              setStudentFormData((prev) => ({
+                                ...prev,
+                                education_proof: dataUrl,
+                                education_proof_name: name,
+                              }));
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Document Card 4: Caste Certificate */}
+                  <div className="p-3.5 rounded-2xl border border-stone-200 bg-stone-50/70 hover:border-amber-300 transition flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-stone-800 flex items-center gap-1.5">
+                          <Award size={14} className="text-[#b5623b]" />
+                          <span>Caste Certificate (Optional)</span>
+                        </span>
+                        {studentFormData.caste_certificate ? (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                            Attached
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md bg-stone-200 text-stone-600 font-medium text-[10px]">
+                            No File
+                          </span>
+                        )}
+                      </div>
+
+                      {studentFormData.caste_certificate && (
+                        <div className="mb-2 p-1.5 bg-white rounded-xl border border-stone-200 text-[11px] font-mono text-stone-700 truncate">
+                          📜 {studentFormData.caste_certificate_name || "caste_certificate"}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-stone-200/60 flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1">
+                        {studentFormData.caste_certificate && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${studentFormData.name || "Student"} - Caste Certificate`,
+                                  url: studentFormData.caste_certificate!,
+                                  isImage: !studentFormData.caste_certificate!.startsWith("data:application/pdf"),
+                                })
+                              }
+                              className="px-2 py-1 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-700 text-[11px] font-bold flex items-center gap-1"
+                            >
+                              <Eye size={11} /> View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setStudentFormData((prev) => ({
+                                  ...prev,
+                                  caste_certificate: "",
+                                  caste_certificate_name: "",
+                                }))
+                              }
+                              className="px-2 py-1 rounded-lg hover:bg-rose-100 text-rose-600 text-[11px] font-bold"
+                            >
+                              Remove
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      <label className="px-3 py-1.5 rounded-xl bg-[#b5623b] hover:bg-[#9d502d] text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs">
+                        <Upload size={12} />
+                        <span>{studentFormData.caste_certificate ? "Change File" : "Upload Caste Cert"}</span>
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          className="hidden"
+                          onChange={(e) =>
+                            handleDocumentUpload(e, (dataUrl, name) => {
+                              setStudentFormData((prev) => ({
+                                ...prev,
+                                caste_certificate: dataUrl,
+                                caste_certificate_name: name,
+                              }));
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="pt-4 border-t border-stone-200 flex justify-end gap-2.5 bg-white">
+                <button
+                  type="button"
+                  onClick={() => setEditingStudent(null)}
+                  className="px-4 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingStudent}
+                  className="px-6 py-2.5 rounded-xl bg-[#b5623b] hover:bg-[#9d502d] text-white font-bold transition shadow-xs disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                >
+                  {isSavingStudent ? (
+                    <>
+                      <Clock size={15} className="animate-spin" />
+                      <span>Saving Student & Documents...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={15} />
+                      <span>Save Information & Documents</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -3718,7 +5233,7 @@ export default function AdminDashboard() {
                     <label className="block font-bold text-stone-700 mb-1 flex items-center justify-between">
                       <span className="flex items-center gap-1.5">
                         <Clock size={13} className="text-[#b5623b]" />
-                        <span>Select Batch * (बॅच निवडा)</span>
+                        <span>Select Batch *</span>
                       </span>
                       <span className="text-[11px] text-stone-500 font-normal">
                         Choose from official batches
@@ -3954,6 +5469,382 @@ export default function AdminDashboard() {
                       className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900 resize-none leading-relaxed"
                       placeholder="Enter permanent address (if different)"
                     />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 5: Verification Documents (Upload / Change / Replace) */}
+              <div className="pt-2 border-t border-stone-100">
+                <div className="mb-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#b5623b] flex items-center gap-1.5">
+                    <Upload size={14} /> 5. Verification Documents (Upload / Change / Replace)
+                  </h4>
+                  <p className="text-[11px] text-stone-500 mt-0.5">
+                    Upload, view or replace student admission documents (JPG, PNG, PDF max 5MB).
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Photo */}
+                  <div className="p-3.5 rounded-2xl border border-stone-200 bg-stone-50/70 hover:border-amber-300 transition flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-stone-800 flex items-center gap-1.5">
+                          <Camera size={14} className="text-[#b5623b]" />
+                          <span>Applicant Photo</span>
+                        </span>
+                        {admissionFormData.photo || admissionFormData.photoUrl || admissionFormData.photoDataUrl ? (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                            Attached
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md bg-stone-200 text-stone-600 font-medium text-[10px]">
+                            No File
+                          </span>
+                        )}
+                      </div>
+
+                      {(admissionFormData.photo || admissionFormData.photoUrl || admissionFormData.photoDataUrl) && (
+                        <div className="mb-2 flex items-center gap-2 p-1.5 bg-white rounded-xl border border-stone-200">
+                          <img
+                            src={admissionFormData.photo || admissionFormData.photoUrl || admissionFormData.photoDataUrl}
+                            alt="Applicant"
+                            className="h-10 w-10 rounded-lg object-cover border border-stone-200 shrink-0"
+                          />
+                          <span className="text-[11px] font-mono text-stone-600 truncate flex-1">
+                            {admissionFormData.photo_name || "applicant_photo.jpg"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-stone-200/60 flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1">
+                        {(admissionFormData.photo || admissionFormData.photoUrl || admissionFormData.photoDataUrl) && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${admissionFormData.name || "Student"} - Photo`,
+                                  url: (admissionFormData.photo || admissionFormData.photoUrl || admissionFormData.photoDataUrl)!,
+                                  isImage: true,
+                                })
+                              }
+                              className="px-2 py-1 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-700 text-[11px] font-bold flex items-center gap-1"
+                            >
+                              <Eye size={11} /> View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setAdmissionFormData((prev) => ({
+                                  ...prev,
+                                  photo: "",
+                                  photo_name: "",
+                                  photoUrl: "",
+                                  photoDataUrl: "",
+                                }))
+                              }
+                              className="px-2 py-1 rounded-lg hover:bg-rose-100 text-rose-600 text-[11px] font-bold"
+                            >
+                              Remove
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      <label className="px-3 py-1.5 rounded-xl bg-[#b5623b] hover:bg-[#9d502d] text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs">
+                        <Upload size={12} />
+                        <span>
+                          {admissionFormData.photo || admissionFormData.photoUrl || admissionFormData.photoDataUrl
+                            ? "Change Photo"
+                            : "Upload Photo"}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) =>
+                            handleDocumentUpload(e, (dataUrl, name) => {
+                              setAdmissionFormData((prev) => ({
+                                ...prev,
+                                photo: dataUrl,
+                                photo_name: name,
+                                photoUrl: dataUrl,
+                                photoDataUrl: dataUrl,
+                              }));
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Identity Proof */}
+                  <div className="p-3.5 rounded-2xl border border-stone-200 bg-stone-50/70 hover:border-amber-300 transition flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-stone-800 flex items-center gap-1.5">
+                          <Shield size={14} className="text-[#b5623b]" />
+                          <span>Identity Proof (Aadhaar / Voter)</span>
+                        </span>
+                        {admissionFormData.identity_proof || admissionFormData.identityProofUrl ? (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                            Attached
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md bg-stone-200 text-stone-600 font-medium text-[10px]">
+                            No File
+                          </span>
+                        )}
+                      </div>
+
+                      {(admissionFormData.identity_proof || admissionFormData.identityProofUrl) && (
+                        <div className="mb-2 p-1.5 bg-white rounded-xl border border-stone-200 text-[11px] font-mono text-stone-700 truncate">
+                          📄 {admissionFormData.identity_proof_name || admissionFormData.identityProofName || "id_proof"}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-stone-200/60 flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1">
+                        {(admissionFormData.identity_proof || admissionFormData.identityProofUrl) && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const url = (admissionFormData.identity_proof || admissionFormData.identityProofUrl)!;
+                                setViewingDoc({
+                                  title: `${admissionFormData.name || "Student"} - ID Proof`,
+                                  url,
+                                  isImage: !url.startsWith("data:application/pdf"),
+                                });
+                              }}
+                              className="px-2 py-1 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-700 text-[11px] font-bold flex items-center gap-1"
+                            >
+                              <Eye size={11} /> View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setAdmissionFormData((prev) => ({
+                                  ...prev,
+                                  identity_proof: "",
+                                  identity_proof_name: "",
+                                  identityProofUrl: "",
+                                  identityProofName: "",
+                                }))
+                              }
+                              className="px-2 py-1 rounded-lg hover:bg-rose-100 text-rose-600 text-[11px] font-bold"
+                            >
+                              Remove
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      <label className="px-3 py-1.5 rounded-xl bg-[#b5623b] hover:bg-[#9d502d] text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs">
+                        <Upload size={12} />
+                        <span>
+                          {admissionFormData.identity_proof || admissionFormData.identityProofUrl
+                            ? "Change File"
+                            : "Upload ID Proof"}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          className="hidden"
+                          onChange={(e) =>
+                            handleDocumentUpload(e, (dataUrl, name) => {
+                              setAdmissionFormData((prev) => ({
+                                ...prev,
+                                identity_proof: dataUrl,
+                                identity_proof_name: name,
+                                identityProofUrl: dataUrl,
+                                identityProofName: name,
+                              }));
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Marksheet */}
+                  <div className="p-3.5 rounded-2xl border border-stone-200 bg-stone-50/70 hover:border-amber-300 transition flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-stone-800 flex items-center gap-1.5">
+                          <GraduationCap size={14} className="text-[#b5623b]" />
+                          <span>Marksheet / Qualification</span>
+                        </span>
+                        {admissionFormData.education_proof || admissionFormData.marksheetUrl ? (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                            Attached
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md bg-stone-200 text-stone-600 font-medium text-[10px]">
+                            No File
+                          </span>
+                        )}
+                      </div>
+
+                      {(admissionFormData.education_proof || admissionFormData.marksheetUrl) && (
+                        <div className="mb-2 p-1.5 bg-white rounded-xl border border-stone-200 text-[11px] font-mono text-stone-700 truncate">
+                          🎓 {admissionFormData.education_proof_name || admissionFormData.educationProofName || "marksheet"}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-stone-200/60 flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1">
+                        {(admissionFormData.education_proof || admissionFormData.marksheetUrl) && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const url = (admissionFormData.education_proof || admissionFormData.marksheetUrl)!;
+                                setViewingDoc({
+                                  title: `${admissionFormData.name || "Student"} - Marksheet`,
+                                  url,
+                                  isImage: !url.startsWith("data:application/pdf"),
+                                });
+                              }}
+                              className="px-2 py-1 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-700 text-[11px] font-bold flex items-center gap-1"
+                            >
+                              <Eye size={11} /> View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setAdmissionFormData((prev) => ({
+                                  ...prev,
+                                  education_proof: "",
+                                  education_proof_name: "",
+                                  marksheetUrl: "",
+                                  educationProofName: "",
+                                }))
+                              }
+                              className="px-2 py-1 rounded-lg hover:bg-rose-100 text-rose-600 text-[11px] font-bold"
+                            >
+                              Remove
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      <label className="px-3 py-1.5 rounded-xl bg-[#b5623b] hover:bg-[#9d502d] text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs">
+                        <Upload size={12} />
+                        <span>
+                          {admissionFormData.education_proof || admissionFormData.marksheetUrl
+                            ? "Change File"
+                            : "Upload Marksheet"}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          className="hidden"
+                          onChange={(e) =>
+                            handleDocumentUpload(e, (dataUrl, name) => {
+                              setAdmissionFormData((prev) => ({
+                                ...prev,
+                                education_proof: dataUrl,
+                                education_proof_name: name,
+                                marksheetUrl: dataUrl,
+                                educationProofName: name,
+                              }));
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Caste Certificate */}
+                  <div className="p-3.5 rounded-2xl border border-stone-200 bg-stone-50/70 hover:border-amber-300 transition flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-stone-800 flex items-center gap-1.5">
+                          <Award size={14} className="text-[#b5623b]" />
+                          <span>Caste Certificate (Optional)</span>
+                        </span>
+                        {admissionFormData.caste_certificate || admissionFormData.casteCertUrl ? (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                            Attached
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md bg-stone-200 text-stone-600 font-medium text-[10px]">
+                            No File
+                          </span>
+                        )}
+                      </div>
+
+                      {(admissionFormData.caste_certificate || admissionFormData.casteCertUrl) && (
+                        <div className="mb-2 p-1.5 bg-white rounded-xl border border-stone-200 text-[11px] font-mono text-stone-700 truncate">
+                          📜 {admissionFormData.caste_certificate_name || admissionFormData.casteCertificateName || "caste_certificate"}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-stone-200/60 flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1">
+                        {(admissionFormData.caste_certificate || admissionFormData.casteCertUrl) && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const url = (admissionFormData.caste_certificate || admissionFormData.casteCertUrl)!;
+                                setViewingDoc({
+                                  title: `${admissionFormData.name || "Student"} - Caste Certificate`,
+                                  url,
+                                  isImage: !url.startsWith("data:application/pdf"),
+                                });
+                              }}
+                              className="px-2 py-1 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-700 text-[11px] font-bold flex items-center gap-1"
+                            >
+                              <Eye size={11} /> View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setAdmissionFormData((prev) => ({
+                                  ...prev,
+                                  caste_certificate: "",
+                                  caste_certificate_name: "",
+                                  casteCertUrl: "",
+                                  casteCertificateName: "",
+                                }))
+                              }
+                              className="px-2 py-1 rounded-lg hover:bg-rose-100 text-rose-600 text-[11px] font-bold"
+                            >
+                              Remove
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      <label className="px-3 py-1.5 rounded-xl bg-[#b5623b] hover:bg-[#9d502d] text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs">
+                        <Upload size={12} />
+                        <span>
+                          {admissionFormData.caste_certificate || admissionFormData.casteCertUrl
+                            ? "Change File"
+                            : "Upload Caste Cert"}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          className="hidden"
+                          onChange={(e) =>
+                            handleDocumentUpload(e, (dataUrl, name) => {
+                              setAdmissionFormData((prev) => ({
+                                ...prev,
+                                caste_certificate: dataUrl,
+                                caste_certificate_name: name,
+                                casteCertUrl: dataUrl,
+                                casteCertificateName: name,
+                              }));
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -4330,6 +6221,347 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
+              {/* Section 4: Student Verification Documents (Optional) */}
+              <div className="pt-2 border-t border-stone-100">
+                <div className="mb-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#b5623b] flex items-center gap-1.5">
+                    <Upload size={14} /> 4. Student Verification Documents (Optional - Upload / Attach)
+                  </h4>
+                  <p className="text-[11px] text-stone-500 mt-0.5">
+                    Attach applicant documents directly with admission (JPG, PNG, PDF up to 5MB).
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Photo */}
+                  <div className="p-3.5 rounded-2xl border border-stone-200 bg-stone-50/70 hover:border-amber-300 transition flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-stone-800 flex items-center gap-1.5">
+                          <Camera size={14} className="text-[#b5623b]" />
+                          <span>Student Photo</span>
+                        </span>
+                        {newAdmissionData.photo ? (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                            Attached
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md bg-stone-200 text-stone-600 font-medium text-[10px]">
+                            Optional
+                          </span>
+                        )}
+                      </div>
+
+                      {newAdmissionData.photo && (
+                        <div className="mb-2 flex items-center gap-2 p-1.5 bg-white rounded-xl border border-stone-200">
+                          <img
+                            src={newAdmissionData.photo}
+                            alt="Student preview"
+                            className="h-10 w-10 rounded-lg object-cover border border-stone-200 shrink-0"
+                          />
+                          <span className="text-[11px] font-mono text-stone-600 truncate flex-1">
+                            {newAdmissionData.photo_name || "photo.jpg"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-stone-200/60 flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1">
+                        {newAdmissionData.photo && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${newAdmissionData.name || "Student"} - Photo`,
+                                  url: newAdmissionData.photo,
+                                  isImage: true,
+                                })
+                              }
+                              className="px-2 py-1 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-700 text-[11px] font-bold flex items-center gap-1"
+                            >
+                              <Eye size={11} /> View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setNewAdmissionData((prev) => ({
+                                  ...prev,
+                                  photo: "",
+                                  photo_name: "",
+                                }))
+                              }
+                              className="px-2 py-1 rounded-lg hover:bg-rose-100 text-rose-600 text-[11px] font-bold"
+                            >
+                              Remove
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      <label className="px-3 py-1.5 rounded-xl bg-[#b5623b] hover:bg-[#9d502d] text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs">
+                        <Upload size={12} />
+                        <span>{newAdmissionData.photo ? "Change Photo" : "Upload Photo"}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) =>
+                            handleDocumentUpload(e, (dataUrl, name) => {
+                              setNewAdmissionData((prev) => ({
+                                ...prev,
+                                photo: dataUrl,
+                                photo_name: name,
+                              }));
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Identity Proof */}
+                  <div className="p-3.5 rounded-2xl border border-stone-200 bg-stone-50/70 hover:border-amber-300 transition flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-stone-800 flex items-center gap-1.5">
+                          <Shield size={14} className="text-[#b5623b]" />
+                          <span>Identity Proof (Aadhaar / Voter)</span>
+                        </span>
+                        {newAdmissionData.identity_proof ? (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                            Attached
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md bg-stone-200 text-stone-600 font-medium text-[10px]">
+                            Optional
+                          </span>
+                        )}
+                      </div>
+
+                      {newAdmissionData.identity_proof && (
+                        <div className="mb-2 p-1.5 bg-white rounded-xl border border-stone-200 text-[11px] font-mono text-stone-700 truncate">
+                          📄 {newAdmissionData.identity_proof_name || "id_proof"}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-stone-200/60 flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1">
+                        {newAdmissionData.identity_proof && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${newAdmissionData.name || "Student"} - ID Proof`,
+                                  url: newAdmissionData.identity_proof,
+                                  isImage: !newAdmissionData.identity_proof.startsWith("data:application/pdf"),
+                                })
+                              }
+                              className="px-2 py-1 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-700 text-[11px] font-bold flex items-center gap-1"
+                            >
+                              <Eye size={11} /> View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setNewAdmissionData((prev) => ({
+                                  ...prev,
+                                  identity_proof: "",
+                                  identity_proof_name: "",
+                                }))
+                              }
+                              className="px-2 py-1 rounded-lg hover:bg-rose-100 text-rose-600 text-[11px] font-bold"
+                            >
+                              Remove
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      <label className="px-3 py-1.5 rounded-xl bg-[#b5623b] hover:bg-[#9d502d] text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs">
+                        <Upload size={12} />
+                        <span>{newAdmissionData.identity_proof ? "Change File" : "Upload ID Proof"}</span>
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          className="hidden"
+                          onChange={(e) =>
+                            handleDocumentUpload(e, (dataUrl, name) => {
+                              setNewAdmissionData((prev) => ({
+                                ...prev,
+                                identity_proof: dataUrl,
+                                identity_proof_name: name,
+                              }));
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Marksheet */}
+                  <div className="p-3.5 rounded-2xl border border-stone-200 bg-stone-50/70 hover:border-amber-300 transition flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-stone-800 flex items-center gap-1.5">
+                          <GraduationCap size={14} className="text-[#b5623b]" />
+                          <span>Marksheet / Qualification</span>
+                        </span>
+                        {newAdmissionData.education_proof ? (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                            Attached
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md bg-stone-200 text-stone-600 font-medium text-[10px]">
+                            Optional
+                          </span>
+                        )}
+                      </div>
+
+                      {newAdmissionData.education_proof && (
+                        <div className="mb-2 p-1.5 bg-white rounded-xl border border-stone-200 text-[11px] font-mono text-stone-700 truncate">
+                          🎓 {newAdmissionData.education_proof_name || "marksheet"}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-stone-200/60 flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1">
+                        {newAdmissionData.education_proof && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${newAdmissionData.name || "Student"} - Marksheet`,
+                                  url: newAdmissionData.education_proof,
+                                  isImage: !newAdmissionData.education_proof.startsWith("data:application/pdf"),
+                                })
+                              }
+                              className="px-2 py-1 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-700 text-[11px] font-bold flex items-center gap-1"
+                            >
+                              <Eye size={11} /> View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setNewAdmissionData((prev) => ({
+                                  ...prev,
+                                  education_proof: "",
+                                  education_proof_name: "",
+                                }))
+                              }
+                              className="px-2 py-1 rounded-lg hover:bg-rose-100 text-rose-600 text-[11px] font-bold"
+                            >
+                              Remove
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      <label className="px-3 py-1.5 rounded-xl bg-[#b5623b] hover:bg-[#9d502d] text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs">
+                        <Upload size={12} />
+                        <span>{newAdmissionData.education_proof ? "Change File" : "Upload Marksheet"}</span>
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          className="hidden"
+                          onChange={(e) =>
+                            handleDocumentUpload(e, (dataUrl, name) => {
+                              setNewAdmissionData((prev) => ({
+                                ...prev,
+                                education_proof: dataUrl,
+                                education_proof_name: name,
+                              }));
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Caste Certificate */}
+                  <div className="p-3.5 rounded-2xl border border-stone-200 bg-stone-50/70 hover:border-amber-300 transition flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-stone-800 flex items-center gap-1.5">
+                          <Award size={14} className="text-[#b5623b]" />
+                          <span>Caste Certificate (Optional)</span>
+                        </span>
+                        {newAdmissionData.caste_certificate ? (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                            Attached
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md bg-stone-200 text-stone-600 font-medium text-[10px]">
+                            Optional
+                          </span>
+                        )}
+                      </div>
+
+                      {newAdmissionData.caste_certificate && (
+                        <div className="mb-2 p-1.5 bg-white rounded-xl border border-stone-200 text-[11px] font-mono text-stone-700 truncate">
+                          📜 {newAdmissionData.caste_certificate_name || "caste_certificate"}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-stone-200/60 flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1">
+                        {newAdmissionData.caste_certificate && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${newAdmissionData.name || "Student"} - Caste Certificate`,
+                                  url: newAdmissionData.caste_certificate,
+                                  isImage: !newAdmissionData.caste_certificate.startsWith("data:application/pdf"),
+                                })
+                              }
+                              className="px-2 py-1 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-700 text-[11px] font-bold flex items-center gap-1"
+                            >
+                              <Eye size={11} /> View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setNewAdmissionData((prev) => ({
+                                  ...prev,
+                                  caste_certificate: "",
+                                  caste_certificate_name: "",
+                                }))
+                              }
+                              className="px-2 py-1 rounded-lg hover:bg-rose-100 text-rose-600 text-[11px] font-bold"
+                            >
+                              Remove
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      <label className="px-3 py-1.5 rounded-xl bg-[#b5623b] hover:bg-[#9d502d] text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs">
+                        <Upload size={12} />
+                        <span>{newAdmissionData.caste_certificate ? "Change File" : "Upload Caste Cert"}</span>
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          className="hidden"
+                          onChange={(e) =>
+                            handleDocumentUpload(e, (dataUrl, name) => {
+                              setNewAdmissionData((prev) => ({
+                                ...prev,
+                                caste_certificate: dataUrl,
+                                caste_certificate_name: name,
+                              }));
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Email Notification Option */}
               <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20">
                 <label className="flex items-start gap-3 cursor-pointer">
@@ -4386,8 +6618,6 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
-
-      <Footer />
     </div>
   );
 }

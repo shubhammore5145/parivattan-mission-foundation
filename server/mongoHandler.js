@@ -101,6 +101,42 @@ export async function createAdmissionInMongo(admissionData) {
     source: "mongodb_student_admission",
   };
 
+  // Prevent duplicate entry:
+  // 1. If an admission with this ID already exists, update it instead of inserting another one
+  // 2. If a record with the same email/phone and program was created within the last 60 seconds or has identical payment_id, update it
+  try {
+    const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
+    const orConditions = [{ id: finalId }];
+
+    if (admissionData.payment_id && admissionData.payment_id !== "OFFLINE_RECORD") {
+      orConditions.push({ payment_id: admissionData.payment_id });
+    }
+
+    if (admissionData.email && admissionData.program) {
+      orConditions.push({
+        email: admissionData.email,
+        program: admissionData.program,
+        _createdAt: { $gte: oneMinuteAgo },
+      });
+    }
+
+    const existing = await collection.findOne({ $or: orConditions });
+    if (existing) {
+      console.log("[MongoDB Atlas] Duplicate/existing record detected, updating instead of inserting:", existing.id || finalId);
+      const cleanUpdate = { ...record };
+      delete cleanUpdate._id;
+      delete cleanUpdate.created_at;
+      await collection.updateOne({ _id: existing._id }, { $set: cleanUpdate });
+      return {
+        ...record,
+        id: existing.id || finalId,
+        _id: existing._id.toString(),
+      };
+    }
+  } catch (dupCheckErr) {
+    console.warn("[MongoDB Atlas] Notice checking for duplicate:", dupCheckErr);
+  }
+
   const result = await collection.insertOne(record);
 
   return {
@@ -152,17 +188,121 @@ export async function updateAdmissionInMongo(id, updateData) {
 }
 
 /**
- * Deletes an admission from MongoDB
+ * Deletes an admission from MongoDB by archiving it into deleted_admissions (Recycle Bin)
  */
 export async function deleteAdmissionFromMongo(id) {
   const { db } = await connectToDatabase();
   const collection = db.collection("admissions");
+  const trashCollection = db.collection("deleted_admissions");
 
+  // 1. Archive to deleted_admissions before deleting
+  try {
+    const existing = await collection.findOne({
+      $or: [{ id: String(id) }, { _id: id }],
+    });
+    if (existing) {
+      const cleanDoc = { ...existing };
+      delete cleanDoc._id; // prevent duplicate _id conflict
+      await trashCollection.updateOne(
+        { id: cleanDoc.id },
+        {
+          $set: {
+            ...cleanDoc,
+            deletedAt: new Date().toISOString(),
+            deletedBy: "Admin",
+          },
+        },
+        { upsert: true }
+      );
+    }
+  } catch (archiveErr) {
+    console.warn("[MongoDB Atlas] Error archiving to deleted_admissions:", archiveErr);
+  }
+
+  // 2. Remove from active admissions
   const result = await collection.deleteOne({
     $or: [{ id: String(id) }, { _id: id }],
   });
 
   return { success: result.deletedCount > 0, count: result.deletedCount };
+}
+
+/**
+ * Retrieves all deleted admissions from MongoDB trash collection
+ */
+export async function getDeletedAdmissionsFromMongo() {
+  const { db } = await connectToDatabase();
+  const trashCollection = db.collection("deleted_admissions");
+
+  const records = await trashCollection
+    .find({})
+    .sort({ deletedAt: -1, _id: -1 })
+    .toArray();
+
+  return records.map((doc) => ({
+    ...doc,
+    _id: doc._id ? doc._id.toString() : undefined,
+  }));
+}
+
+/**
+ * Restores a deleted admission from MongoDB trash back into active admissions
+ */
+export async function restoreAdmissionInMongo(id) {
+  const { db } = await connectToDatabase();
+  const trashCollection = db.collection("deleted_admissions");
+  const admissionsCollection = db.collection("admissions");
+
+  const target = await trashCollection.findOne({
+    $or: [{ id: String(id) }, { _id: id }],
+  });
+
+  if (!target) {
+    return null;
+  }
+
+  const cleanDoc = { ...target };
+  delete cleanDoc._id;
+  delete cleanDoc.deletedAt;
+  delete cleanDoc.deletedBy;
+
+  // Re-insert / upsert into active admissions
+  await admissionsCollection.updateOne(
+    { id: cleanDoc.id },
+    { $set: cleanDoc },
+    { upsert: true }
+  );
+
+  // Remove from deleted_admissions
+  await trashCollection.deleteOne({
+    $or: [{ id: String(id) }, { _id: id }],
+  });
+
+  return cleanDoc;
+}
+
+/**
+ * Permanently deletes an admission from MongoDB trash
+ */
+export async function permanentDeleteAdmissionFromMongo(id) {
+  const { db } = await connectToDatabase();
+  const trashCollection = db.collection("deleted_admissions");
+
+  const result = await trashCollection.deleteOne({
+    $or: [{ id: String(id) }, { _id: id }],
+  });
+
+  return { success: result.deletedCount > 0, count: result.deletedCount };
+}
+
+/**
+ * Completely empties MongoDB trash collection
+ */
+export async function emptyTrashInMongo() {
+  const { db } = await connectToDatabase();
+  const trashCollection = db.collection("deleted_admissions");
+  const result = await trashCollection.deleteMany({});
+  return { success: true, count: result.deletedCount };
 }
 
 /**
@@ -218,6 +358,20 @@ export async function handleAdmissionsRequest(req, res) {
         );
       }
 
+      // 1. Check for trash collection query: /api/admissions?trash=true
+      if (url.includes("trash=true")) {
+        const deleted = await getDeletedAdmissionsFromMongo();
+        res.statusCode = 200;
+        return res.end(
+          JSON.stringify({
+            success: true,
+            count: deleted.length,
+            data: deleted,
+            source: "mongodb_trash",
+          })
+        );
+      }
+
       const admissions = await getAdmissionsFromMongo();
       res.statusCode = 200;
       return res.end(
@@ -238,6 +392,25 @@ export async function handleAdmissionsRequest(req, res) {
         } catch {
           body = {};
         }
+      }
+
+      const url = req.url || "";
+      // Handle restore action: /api/admissions?restore=true or body.action === "restore"
+      if (url.includes("restore=true") || body?.action === "restore") {
+        const targetId = body?.id || (url.includes("?id=") ? url.split("?id=")[1].split("&")[0] : null);
+        if (!targetId) {
+          res.statusCode = 400;
+          return res.end(JSON.stringify({ success: false, error: "ID required for restoration." }));
+        }
+        const restored = await restoreAdmissionInMongo(targetId);
+        res.statusCode = 200;
+        return res.end(
+          JSON.stringify({
+            success: true,
+            message: "Admission restored to active MongoDB collection",
+            data: restored,
+          })
+        );
       }
 
       const saved = await createAdmissionInMongo(body || {});
@@ -283,11 +456,33 @@ export async function handleAdmissionsRequest(req, res) {
 
     if (method === "DELETE") {
       const url = req.url || "";
+      let body = req.body || {};
+      if (typeof body === "string") {
+        try {
+          body = JSON.parse(body);
+        } catch {
+          body = {};
+        }
+      }
+
+      // Empty Trash
+      if (url.includes("emptyTrash=true") || body.action === "emptyTrash") {
+        const emptyRes = await emptyTrashInMongo();
+        res.statusCode = 200;
+        return res.end(
+          JSON.stringify({
+            success: true,
+            message: "MongoDB recycle bin emptied",
+            result: emptyRes,
+          })
+        );
+      }
+
       let id = "";
       if (url.includes("?id=")) {
         id = url.split("?id=")[1].split("&")[0];
-      } else if (req.body && req.body.id) {
-        id = req.body.id;
+      } else if (body && body.id) {
+        id = body.id;
       }
 
       if (!id) {
@@ -297,12 +492,26 @@ export async function handleAdmissionsRequest(req, res) {
         );
       }
 
+      // Permanent Delete from Trash
+      if (url.includes("permanent=true") || body.action === "permanentDelete") {
+        const permRes = await permanentDeleteAdmissionFromMongo(id);
+        res.statusCode = 200;
+        return res.end(
+          JSON.stringify({
+            success: true,
+            message: "Permanently deleted from MongoDB recycle bin",
+            result: permRes,
+          })
+        );
+      }
+
+      // Standard soft delete (archives to deleted_admissions and removes from active)
       const result = await deleteAdmissionFromMongo(id);
       res.statusCode = 200;
       return res.end(
         JSON.stringify({
           success: true,
-          message: "Admission deleted from MongoDB",
+          message: "Admission moved to MongoDB recycle bin",
           result,
         })
       );

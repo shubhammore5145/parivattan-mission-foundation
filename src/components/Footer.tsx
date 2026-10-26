@@ -428,7 +428,7 @@ const Footer = () => {
 
       {/* Bottom Bar strictly with Copyright text: "© 2026 All Rights Reserved." */}
       <div className="border-t border-white/10 bg-[#1b2723]">
-        <div className="container mx-auto px-6 lg:px-8 py-6 max-w-7xl">
+        <div className="container mx-auto px-6 lg:px-8 py-6 pb-24 lg:pb-6 max-w-7xl">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-400">
             <div className="flex items-center space-x-2">
               <span className="font-medium text-slate-300">

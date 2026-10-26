@@ -46,6 +46,27 @@ export const syncBatchSeatsFromCloud = async (): Promise<void> => {
         }
       }
 
+      // Process cloud custom courses if present
+      const coursesRow = data.find(
+        (r) =>
+          r.id === "00000000-0000-0000-0000-000000000002" ||
+          r.program === "SYSTEM_CUSTOM_COURSES" ||
+          r.name === "SYSTEM_CUSTOM_COURSES"
+      );
+      if (coursesRow && coursesRow.message) {
+        try {
+          const parsedCourses = JSON.parse(coursesRow.message);
+          if (Array.isArray(parsedCourses) && parsedCourses.length > 0) {
+            localStorage.setItem("parivattan_custom_courses", JSON.stringify(parsedCourses));
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new Event("courses-updated"));
+            }
+          }
+        } catch (e) {
+          console.warn("Could not parse cloud custom courses:", e);
+        }
+      }
+
       // 2. Filter out non-course admissions (e.g. system configs, portal account signups)
       const realAdmissions = data.filter(isRealCourseAdmission);
 
