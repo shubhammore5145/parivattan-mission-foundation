@@ -9,6 +9,17 @@ import {
 
 let cachedClient = null;
 let cachedDb = null;
+let connectingPromise = null;
+
+// Fast server-side memory cache to eliminate repeated 3s Atlas queries
+let admissionsCache = null;
+let admissionsCacheTime = 0;
+const ADMISSIONS_CACHE_TTL = 15000; // 15 seconds
+
+export function invalidateAdmissionsCache() {
+  admissionsCache = null;
+  admissionsCacheTime = 0;
+}
 
 /**
  * Reads MongoDB URI and DB Name from environment or .env file fallback
@@ -55,30 +66,34 @@ export async function connectToDatabase() {
   }
 
   if (cachedClient && cachedDb) {
-    try {
-      // Ping database to ensure connection is still alive
-      await cachedDb.command({ ping: 1 });
-      return { client: cachedClient, db: cachedDb };
-    } catch {
-      // Re-establish connection if dropped
-      cachedClient = null;
-      cachedDb = null;
-    }
+    return { client: cachedClient, db: cachedDb };
   }
 
-  const client = new MongoClient(uri, {
-    maxPoolSize: 10,
-    serverSelectionTimeoutMS: 5000,
-    connectTimeoutMS: 10000,
-  });
+  if (!connectingPromise) {
+    connectingPromise = (async () => {
+      const client = new MongoClient(uri, {
+        maxPoolSize: 15,
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 8000,
+      });
 
-  await client.connect();
-  const db = client.db(dbName || undefined);
+      await client.connect();
+      const db = client.db(dbName || undefined);
 
-  cachedClient = client;
-  cachedDb = db;
+      cachedClient = client;
+      cachedDb = db;
 
-  return { client, db };
+      return { client, db };
+    })().catch((err) => {
+      cachedClient = null;
+      cachedDb = null;
+      throw err;
+    }).finally(() => {
+      connectingPromise = null;
+    });
+  }
+
+  return connectingPromise;
 }
 
 /**
@@ -138,6 +153,7 @@ export async function createAdmissionInMongo(admissionData) {
   }
 
   const result = await collection.insertOne(record);
+  invalidateAdmissionsCache();
 
   return {
     ...record,
@@ -146,9 +162,15 @@ export async function createAdmissionInMongo(admissionData) {
 }
 
 /**
- * Retrieves all admissions from MongoDB
+ * Retrieves all admissions from MongoDB (with 15s in-memory server cache)
  */
 export async function getAdmissionsFromMongo(query = {}) {
+  const isAll = Object.keys(query).length === 0;
+  const now = Date.now();
+  if (isAll && admissionsCache && now - admissionsCacheTime < ADMISSIONS_CACHE_TTL) {
+    return admissionsCache;
+  }
+
   const { db } = await connectToDatabase();
   const collection = db.collection("admissions");
 
@@ -157,16 +179,24 @@ export async function getAdmissionsFromMongo(query = {}) {
     .sort({ created_at: -1, _id: -1 })
     .toArray();
 
-  return records.map((doc) => ({
+  const mapped = records.map((doc) => ({
     ...doc,
     _id: doc._id ? doc._id.toString() : undefined,
   }));
+
+  if (isAll) {
+    admissionsCache = mapped;
+    admissionsCacheTime = now;
+  }
+
+  return mapped;
 }
 
 /**
  * Updates an admission in MongoDB
  */
 export async function updateAdmissionInMongo(id, updateData) {
+  invalidateAdmissionsCache();
   const { db } = await connectToDatabase();
   const collection = db.collection("admissions");
 
@@ -224,6 +254,18 @@ export async function deleteAdmissionFromMongo(id) {
     $or: [{ id: String(id) }, { _id: id }],
   });
 
+  // 3. Also remove from students collection so deletion is completely clean
+  try {
+    const studentsCollection = db.collection("students");
+    await studentsCollection.deleteOne({
+      $or: [{ id: String(id) }, { email: String(id) }, { prn: String(id) }],
+    });
+  } catch (stdDelErr) {
+    console.warn("[MongoDB Atlas] Notice deleting from students collection:", stdDelErr);
+  }
+
+  invalidateAdmissionsCache();
+
   return { success: result.deletedCount > 0, count: result.deletedCount };
 }
 
@@ -277,6 +319,7 @@ export async function restoreAdmissionInMongo(id) {
   await trashCollection.deleteOne({
     $or: [{ id: String(id) }, { _id: id }],
   });
+  invalidateAdmissionsCache();
 
   return cleanDoc;
 }
@@ -287,12 +330,17 @@ export async function restoreAdmissionInMongo(id) {
 export async function permanentDeleteAdmissionFromMongo(id) {
   const { db } = await connectToDatabase();
   const trashCollection = db.collection("deleted_admissions");
+  const admissionsCollection = db.collection("admissions");
+  const studentsCollection = db.collection("students");
 
-  const result = await trashCollection.deleteOne({
-    $or: [{ id: String(id) }, { _id: id }],
-  });
+  const [res] = await Promise.all([
+    trashCollection.deleteOne({ $or: [{ id: String(id) }, { _id: id }] }),
+    admissionsCollection.deleteOne({ $or: [{ id: String(id) }, { _id: id }] }),
+    studentsCollection.deleteOne({ $or: [{ id: String(id) }, { email: String(id) }, { prn: String(id) }] }),
+  ]);
 
-  return { success: result.deletedCount > 0, count: result.deletedCount };
+  invalidateAdmissionsCache();
+  return { success: res.deletedCount > 0, count: res.deletedCount };
 }
 
 /**
@@ -372,6 +420,28 @@ export async function handleAdmissionsRequest(req, res) {
         );
       }
 
+      // 2. Check for students collection query: /api/admissions?students=true
+      if (url.includes("students=true")) {
+        const { db } = await connectToDatabase();
+        const studentsList = await db
+          .collection("students")
+          .find({})
+          .sort({ registeredAt: -1, _id: -1 })
+          .toArray();
+        res.statusCode = 200;
+        return res.end(
+          JSON.stringify({
+            success: true,
+            count: studentsList.length,
+            data: studentsList.map((s) => ({
+              ...s,
+              _id: s._id ? s._id.toString() : undefined,
+            })),
+            source: "mongodb_students",
+          })
+        );
+      }
+
       const admissions = await getAdmissionsFromMongo();
       res.statusCode = 200;
       return res.end(
@@ -414,6 +484,79 @@ export async function handleAdmissionsRequest(req, res) {
       }
 
       const saved = await createAdmissionInMongo(body || {});
+
+      // If student registration, also sync directly into dedicated 'students' collection in MongoDB
+      if (body?.program === "STUDENT_REGISTRATION") {
+        try {
+          const { db } = await connectToDatabase();
+          let prn = "";
+          let city = "Pune";
+          let state = "Maharashtra";
+          try {
+            if (body.message) {
+              const msg = JSON.parse(body.message);
+              prn = msg.prn || "";
+              city = msg.city || city;
+              state = msg.state || state;
+            }
+          } catch {}
+          const studentDoc = {
+            id: body.id,
+            prn: prn || "PMF2026-" + (body.id ? body.id.slice(0, 4) : "0000"),
+            name: body.name,
+            email: body.email,
+            phone: body.phone,
+            city,
+            state,
+            education: body.education,
+            college_name: body.college_name,
+            registeredAt: body.created_at || new Date().toISOString(),
+            createdAt: body.created_at || new Date().toISOString(),
+          };
+          await db.collection("students").updateOne(
+            { id: body.id },
+            { $set: studentDoc },
+            { upsert: true }
+          );
+        } catch (stErr) {
+          console.warn("[MongoDB Students Notice]:", stErr?.message);
+        }
+      }
+
+      // Automatic server-side confirmation email dispatch
+      // Guarantees confirmation email is dispatched even if the student's mobile browser was closed
+      if (
+        body &&
+        body.email &&
+        body.email.includes("@") &&
+        body.program !== "STUDENT_REGISTRATION" &&
+        body.program !== "SYSTEM_BATCH_SETTINGS" &&
+        body.name !== "SYSTEM_BATCH_OVERRIDES" &&
+        body.name !== "SYSTEM_CUSTOM_COURSES"
+      ) {
+        try {
+          const { handleSendEmail } = await import("./emailHandler.js");
+          const msg = typeof body.message === "string" ? body.message : "";
+          const prnMatch = msg.match(/PRN:\s*([A-Z0-9-]+)/i);
+          const batchMatch = msg.match(/Batch ID:\s*([^|]+)/i);
+          const timingMatch = msg.match(/Timing:\s*([^|]+)/i);
+
+          handleSendEmail({
+            type: "admission",
+            studentEmail: body.email,
+            studentName: body.name || "Student",
+            courseName: body.program || "Language Course",
+            batch: batchMatch ? batchMatch[1].trim() : (body.batchId || "Regular Batch"),
+            timing: timingMatch ? timingMatch[1].trim() : "",
+            phone: body.phone || "",
+            totalAmount: body.amount || "",
+            prn: prnMatch ? prnMatch[1].trim() : (body.id || ""),
+          }).catch((err) => console.warn("[AutoEmail Notice]:", err?.message));
+        } catch (autoErr) {
+          console.warn("[AutoEmail Import Notice]:", autoErr?.message);
+        }
+      }
+
       res.statusCode = 201;
       return res.end(
         JSON.stringify({

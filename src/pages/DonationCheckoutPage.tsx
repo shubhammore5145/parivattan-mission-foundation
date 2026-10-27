@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Heart,
   Sparkles,
@@ -22,10 +22,17 @@ import {
   User,
   Percent,
   FileText,
+  RefreshCw,
+  Zap,
+  QrCode,
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { openRazorpayPayment, getRazorpayKeyId } from "@/lib/razorpay";
+import {
+  openRazorpayPayment,
+  MONTHLY_DONATION_PLANS,
+  MonthlyDonationPlan,
+} from "@/lib/razorpay";
 import { createDonation } from "@/lib/supabase-admin";
 import { sendDonationReceiptEmail } from "@/lib/notificationEmailService";
 import { toast } from "sonner";
@@ -66,7 +73,8 @@ const upcomingCauses: UpcomingCause[] = [
   },
 ];
 
-const PRESET_AMOUNTS = [250, 500, 1000, 2500, 5000];
+const ONE_TIME_PRESETS = [250, 500, 1000, 2500, 5000];
+const MONTHLY_PRESETS = [500, 1000, 2000, 5000];
 
 interface DonationReceiptData {
   receiptNo: string;
@@ -77,13 +85,17 @@ interface DonationReceiptData {
   donorPhone: string;
   cause: string;
   date: string;
+  isMonthly: boolean;
 }
 
 export default function DonationCheckoutPage() {
+  const [searchParams] = useSearchParams();
+
   const [selectedCause, setSelectedCause] = useState<string>("general");
   const [amount, setAmount] = useState<number>(1000);
   const [customAmount, setCustomAmount] = useState<string>("");
   const [isCustom, setIsCustom] = useState<boolean>(false);
+  const [isMonthly, setIsMonthly] = useState<boolean>(false);
 
   const [fullName, setFullName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
@@ -92,7 +104,32 @@ export default function DonationCheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [receipt, setReceipt] = useState<DonationReceiptData | null>(null);
 
-  const activeAmount = isCustom ? parseInt(customAmount) || 0 : amount;
+  useEffect(() => {
+    const freq = searchParams.get("frequency") || searchParams.get("type");
+    if (freq === "monthly" || freq === "recurring") {
+      setIsMonthly(true);
+      setIsCustom(false);
+      setCustomAmount("");
+    }
+    const amtParam = searchParams.get("amount") || searchParams.get("plan");
+    if (amtParam) {
+      const parsed = parseInt(amtParam, 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        setAmount(parsed);
+      }
+    }
+  }, [searchParams]);
+
+  // For monthly, activeAmount is strictly from the 4 fixed plans
+  const activeAmount = isMonthly
+    ? amount
+    : isCustom
+    ? parseInt(customAmount) || 0
+    : amount;
+
+  const matchedMonthlyPlan: MonthlyDonationPlan | undefined = isMonthly
+    ? MONTHLY_DONATION_PLANS.find((p) => p.amount === activeAmount)
+    : undefined;
 
   const handleSelectPreset = (val: number) => {
     setIsCustom(false);
@@ -127,14 +164,21 @@ export default function DonationCheckoutPage() {
       return;
     }
 
+    if (isMonthly && !email.trim()) {
+      toast.error("Email address is required for monthly auto-donations to receive receipts.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       await openRazorpayPayment({
         amount: activeAmount,
+        subscriptionId: matchedMonthlyPlan?.subscriptionId,
         name: "Parivattan Mission Foundation",
-        description: `Donation: ${currentCauseObj.name} (${currentCauseObj.marathi})`,
+        description: `Donation: ${currentCauseObj.name}${isMonthly ? " (Monthly)" : ""}`,
         image: "/img/parivattanE.png",
+        recurring: isMonthly,
         prefill: {
           name: fullName.trim(),
           email: email.trim() || undefined,
@@ -143,11 +187,15 @@ export default function DonationCheckoutPage() {
         notes: {
           cause: currentCauseObj.name,
           pan: panNumber.trim() || "N/A",
+          donation_type: isMonthly ? "monthly_recurring" : "one-time",
         },
         themeColor: "#b5623b",
         onSuccess: async (response) => {
           const receiptNo = `PMF-DON-${Date.now().toString().slice(-6)}`;
-          const payId = response.razorpay_payment_id || `PAY_${Date.now()}`;
+          const payId =
+            response.razorpay_payment_id ||
+            response.razorpay_subscription_id ||
+            `PAY_${Date.now()}`;
 
           // Save donation record
           try {
@@ -157,7 +205,7 @@ export default function DonationCheckoutPage() {
               payment_id: payId,
               order_id: response.razorpay_order_id || receiptNo,
               service_id: selectedCause,
-              service_name: currentCauseObj.name,
+              service_name: `${currentCauseObj.name}${isMonthly ? " (Monthly)" : ""}`,
               donor_name: fullName.trim(),
               donor_email: email.trim(),
               donor_phone: phone.trim(),
@@ -179,6 +227,7 @@ export default function DonationCheckoutPage() {
               dateStyle: "medium",
               timeStyle: "short",
             }),
+            isMonthly,
           });
 
           // Automatically send official donation receipt and confirmation email
@@ -186,7 +235,7 @@ export default function DonationCheckoutPage() {
             donorName: fullName.trim(),
             donorEmail: email.trim(),
             amount: activeAmount,
-            cause: `${currentCauseObj.name} (${currentCauseObj.marathi})`,
+            cause: `${currentCauseObj.name} (${currentCauseObj.marathi})${isMonthly ? " (Monthly Auto-Donation)" : ""}`,
             paymentId: payId,
             receiptNo,
             donorPhone: phone.trim(),
@@ -194,7 +243,11 @@ export default function DonationCheckoutPage() {
           });
 
           setIsSubmitting(false);
-          toast.success("Payment successful! Official receipt sent to your email.");
+          toast.success(
+            isMonthly
+              ? `Monthly auto-donation activated! ₹${activeAmount.toLocaleString("en-IN")}/month. Receipt sent to your email.`
+              : "Payment successful! Official receipt sent to your email."
+          );
         },
         onDismiss: () => {
           setIsSubmitting(false);
@@ -234,7 +287,7 @@ export default function DonationCheckoutPage() {
             <span className="text-[#24312d] font-semibold">Online Donation</span>
           </div>
 
-          {/* Hero Banner (Matching Mockup Exactly) */}
+          {/* Hero Banner (Original Layout & Artwork) */}
           <div className="relative rounded-3xl bg-[#f8f6f0] border border-[#e8e4da] p-8 sm:p-10 md:p-12 shadow-sm overflow-hidden mb-10">
             {/* Soft organic curved wave in background */}
             <div className="absolute top-0 right-0 w-[500px] h-full bg-gradient-to-l from-[#efeade]/70 to-transparent pointer-events-none" />
@@ -302,13 +355,13 @@ export default function DonationCheckoutPage() {
                   <CheckCircle2 size={36} />
                 </div>
                 <span className="text-xs font-bold uppercase tracking-widest text-emerald-700">
-                  Payment Confirmed • Donation Successful
+                  Payment Confirmed • {receipt.isMonthly ? "Monthly Auto-Donation Active" : "Donation Successful"}
                 </span>
                 <h2 className="mt-2 text-3xl font-serif text-[#24312d]">
                   Thank You, {receipt.donorName}!
                 </h2>
                 <p className="mt-2 text-sm text-[#65706a]">
-                  Your contribution of <strong className="text-[#24312d]">₹{receipt.amount.toLocaleString("en-IN")}</strong> has been received with gratitude by Parivattan Mission Foundation.
+                  Your contribution of <strong className="text-[#24312d]">₹{receipt.amount.toLocaleString("en-IN")}{receipt.isMonthly ? "/month" : ""}</strong> has been received with gratitude by Parivattan Mission Foundation.
                 </p>
 
                 {/* Printable Receipt Card */}
@@ -342,16 +395,24 @@ export default function DonationCheckoutPage() {
                       <span className="text-[#65706a] block">Mobile / Phone:</span>
                       <span className="font-semibold text-[#24312d]">{receipt.donorPhone}</span>
                     </div>
-                    <div className="col-span-2">
+                    <div>
+                      <span className="text-[#65706a] block">Donation Type:</span>
+                      <span className="font-semibold text-[#24312d]">
+                        {receipt.isMonthly ? "Monthly Auto-Donation" : "One-Time Donation"}
+                      </span>
+                    </div>
+                    <div>
                       <span className="text-[#65706a] block">Allocated Purpose:</span>
                       <span className="font-semibold text-[#24312d]">{receipt.cause}</span>
                     </div>
                   </div>
 
                   <div className="mt-6 flex items-center justify-between rounded-xl bg-emerald-50 border border-emerald-200 p-4">
-                    <span className="text-sm font-semibold text-emerald-900">Total Contribution</span>
+                    <span className="text-sm font-semibold text-emerald-900">
+                      {receipt.isMonthly ? "Monthly Contribution" : "Total Contribution"}
+                    </span>
                     <span className="text-2xl font-serif font-bold text-emerald-700">
-                      ₹{receipt.amount.toLocaleString("en-IN")}
+                      ₹{receipt.amount.toLocaleString("en-IN")}{receipt.isMonthly ? "/mo" : ""}
                     </span>
                   </div>
                 </div>
@@ -367,7 +428,7 @@ export default function DonationCheckoutPage() {
 
                   <a
                     href={`https://wa.me/?text=${encodeURIComponent(
-                      `I just supported Parivattan Mission Foundation with ₹${receipt.amount} for rural education! Learn more and support at https://parivattan.org/donate`
+                      `I just supported Parivattan Mission Foundation with ₹${receipt.amount}${receipt.isMonthly ? "/month" : ""} for rural education! Learn more and support at https://parivattan.org/donate`
                     )}`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -387,60 +448,130 @@ export default function DonationCheckoutPage() {
               </div>
             </div>
           ) : (
-            /* Live Donation Form & Right Summary Column (Matching Mockup Exactly) */
+            /* Live Donation Form & Right Summary Column (Original Design) */
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12 items-start">
               {/* Left Column: Form Card */}
               <div className="lg:col-span-7 rounded-3xl border border-[#e8e4da] bg-white p-7 sm:p-9 shadow-sm">
                 <form onSubmit={handlePayment}>
+                  {/* Frequency Switcher: One-Time / Monthly */}
+                  <div className="mb-7">
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMonthly(false);
+                          if (!isCustom && !ONE_TIME_PRESETS.includes(amount)) {
+                            setAmount(1000);
+                          }
+                        }}
+                        className={`py-3 px-4 rounded-2xl border-2 text-center font-bold text-sm transition ${
+                          !isMonthly
+                            ? "border-[#b5623b] bg-[#b5623b]/5 text-[#b5623b] shadow-sm"
+                            : "border-[#e8e4da] bg-[#fbfaf7] text-slate-600 hover:border-[#b5623b]/40"
+                        }`}
+                      >
+                        One-Time
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMonthly(true);
+                          setIsCustom(false);
+                          setCustomAmount("");
+                          if (!MONTHLY_PRESETS.includes(amount)) {
+                            setAmount(1000);
+                          }
+                        }}
+                        className={`py-3 px-4 rounded-2xl border-2 text-center font-bold text-sm transition ${
+                          isMonthly
+                            ? "border-violet-600 bg-violet-50 text-violet-700 shadow-sm"
+                            : "border-[#e8e4da] bg-[#fbfaf7] text-slate-600 hover:border-violet-400/40"
+                        }`}
+                      >
+                        Monthly Auto-Debit
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Select Amount Header */}
                   <div>
                     <h2 className="text-2xl font-serif font-bold text-[#1b2b25]">
-                      Select Amount
+                      {isMonthly ? "Select Monthly Plan" : "Select Amount"}
                     </h2>
                     <p className="mt-1 text-xs sm:text-sm text-[#65706a]">
-                      Choose an amount that helps create real change.
+                      {isMonthly
+                        ? "Choose a monthly contribution plan."
+                        : "Choose an amount that helps create real change."}
                     </p>
 
-                    {/* 5 Preset Buttons */}
-                    <div className="mt-5 grid grid-cols-5 gap-2 sm:gap-2.5">
-                      {PRESET_AMOUNTS.map((val) => {
-                        const isSelected = !isCustom && amount === val;
-                        return (
-                          <button
-                            type="button"
-                            key={val}
-                            onClick={() => handleSelectPreset(val)}
-                            className={`py-3 px-1 rounded-xl text-center font-bold text-sm sm:text-base transition-all border ${
-                              isSelected
-                                ? "bg-[#b5623b] text-white border-[#b5623b] shadow-sm"
-                                : "bg-[#f8f6f1] text-[#1b2b25] border-[#e8e4da] hover:border-[#b5623b]/60 hover:bg-[#f1eee5]"
-                            }`}
-                          >
-                            ₹{val.toLocaleString("en-IN")}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Custom Amount Input */}
-                    <div className="mt-3">
-                      <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-[#8b9690]">
-                          ₹
-                        </span>
-                        <input
-                          type="text"
-                          placeholder="Or enter custom amount"
-                          value={customAmount}
-                          onChange={handleCustomChange}
-                          className={`w-full rounded-xl border bg-[#fbfaf7] pl-9 pr-4 py-3 text-sm font-medium outline-none transition ${
-                            isCustom
-                              ? "border-[#b5623b] ring-1 ring-[#b5623b] bg-white font-bold text-[#1b2b25]"
-                              : "border-[#e8e4da] text-[#1b2b25] placeholder:text-[#8b9690] focus:border-[#b5623b] focus:bg-white"
-                          }`}
-                        />
+                    {/* Presets Grid */}
+                    {isMonthly ? (
+                      /* Monthly: Strictly the 4 fixed plans, NO custom */
+                      <div className="mt-5 grid grid-cols-4 gap-2 sm:gap-2.5">
+                        {MONTHLY_PRESETS.map((val) => {
+                          const isSelected = amount === val;
+                          return (
+                            <button
+                              type="button"
+                              key={val}
+                              onClick={() => handleSelectPreset(val)}
+                              className={`py-3 px-1 rounded-xl text-center font-bold text-sm sm:text-base transition-all border ${
+                                isSelected
+                                  ? "bg-violet-600 text-white border-violet-600 shadow-sm"
+                                  : "bg-[#f8f6f1] text-[#1b2b25] border-[#e8e4da] hover:border-violet-400 hover:bg-[#f1eee5]"
+                              }`}
+                            >
+                              ₹{val.toLocaleString("en-IN")}
+                              <span className="block text-[10px] font-normal opacity-85">/mo</span>
+                            </button>
+                          );
+                        })}
                       </div>
-                    </div>
+                    ) : (
+                      /* One-Time: 5 Preset Buttons + Custom Amount Input */
+                      <>
+                        <div className="mt-5 grid grid-cols-5 gap-2 sm:gap-2.5">
+                          {ONE_TIME_PRESETS.map((val) => {
+                            const isSelected = !isCustom && amount === val;
+                            return (
+                              <button
+                                type="button"
+                                key={val}
+                                onClick={() => handleSelectPreset(val)}
+                                className={`py-3 px-1 rounded-xl text-center font-bold text-sm sm:text-base transition-all border ${
+                                  isSelected
+                                    ? "bg-[#b5623b] text-white border-[#b5623b] shadow-sm"
+                                    : "bg-[#f8f6f1] text-[#1b2b25] border-[#e8e4da] hover:border-[#b5623b]/60 hover:bg-[#f1eee5]"
+                                }`}
+                              >
+                                ₹{val.toLocaleString("en-IN")}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Custom Amount Input for One-Time */}
+                        <div className="mt-3">
+                          <div className="relative">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-[#8b9690]">
+                              ₹
+                            </span>
+                            <input
+                              type="text"
+                              placeholder="Or enter custom amount"
+                              value={customAmount}
+                              onChange={handleCustomChange}
+                              className={`w-full rounded-xl border bg-[#fbfaf7] pl-9 pr-4 py-3 text-sm font-medium outline-none transition ${
+                                isCustom
+                                  ? "border-[#b5623b] ring-1 ring-[#b5623b] bg-white font-bold text-[#1b2b25]"
+                                  : "border-[#e8e4da] text-[#1b2b25] placeholder:text-[#8b9690] focus:border-[#b5623b] focus:bg-white"
+                              }`}
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {/* Your Details Header */}
@@ -496,7 +627,12 @@ export default function DonationCheckoutPage() {
                           />
                           <input
                             type="email"
-                            placeholder="Email Address (for receipt)"
+                            required={isMonthly}
+                            placeholder={
+                              isMonthly
+                                ? "Email Address * (for receipt)"
+                                : "Email Address (for receipt)"
+                            }
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             className="w-full rounded-xl border border-[#e8e4da] bg-[#fbfaf7] pl-11 pr-4 py-3 text-sm text-[#1b2b25] placeholder:text-[#8b9690] outline-none transition focus:border-[#b5623b] focus:bg-white"
@@ -528,12 +664,20 @@ export default function DonationCheckoutPage() {
                       <button
                         type="submit"
                         disabled={isSubmitting || activeAmount < 10}
-                        className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#b5623b] hover:bg-[#9d502d] text-white py-4 px-6 font-semibold text-base shadow-md shadow-[#b5623b]/20 transition-all duration-200 hover:scale-[1.005] disabled:opacity-50 disabled:cursor-not-allowed"
+                        className={`w-full flex items-center justify-center gap-2 rounded-2xl text-white py-4 px-6 font-semibold text-base shadow-md transition-all duration-200 hover:scale-[1.005] disabled:opacity-50 disabled:cursor-not-allowed ${
+                          isMonthly
+                            ? "bg-violet-600 hover:bg-violet-700 shadow-violet-600/20"
+                            : "bg-[#b5623b] hover:bg-[#9d502d] shadow-[#b5623b]/20"
+                        }`}
                       >
                         <CreditCard size={18} />
                         <span>
                           {isSubmitting
                             ? "Connecting to Razorpay..."
+                            : isMonthly
+                            ? `Contribute ₹${activeAmount.toLocaleString(
+                                "en-IN"
+                              )}/month via Razorpay`
                             : `Contribute ₹${activeAmount.toLocaleString(
                                 "en-IN"
                               )} via Razorpay`}
@@ -550,7 +694,7 @@ export default function DonationCheckoutPage() {
                 </form>
               </div>
 
-              {/* Right Column: Donation Summary Card & Assistance Card */}
+              {/* Right Column: Donation Summary Card & Assistance Card (Exact Original) */}
               <div className="lg:col-span-5 space-y-6">
                 {/* 1. Donation Summary Dark Green Card */}
                 <div className="rounded-3xl bg-[#1b2b25] text-white p-7 sm:p-8 shadow-lg relative overflow-hidden">
@@ -567,9 +711,14 @@ export default function DonationCheckoutPage() {
                   </h3>
 
                   <div className="flex items-center justify-between border-b border-white/10 pb-5 mb-6">
-                    <span className="text-sm text-stone-300">Amount</span>
+                    <span className="text-sm text-stone-300">
+                      {isMonthly ? "Monthly Amount" : "Amount"}
+                    </span>
                     <span className="text-3xl sm:text-4xl font-serif font-bold text-white">
                       ₹{activeAmount.toLocaleString("en-IN")}
+                      {isMonthly && (
+                        <span className="text-xs text-stone-300 font-sans ml-1">/mo</span>
+                      )}
                     </span>
                   </div>
 
@@ -621,7 +770,62 @@ export default function DonationCheckoutPage() {
                   </div>
                 </div>
 
-                {/* 2. Need Assistance with Payment? White Card */}
+                {/* 2. Direct UPI / PhonePe QR Code Card */}
+                <div className="rounded-3xl border border-[#e8e4da] bg-white p-6 sm:p-7 shadow-sm text-center relative overflow-hidden">
+                  <div className="flex items-center justify-between gap-2 border-b border-[#f0ece2] pb-3.5 mb-4">
+                    <div className="flex items-center gap-2.5 text-left">
+                      <div className="h-9 w-9 rounded-xl bg-[#5f259f]/10 flex items-center justify-center text-[#5f259f] font-bold text-sm shrink-0">
+                        पे
+                      </div>
+                      <div>
+                        <h4 className="font-serif font-bold text-sm sm:text-base text-[#1b2b25]">
+                          Scan & Pay via UPI / PhonePe
+                        </h4>
+                        <p className="text-[11px] text-[#65706a]">
+                          Instant UPI Transfer (Zero Gateway Fees)
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      Direct QR
+                    </span>
+                  </div>
+
+                  {/* QR Image Container */}
+                  <div className="mx-auto max-w-[210px] sm:max-w-[230px] p-3 rounded-2xl bg-[#faf9f5] border-2 border-dashed border-[#5f259f]/30 shadow-xs">
+                    <img
+                      src="/img/phonepe-qr.png"
+                      alt="PhonePe Accepted Here QR - Parivattan Mission Foundation"
+                      className="w-full h-auto rounded-xl object-contain mx-auto"
+                    />
+                  </div>
+
+                  <div className="mt-3 text-center">
+                    <span className="text-xs font-bold text-[#1b2b25] block">
+                      PARIVATTAN MISSION FOUNDATION
+                    </span>
+                    <span className="text-[11px] text-[#65706a] block mt-0.5">
+                      Accepted: PhonePe • Google Pay • Paytm • BHIM • Any UPI App
+                    </span>
+                  </div>
+
+                  <div className="mt-4 pt-3.5 border-t border-[#f0ece2] flex items-center justify-between text-left text-[11px] text-[#65706a]">
+                    <span>Need receipt for 80G tax benefit?</span>
+                    <a
+                      href={`https://wa.me/917820831901?text=${encodeURIComponent(
+                        "Namaste! I have made a donation to Parivattan Mission Foundation via PhonePe/UPI QR code. Sharing the payment screenshot for official receipt."
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 hover:underline"
+                    >
+                      <MessageCircle size={13} />
+                      <span>Send Screenshot</span>
+                    </a>
+                  </div>
+                </div>
+
+                {/* 3. Need Assistance with Payment? White Card */}
                 <div className="rounded-3xl border border-[#e8e4da] bg-white p-7 sm:p-8 shadow-sm relative overflow-hidden">
                   {/* Subtle botanical branch artwork in corner */}
                   <div className="absolute top-2 right-2 w-16 h-16 opacity-30 pointer-events-none text-emerald-700">
@@ -664,7 +868,7 @@ export default function DonationCheckoutPage() {
             </div>
           )}
 
-          {/* Supported Causes Section */}
+          {/* Supported Causes Section (Exact Original) */}
           <div className="rounded-3xl border border-[#e2e5dc] bg-white p-7 md:p-10 shadow-sm mb-10">
             <div className="text-center max-w-2xl mx-auto mb-10">
               <span className="text-xs font-bold uppercase tracking-wider text-[#b5623b]">
@@ -716,7 +920,7 @@ export default function DonationCheckoutPage() {
             </div>
           </div>
 
-          {/* Direct Foundation Inquiries & Registration Details */}
+          {/* Direct Foundation Inquiries & Registration Details (Exact Original) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
             {/* Contact Card */}
             <div className="rounded-3xl border border-[#e2e5dc] bg-white p-7 shadow-sm flex flex-col justify-between">

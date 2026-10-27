@@ -65,13 +65,18 @@ export async function sendCourseAdmissionEmail(
 
   console.log("[EmailService] Sending admission confirmation to:", studentEmail, "for course:", courseName);
 
-  // Try direct local/server API endpoint first
+  // Try direct local/server API endpoint first (with 8s timeout)
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     const res = await fetch("/api/send-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
+
     if (res.ok) {
       const data = await res.json();
       if (data.success) {
@@ -80,17 +85,35 @@ export async function sendCourseAdmissionEmail(
       }
     } else if (res.status === 429) {
       const data = await res.json().catch(() => ({}));
-      console.warn("[EmailService] Email rate limit exceeded:", data.error);
-      return {
-        success: false,
-        message: data.error || "Email rate limit reached. Please wait a few minutes.",
-      };
+      console.warn("[EmailService] Email rate limit notice:", data.error);
     }
   } catch (e: any) {
-    if (e?.message && e.message.includes("rate limit")) {
-      return { success: false, message: e.message };
+    console.warn("[EmailService] Primary /api/send-email attempt notice:", e?.message);
+  }
+
+  // Secondary fallback: Try absolute production origin endpoint if relative failed
+  try {
+    const isLocal = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+    if (!isLocal) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch("https://www.parivattan.org/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          console.log("[EmailService] Production SMTP email sent successfully!");
+          return { success: true, message: "Email sent via production SMTP." };
+        }
+      }
     }
-    // Continue to Google Apps Script fallback
+  } catch (secErr: any) {
+    console.warn("[EmailService] Secondary email dispatch notice:", secErr?.message);
   }
 
   // Fallback: Google Apps Script Web App
@@ -160,13 +183,18 @@ export async function sendDonationReceiptEmail(
 
   console.log("[EmailService] Sending donation receipt email to:", donorEmail, "for amount: ₹" + amount);
 
-  // Try direct local/server API endpoint first
+  // Try direct local/server API endpoint first (with 8s timeout)
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     const res = await fetch("/api/send-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
+
     if (res.ok) {
       const data = await res.json();
       if (data.success) {
@@ -175,17 +203,35 @@ export async function sendDonationReceiptEmail(
       }
     } else if (res.status === 429) {
       const data = await res.json().catch(() => ({}));
-      console.warn("[EmailService] Donation email rate limit exceeded:", data.error);
-      return {
-        success: false,
-        message: data.error || "Email rate limit reached. Please wait a few minutes.",
-      };
+      console.warn("[EmailService] Donation email rate limit notice:", data.error);
     }
   } catch (e: any) {
-    if (e?.message && e.message.includes("rate limit")) {
-      return { success: false, message: e.message };
+    console.warn("[EmailService] Primary /api/send-email donation attempt notice:", e?.message);
+  }
+
+  // Secondary fallback: Try absolute production origin endpoint if relative failed
+  try {
+    const isLocal = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+    if (!isLocal) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch("https://www.parivattan.org/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          console.log("[EmailService] Production SMTP donation email sent successfully!");
+          return { success: true, message: "Donation receipt sent via production SMTP." };
+        }
+      }
     }
-    // Continue to Google Apps Script fallback
+  } catch (secErr: any) {
+    console.warn("[EmailService] Secondary donation email dispatch notice:", secErr?.message);
   }
 
   // Fallback: Google Apps Script Web App
