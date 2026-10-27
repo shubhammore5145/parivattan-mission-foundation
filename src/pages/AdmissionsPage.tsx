@@ -468,6 +468,7 @@ export default function AdmissionsPage() {
 
     submissionLockedRef.current = true;
     setIsSubmitting(true);
+    const assignedPrn = verifiedStudent?.prn || prnInput.trim() || generateStudentPRN();
     try {
       await loadRazorpay();
       const keyId = getRazorpayKeyId() || "rzp_live_Tlq7NGeKnZ2WlX";
@@ -488,11 +489,24 @@ export default function AdmissionsPage() {
           email: emailAddress.trim(),
           contact: mobileNumber.trim(),
         },
+        notes: {
+          prn: assignedPrn,
+          student_name: fullName.trim(),
+          student_email: emailAddress.trim(),
+          student_phone: mobileNumber.trim(),
+          course: `${formCourse.name} (${formLevel.level}) - ${formBatch?.name || "Regular"}`,
+        },
         theme: {
           color: "#b5623b",
         },
         handler: async (response: any) => {
-          await finalizeAdmission(response.razorpay_payment_id || `PAY-${Date.now()}`, "Online via Razorpay");
+          if (!response?.razorpay_payment_id) {
+            submissionLockedRef.current = false;
+            setIsSubmitting(false);
+            toast.error("Payment verification failed. No transaction reference received.");
+            return;
+          }
+          await finalizeAdmission(response.razorpay_payment_id, "Online via Razorpay", assignedPrn);
         },
         modal: {
           ondismiss: () => {
@@ -505,17 +519,18 @@ export default function AdmissionsPage() {
 
       const rzp = new window.Razorpay(options);
       rzp.open();
-    } catch (err) {
-      console.warn("Razorpay popup notice:", err);
-      // Fallback: Proceed with verified confirmation
-      await finalizeAdmission(`PAY-ONLINE-${Date.now().toString().slice(-6)}`, "Online Admission Payment");
+    } catch (err: any) {
+      console.error("Razorpay popup error:", err);
+      submissionLockedRef.current = false;
+      setIsSubmitting(false);
+      toast.error("Payment gateway could not be loaded. Please disable popup blockers and try again.");
     }
   };
 
   // Finalize Registration and Record in Database
-  const finalizeAdmission = async (paymentRef: string, paymentMethod: string) => {
+  const finalizeAdmission = async (paymentRef: string, paymentMethod: string, explicitPrn?: string) => {
     const admissionId = `PMF-ADM-${Date.now().toString().slice(-6)}`;
-    const studentPrn = verifiedStudent?.prn || prnInput.trim() || generateStudentPRN();
+    const studentPrn = explicitPrn || verifiedStudent?.prn || prnInput.trim() || generateStudentPRN();
 
     const currentFullAddress = `${currentAddressLine.trim()}, ${currentCity.trim()}, ${currentDistrict.trim()}, ${currentState.trim()} - ${currentPincode.trim()}`;
     const permFullAddress = isSameAddress
@@ -562,39 +577,67 @@ export default function AdmissionsPage() {
       registeredAt: new Date().toISOString(),
     };
 
+    // 1. Save immediately to local admissions history (guarantees receipt & recovery)
+    try {
+      const stored = JSON.parse(localStorage.getItem("parivattan_admissions_records") || "[]");
+      localStorage.setItem("parivattan_admissions_records", JSON.stringify([admissionRecord, ...stored]));
+    } catch (locErr) {
+      console.warn("Local storage admission save notice:", locErr);
+    }
+
     try {
       // Decrement seats intake
       if (formBatch?.id) {
         incrementBatchEnrollment(formBatch.id);
       }
 
-      // Sync into Student Portal with PRN
-      await syncAdmissionToStudentPortal({
-        fullName: admissionRecord.fullName,
-        email: admissionRecord.emailAddress,
-        phone: admissionRecord.mobileNumber,
-        courseTitle: `${admissionRecord.language} (${admissionRecord.level})`,
-        courseCode: `PFLS-${admissionRecord.language.slice(0, 2).toUpperCase()}-${admissionRecord.level}`,
-        school: "Parivattan Foreign Language School",
-        batchPreference: `${admissionRecord.batch} (${admissionRecord.preferredTiming || "Morning"})`,
-        learningMode: "Hybrid Classroom / Live Online",
-        amount: admissionRecord.totalAmount,
-        paymentId: paymentRef,
-        gender: admissionRecord.gender,
-        education: admissionRecord.education,
-        collegeName: admissionRecord.collegeName,
-        address: currentFullAddress,
-        currentAddress: currentFullAddress,
-        permanentAddress: permFullAddress,
-        city: currentCity,
-        district: currentDistrict,
-        pincode: currentPincode,
-        category: casteCategory,
-        photoUrl: photoFile.dataUrl,
-        existingPrn: studentPrn,
-      });
+      // Automatically send course admission confirmation email to the student with await
+      try {
+        await sendCourseAdmissionEmail({
+          studentName: admissionRecord.fullName,
+          studentEmail: admissionRecord.emailAddress,
+          courseName: `${admissionRecord.language} (${admissionRecord.level}) - ${admissionRecord.batch}`,
+          phone: admissionRecord.mobileNumber,
+          batch: admissionRecord.batch,
+          timing: admissionRecord.preferredTiming,
+          totalAmount: admissionRecord.totalAmount,
+          prn: studentPrn,
+        });
+      } catch (emailErr) {
+        console.warn("Admission email send notice:", emailErr);
+      }
 
-      // Save to Supabase admissions table
+      // Sync into Student Portal with PRN
+      try {
+        await syncAdmissionToStudentPortal({
+          fullName: admissionRecord.fullName,
+          email: admissionRecord.emailAddress,
+          phone: admissionRecord.mobileNumber,
+          courseTitle: `${admissionRecord.language} (${admissionRecord.level})`,
+          courseCode: `PFLS-${admissionRecord.language.slice(0, 2).toUpperCase()}-${admissionRecord.level}`,
+          school: "Parivattan Foreign Language School",
+          batchPreference: `${admissionRecord.batch} (${admissionRecord.preferredTiming || "Morning"})`,
+          learningMode: "Hybrid Classroom / Live Online",
+          amount: admissionRecord.totalAmount,
+          paymentId: paymentRef,
+          gender: admissionRecord.gender,
+          education: admissionRecord.education,
+          collegeName: admissionRecord.collegeName,
+          address: currentFullAddress,
+          currentAddress: currentFullAddress,
+          permanentAddress: permFullAddress,
+          city: currentCity,
+          district: currentDistrict,
+          pincode: currentPincode,
+          category: casteCategory,
+          photoUrl: photoFile.dataUrl,
+          existingPrn: studentPrn,
+        });
+      } catch (portalErr) {
+        console.warn("Student portal sync notice:", portalErr);
+      }
+
+      // Save to MongoDB and Supabase admissions table
       await createAdmission({
         name: admissionRecord.fullName,
         email: admissionRecord.emailAddress,
@@ -622,34 +665,29 @@ export default function AdmissionsPage() {
         status: "completed",
       });
 
-      // Save to local admissions history
-      const stored = JSON.parse(localStorage.getItem("parivattan_admissions_records") || "[]");
-      localStorage.setItem("parivattan_admissions_records", JSON.stringify([admissionRecord, ...stored]));
-
       // Synchronize live batch seats
       try {
         recalculateBatchSeatsFromAdmissions();
       } catch {}
 
-      // Automatically send course admission confirmation email via Google Apps Script
-      sendCourseAdmissionEmail({
-        studentName: admissionRecord.fullName,
-        studentEmail: admissionRecord.emailAddress,
-        courseName: `${admissionRecord.language} (${admissionRecord.level}) - ${admissionRecord.batch}`,
-        phone: admissionRecord.mobileNumber,
-        batch: admissionRecord.batch,
-        timing: admissionRecord.preferredTiming,
-        totalAmount: admissionRecord.totalAmount,
-        prn: studentPrn,
-      });
-
       setSubmittedReceipt(admissionRecord);
     } catch (err: any) {
-      if (err?.message && (err.message.includes("Rate limit") || err.message.includes("limit"))) {
-        toast.error(err.message);
-        return;
-      }
       console.warn("Admission save notice:", err);
+      // Fallback: still dispatch confirmation email if not yet sent
+      try {
+        await sendCourseAdmissionEmail({
+          studentName: admissionRecord.fullName,
+          studentEmail: admissionRecord.emailAddress,
+          courseName: `${admissionRecord.language} (${admissionRecord.level}) - ${admissionRecord.batch}`,
+          phone: admissionRecord.mobileNumber,
+          batch: admissionRecord.batch,
+          timing: admissionRecord.preferredTiming,
+          totalAmount: admissionRecord.totalAmount,
+          prn: studentPrn,
+        });
+      } catch (emailErr) {
+        console.warn("Fallback admission email error:", emailErr);
+      }
       // Record rate limit submission
       recordSubmission("course_admission");
       setSubmittedReceipt(admissionRecord);
@@ -1050,7 +1088,7 @@ export default function AdmissionsPage() {
                             className="h-full w-full object-cover rounded-2xl"
                           />
                         ) : (
-                          verifiedStudent.name.charAt(0).toUpperCase()
+                          (verifiedStudent.name || "?").charAt(0).toUpperCase()
                         )}
                       </div>
                       <div>

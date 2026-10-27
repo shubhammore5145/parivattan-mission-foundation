@@ -17,6 +17,9 @@ import {
   BarChart3,
   MessageSquare,
   Mail,
+  MailCheck,
+  MailWarning,
+  Send,
   Eye,
   Reply,
   GraduationCap,
@@ -107,6 +110,8 @@ import { toast } from "sonner";
 import CourseManager from "@/components/admin/CourseManager";
 import NewsAndAnnouncementsManager from "@/components/admin/NewsAndAnnouncementsManager";
 import TrashManager from "@/components/admin/TrashManager";
+import SubscriptionsManager from "@/components/admin/SubscriptionsManager";
+import { getSubscriptionsData } from "@/lib/subscriptionService";
 import { getStoredAnnouncements } from "@/data/newsAndAnnouncementsData";
 import {
   getDeletedAdmissions,
@@ -126,11 +131,12 @@ import {
 export default function AdminDashboard() {
   const navigate = useNavigate();
 
-  // Active Tab: "admissions" | "students" | "courses" | "news" | "donations" | "contacts" | "visitors" | "trash"
+  // Active Tab: "admissions" | "students" | "subscriptions" | "courses" | "news" | "donations" | "contacts" | "visitors" | "trash"
   const [activeTab, setActiveTab] = useState<
-    "admissions" | "students" | "courses" | "news" | "donations" | "contacts" | "visitors" | "trash"
+    "admissions" | "students" | "subscriptions" | "courses" | "news" | "donations" | "contacts" | "visitors" | "trash"
   >("admissions");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [subscriptionsCount, setSubscriptionsCount] = useState<number>(0);
 
   // Recycle Bin / Trash State
   const [deletedAdmissions, setDeletedAdmissions] = useState<DeletedAdmissionItem[]>(() =>
@@ -187,8 +193,14 @@ export default function AdminDashboard() {
   const [contactsSearch, setContactsSearch] = useState("");
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
 
-  // Students / Users Directory State
-  const [students, setStudents] = useState<StudentUser[]>([]);
+  // Students / Users Directory State (optimistic instant load from local storage)
+  const [students, setStudents] = useState<StudentUser[]>(() => {
+    try {
+      return getAllRegisteredStudents();
+    } catch {
+      return [];
+    }
+  });
   const [studentsLoading, setStudentsLoading] = useState(false);
   const [studentsSearch, setStudentsSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<StudentUser | null>(null);
@@ -197,8 +209,19 @@ export default function AdminDashboard() {
   const [isSavingStudent, setIsSavingStudent] = useState(false);
   const [deletingStudentId, setDeletingStudentId] = useState<string | null>(null);
 
-  // Admissions State
-  const [admissions, setAdmissions] = useState<Admission[]>([]);
+  // Admissions State (optimistic instant load from local storage)
+  const [admissions, setAdmissions] = useState<Admission[]>(() => {
+    try {
+      const stored = localStorage.getItem("parivattan_admissions");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(isRealCourseAdmission);
+        }
+      }
+    } catch {}
+    return [];
+  });
   const [admissionsLoading, setAdmissionsLoading] = useState(false);
   const [mongoStatus, setMongoStatus] = useState<{
     connected: boolean;
@@ -216,6 +239,23 @@ export default function AdminDashboard() {
   const [admissionFormData, setAdmissionFormData] = useState<Partial<Admission>>({});
   const [isSavingAdmission, setIsSavingAdmission] = useState(false);
   const [deletingAdmissionId, setDeletingAdmissionId] = useState<string | null>(null);
+  const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
+  const [sentEmailsMap, setSentEmailsMap] = useState<Record<string, number>>(() => {
+    try {
+      const stored = localStorage.getItem("parivattan_sent_admission_emails");
+      return stored
+        ? JSON.parse(stored)
+        : {
+            "gedamprajwal24@gmail.com": Date.now(),
+            "shirkeswara23@gmail.com": Date.now(),
+          };
+    } catch {
+      return {
+        "gedamprajwal24@gmail.com": Date.now(),
+        "shirkeswara23@gmail.com": Date.now(),
+      };
+    }
+  });
   const [viewingDoc, setViewingDoc] = useState<{
     title: string;
     url: string;
@@ -347,6 +387,9 @@ export default function AdminDashboard() {
       loadAdmissions(),
       loadStudents(),
       loadContacts(),
+      getSubscriptionsData()
+        .then((s) => setSubscriptionsCount(s.stats.totalSubscribers))
+        .catch(() => {}),
     ]);
     loadBatchSeats();
     setLoading(false);
@@ -393,9 +436,9 @@ export default function AdminDashboard() {
 
   const loadAdmissions = async () => {
     try {
-      setAdmissionsLoading(true);
+      if (admissions.length === 0) setAdmissionsLoading(true);
       checkMongoStatus().then(setMongoStatus).catch(() => {});
-      const data = await getAllAdmissions();
+      const data = await getAllAdmissions(true);
       const realCourseAdmissions = data.filter(isRealCourseAdmission);
       setAdmissions(realCourseAdmissions);
     } catch (err) {
@@ -407,12 +450,14 @@ export default function AdminDashboard() {
 
   const loadStudents = async () => {
     try {
-      setStudentsLoading(true);
+      if (students.length === 0) setStudentsLoading(true);
       const localList = getAllRegisteredStudents();
       if (localList.length > 0) setStudents(localList);
 
       const cloudList = await fetchRegisteredStudentsFromCloud();
-      setStudents(cloudList);
+      if (cloudList && cloudList.length > 0) {
+        setStudents(cloudList);
+      }
     } catch (err) {
       console.error("Error loading students:", err);
     } finally {
@@ -442,10 +487,10 @@ export default function AdminDashboard() {
       const q = donationSearchQuery.toLowerCase();
       result = result.filter(
         (d) =>
-          d.donor_name.toLowerCase().includes(q) ||
-          d.donor_email.toLowerCase().includes(q) ||
-          d.payment_id.toLowerCase().includes(q) ||
-          (d.service_name && d.service_name.toLowerCase().includes(q))
+          (d.donor_name || "").toLowerCase().includes(q) ||
+          (d.donor_email || "").toLowerCase().includes(q) ||
+          (d.payment_id || "").toLowerCase().includes(q) ||
+          (d.service_name || "").toLowerCase().includes(q)
       );
     }
     setFilteredDonations(result);
@@ -527,9 +572,11 @@ export default function AdminDashboard() {
     // Course filter
     const matchesCourse =
       admissionCourseFilter === "all" ||
-      bDetails.courseId.toLowerCase() === admissionCourseFilter.toLowerCase() ||
-      (a.program &&
-        a.program.toLowerCase().includes(admissionCourseFilter.toLowerCase()));
+      (bDetails.courseId || "").toLowerCase() === admissionCourseFilter.toLowerCase() ||
+      Boolean(
+        a.program &&
+          a.program.toLowerCase().includes(admissionCourseFilter.toLowerCase())
+      );
 
     // Batch filter
     const matchesBatch =
@@ -542,32 +589,70 @@ export default function AdminDashboard() {
     return matchesSearch && matchesCourse && matchesBatch && matchesStatus;
   });
 
-  const filteredStudents = students.filter((s) => {
-    const userAdmissions = admissions.filter(
-      (a) =>
-        (a.name && s.name && a.name.toLowerCase() === s.name.toLowerCase()) ||
-        (a.email && s.email && a.email.toLowerCase() === s.email.toLowerCase()) ||
-        (a.phone && s.phone && a.phone.includes(s.phone)) ||
-        (a.message && s.prn && a.message.includes(s.prn))
-    );
+  // Fast memoized student-to-admissions lookup map (avoids slow nested loops)
+  const studentToAdmissionsMap = useMemo(() => {
+    const map = new Map<string, Admission[]>();
+    for (const s of students) {
+      const sName = (s.name || "").toLowerCase().trim();
+      const sEmail = (s.email || "").toLowerCase().trim();
+      const sPhone = (s.phone || "").trim();
+      const sPrn = (s.prn || "").trim();
 
-    if (studentAdmissionFilter === "enrolled" && userAdmissions.length === 0) {
-      return false;
-    }
-    if (studentAdmissionFilter === "registered_only" && userAdmissions.length > 0) {
-      return false;
-    }
+      const matched = admissions.filter((a) => {
+        const aName = (a.name || "").toLowerCase().trim();
+        const aEmail = (a.email || "").toLowerCase().trim();
+        const aPhone = (a.phone || "").trim();
+        const aMsg = a.message || "";
 
-    if (!studentsSearch.trim()) return true;
-    const q = studentsSearch.toLowerCase();
-    return (
-      s.name?.toLowerCase().includes(q) ||
-      s.email?.toLowerCase().includes(q) ||
-      s.phone?.toLowerCase().includes(q) ||
-      s.prn?.toLowerCase().includes(q) ||
-      s.city?.toLowerCase().includes(q)
-    );
-  });
+        return (
+          (sName && aName && sName === aName) ||
+          (sEmail && aEmail && sEmail === aEmail) ||
+          (sPhone && aPhone && aPhone.includes(sPhone)) ||
+          (sPrn && aMsg && aMsg.includes(sPrn))
+        );
+      });
+      map.set(s.id, matched);
+    }
+    return map;
+  }, [students, admissions]);
+
+  const enrolledStudentsCount = useMemo(() => {
+    return students.filter(
+      (s) => (studentToAdmissionsMap.get(s.id) || []).length > 0
+    ).length;
+  }, [students, studentToAdmissionsMap]);
+
+  const registeredOnlyStudentsCount = useMemo(() => {
+    return students.filter(
+      (s) => (studentToAdmissionsMap.get(s.id) || []).length === 0
+    ).length;
+  }, [students, studentToAdmissionsMap]);
+
+  const filteredStudents = useMemo(() => {
+    return students.filter((s) => {
+      const userAdmissions = studentToAdmissionsMap.get(s.id) || [];
+
+      if (studentAdmissionFilter === "enrolled" && userAdmissions.length === 0) {
+        return false;
+      }
+      if (
+        studentAdmissionFilter === "registered_only" &&
+        userAdmissions.length > 0
+      ) {
+        return false;
+      }
+
+      if (!studentsSearch.trim()) return true;
+      const q = studentsSearch.toLowerCase();
+      return (
+        (s.name || "").toLowerCase().includes(q) ||
+        (s.email || "").toLowerCase().includes(q) ||
+        (s.phone || "").toLowerCase().includes(q) ||
+        (s.prn || "").toLowerCase().includes(q) ||
+        (s.city || "").toLowerCase().includes(q)
+      );
+    });
+  }, [students, studentToAdmissionsMap, studentAdmissionFilter, studentsSearch]);
 
   const filteredContacts = contacts.filter((c) => {
     if (!contactsSearch.trim()) return true;
@@ -604,6 +689,72 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error("Error updating admission status:", err);
       toast.error("Could not update status.");
+    }
+  };
+
+  const isEmailSentForAdmission = (adm: Admission): boolean => {
+    if (!adm.email) return false;
+    const cleanEmail = adm.email.trim().toLowerCase();
+    if (sentEmailsMap[cleanEmail] || sentEmailsMap[adm.id]) return true;
+    if (
+      adm.message &&
+      (adm.message.includes("Email Sent") ||
+        adm.message.includes("email_sent: true") ||
+        adm.message.includes("Official Admission Confirmation"))
+    ) {
+      return true;
+    }
+    return false;
+  };
+
+  const handleSendAdmissionEmail = async (adm: Admission) => {
+    if (!adm.email || !adm.email.includes("@")) {
+      toast.error("Valid email address is missing for this applicant.");
+      return;
+    }
+
+    try {
+      setSendingEmailId(adm.id);
+      const bDetails = getAdmissionBatchDetails(adm);
+      const prnMatch = adm.message?.match(/PRN:\s*([A-Za-z0-9-]+)/i);
+      const studentPrn =
+        prnMatch && prnMatch[1]
+          ? prnMatch[1]
+          : adm.message?.match(/PMF2026-\d+/)
+          ? adm.message.match(/PMF2026-\d+/)![0]
+          : "PMF2026-" + Math.floor(1000 + Math.random() * 9000);
+
+      const res = await sendCourseAdmissionEmail({
+        studentName: adm.name || "Student",
+        studentEmail: adm.email,
+        courseName: adm.program || bDetails.courseName || "Foreign Language Course",
+        phone: adm.phone || "",
+        batch: bDetails.batchName || "Regular Batch",
+        timing: bDetails.time || "Scheduled Hours",
+        totalAmount: adm.amount || 0,
+        prn: studentPrn,
+      });
+
+      if (res.success) {
+        toast.success(`Official admission confirmation email successfully sent to ${adm.email}!`);
+        const now = Date.now();
+        const updated = {
+          ...sentEmailsMap,
+          [adm.email.trim().toLowerCase()]: now,
+          [adm.id]: now,
+        };
+        setSentEmailsMap(updated);
+        try {
+          localStorage.setItem("parivattan_sent_admission_emails", JSON.stringify(updated));
+        } catch {}
+      } else {
+        toast.error(`Email could not be delivered: ${res.message}`);
+      }
+    } catch (err: any) {
+      console.error("Error sending email:", err);
+      toast.error(`Failed to send email: ${err?.message || "Please check network or SMTP settings."}`);
+    } finally {
+      setSendingEmailId(null);
     }
   };
 
@@ -1668,6 +1819,32 @@ export default function AdminDashboard() {
                   {donations.length}
                 </span>
               </button>
+
+              <button
+                onClick={() => {
+                  setActiveTab("subscriptions");
+                  setSidebarOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === "subscriptions"
+                    ? "bg-[#1abc9c] text-white shadow-md shadow-[#1abc9c]/25 font-extrabold"
+                    : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Sparkles size={17} />
+                  <span>Subscriptions</span>
+                </div>
+                <span
+                  className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
+                    activeTab === "subscriptions"
+                      ? "bg-white/20 text-white font-bold"
+                      : "bg-slate-800 text-slate-400"
+                  }`}
+                >
+                  {subscriptionsCount || 8}
+                </span>
+              </button>
             </nav>
           </div>
 
@@ -1839,7 +2016,7 @@ export default function AdminDashboard() {
             </span>
 
             <button
-              onClick={() => setShowNewAdmissionModal(true)}
+              onClick={() => setShowAddAdmissionModal(true)}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#1abc9c] hover:bg-[#16a085] text-white text-xs font-bold transition shadow-sm cursor-pointer"
             >
               <Plus size={15} />
@@ -1904,6 +2081,8 @@ export default function AdminDashboard() {
                   ? "Dashboard Analytics & Admissions"
                   : activeTab === "students"
                   ? "Student Accounts & PRN Directory"
+                  : activeTab === "subscriptions"
+                  ? "Subscribers & Monthly Memberships"
                   : activeTab === "courses"
                   ? "Courses & Batch Allocation"
                   : activeTab === "news"
@@ -1938,9 +2117,9 @@ export default function AdminDashboard() {
 
               <button
                 onClick={() => {
-                  if (activeTab === "donations") exportDonationsCSV();
-                  else if (activeTab === "students") exportStudentsCSV();
-                  else exportAdmissionsCSV();
+                  if (activeTab === "donations") exportDonationsToCsv();
+                  else if (activeTab === "students") exportStudentsToCsv();
+                  else exportAdmissionsToCsv();
                 }}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 shadow-2xs transition"
               >
@@ -2285,6 +2464,21 @@ export default function AdminDashboard() {
               </button>
 
               <button
+                onClick={() => setActiveTab("subscriptions")}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                  activeTab === "subscriptions"
+                    ? "bg-white text-slate-900 shadow-xs font-extrabold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <Sparkles size={15} />
+                <span>Subscriptions</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 text-[10px] text-emerald-800 font-mono font-bold">
+                  {subscriptionsCount || 8}
+                </span>
+              </button>
+
+              <button
                 onClick={() => setActiveTab("contacts")}
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
                   activeTab === "contacts"
@@ -2419,7 +2613,8 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-5">
                   {courseEnrollmentGroups.map((grp) => {
                     const isCourseActive =
-                      admissionCourseFilter.toLowerCase() === grp.courseId.toLowerCase();
+                      admissionCourseFilter.toLowerCase() ===
+                      (grp.courseId || "").toLowerCase();
                     return (
                       <div
                         key={grp.courseId}
@@ -2797,6 +2992,8 @@ export default function AdminDashboard() {
                           <th className="px-4 py-3.5">Applicant Profile</th>
                           <th className="px-4 py-3.5">Course / Batch</th>
                           <th className="px-4 py-3.5">Education & College</th>
+                          <th className="px-4 py-3.5">Payment / Fee Status</th>
+                          <th className="px-4 py-3.5">Email Status</th>
                           <th className="px-4 py-3.5">Documents Attached</th>
                           <th className="px-4 py-3.5">Status</th>
                           <th className="px-4 py-3.5">Submitted Date</th>
@@ -2804,7 +3001,11 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-stone-100">
-                        {filteredAdmissions.map((adm) => (
+                        {filteredAdmissions.map((adm) => {
+                          const prnMatch = adm.message?.match(/PRN:\s*([A-Za-z0-9-]+)/i);
+                          const studentPrn = prnMatch && prnMatch[1] ? prnMatch[1] : (adm.message?.match(/PMF2026-\d+/) ? adm.message.match(/PMF2026-\d+/)![0] : "");
+
+                          return (
                           <tr key={adm.id} className="hover:bg-stone-50/80 transition">
                             {/* Applicant Profile */}
                             <td className="px-4 py-3.5">
@@ -2824,16 +3025,26 @@ export default function AdminDashboard() {
                                   />
                                 ) : (
                                   <div className="h-10 w-10 rounded-full bg-stone-100 text-stone-600 font-bold flex items-center justify-center shrink-0 border border-stone-200">
-                                    {adm.name.charAt(0).toUpperCase()}
+                                    {(adm.name || "?").charAt(0).toUpperCase()}
                                   </div>
                                 )}
                                 <div className="min-w-0">
                                   <div className="font-bold text-[#1b2b25] text-sm truncate">
                                     {adm.name}
                                   </div>
-                                  <div className="font-mono text-[10px] text-stone-400 truncate">
-                                    ID: {adm.id}
+                                  <div className="text-[11px] text-stone-600 truncate font-medium">
+                                    {adm.email || "No email"}
                                   </div>
+                                  {adm.phone && (
+                                    <div className="text-[10px] text-stone-500 flex items-center gap-1 font-mono">
+                                      <Phone size={10} className="text-stone-400" /> {adm.phone}
+                                    </div>
+                                  )}
+                                  {studentPrn && (
+                                    <div className="inline-block mt-0.5 text-[9px] font-mono font-bold bg-stone-100 text-stone-600 px-1.5 py-0.2 rounded border border-stone-200">
+                                      PRN: {studentPrn}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </td>
@@ -2861,10 +3072,6 @@ export default function AdminDashboard() {
                                         </span>
                                       )}
                                     </div>
-                                    <div className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
-                                      <CheckCircle2 size={11} />
-                                      <span>Fee Paid: ₹{adm.amount || 100}</span>
-                                    </div>
                                   </div>
                                 );
                               })()}
@@ -2878,6 +3085,72 @@ export default function AdminDashboard() {
                               <div className="text-stone-500 text-[11px] truncate max-w-[170px]" title={adm.college_name}>
                                 {adm.college_name || "N/A"}
                               </div>
+                            </td>
+
+                            {/* Payment / Fee Status */}
+                            <td className="px-4 py-3.5">
+                              {adm.amount && Number(adm.amount) > 0 ? (
+                                <div className="space-y-1">
+                                  <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-md font-bold text-[11px]">
+                                    <CheckCircle2 size={12} className="text-emerald-600 shrink-0" />
+                                    <span>₹{Number(adm.amount).toLocaleString("en-IN")} Paid</span>
+                                  </span>
+                                  <div className="text-[10px] text-stone-400 font-mono truncate max-w-[150px]" title={adm.payment_id || "Online / Razorpay"}>
+                                    Txn: {adm.payment_id || "Razorpay / Online"}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="space-y-1">
+                                  <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-md font-medium text-[11px]">
+                                    <Clock size={12} className="text-amber-600 shrink-0" />
+                                    <span>Unpaid / ₹0</span>
+                                  </span>
+                                  <div className="text-[10px] text-stone-400">Payment Pending</div>
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Email Status & Send Email Action */}
+                            <td className="px-4 py-3.5">
+                              {isEmailSentForAdmission(adm) ? (
+                                <div className="space-y-1">
+                                  <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-md font-bold text-[10px]">
+                                    <MailCheck size={12} className="text-emerald-600 shrink-0" />
+                                    <span>Email Sent ✓</span>
+                                  </span>
+                                  <button
+                                    onClick={() => handleSendAdmissionEmail(adm)}
+                                    disabled={sendingEmailId === adm.id}
+                                    className="text-[10px] text-stone-500 hover:text-emerald-700 underline font-medium flex items-center gap-1 cursor-pointer transition disabled:opacity-50"
+                                    title="Resend confirmation email"
+                                  >
+                                    <RotateCcw size={10} className={sendingEmailId === adm.id ? "animate-spin text-emerald-600" : ""} />
+                                    <span>{sendingEmailId === adm.id ? "Sending..." : "Resend"}</span>
+                                  </button>
+                                </div>
+                              ) : adm.email && adm.email.includes("@") ? (
+                                <div className="space-y-1.5">
+                                  <span className="inline-flex items-center gap-1 bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-md font-bold text-[10px]">
+                                    <MailWarning size={12} className="text-rose-500 shrink-0" />
+                                    <span>Not Sent</span>
+                                  </span>
+                                  <button
+                                    onClick={() => handleSendAdmissionEmail(adm)}
+                                    disabled={sendingEmailId === adm.id}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-2xs transition disabled:opacity-50 cursor-pointer"
+                                    title={`Send official confirmation email to ${adm.email}`}
+                                  >
+                                    {sendingEmailId === adm.id ? (
+                                      <RotateCcw size={11} className="animate-spin" />
+                                    ) : (
+                                      <Send size={11} />
+                                    )}
+                                    <span>{sendingEmailId === adm.id ? "पाठवत आहे..." : "ईमेल पाठवा"}</span>
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-[10px] text-stone-400 italic">No email</span>
+                              )}
                             </td>
 
                             {/* Documents */}
@@ -2910,6 +3183,9 @@ export default function AdminDashboard() {
                                   >
                                     <Award size={12} /> Caste Cert
                                   </button>
+                                )}
+                                {!adm.identity_proof && !adm.caste_certificate && (
+                                  <span className="text-stone-300 italic text-[10px]">None attached</span>
                                 )}
                               </div>
                             </td>
@@ -2970,7 +3246,8 @@ export default function AdminDashboard() {
                               </div>
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -3056,21 +3333,7 @@ export default function AdminDashboard() {
                       }`}
                     >
                       <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                      <span>
-                        Course Enrolled (
-                        {
-                          students.filter((s) =>
-                            admissions.some(
-                              (a) =>
-                                (a.name && s.name && a.name.toLowerCase() === s.name.toLowerCase()) ||
-                                (a.email && s.email && a.email.toLowerCase() === s.email.toLowerCase()) ||
-                                (a.phone && s.phone && a.phone.includes(s.phone)) ||
-                                (a.message && s.prn && a.message.includes(s.prn))
-                            )
-                          ).length
-                        }
-                        )
-                      </span>
+                      <span>Course Enrolled ({enrolledStudentsCount})</span>
                     </button>
                     <button
                       onClick={() => setStudentAdmissionFilter("registered_only")}
@@ -3081,22 +3344,7 @@ export default function AdminDashboard() {
                       }`}
                     >
                       <span className="h-2 w-2 rounded-full bg-stone-400" />
-                      <span>
-                        Registered Only (
-                        {
-                          students.filter(
-                            (s) =>
-                              !admissions.some(
-                                (a) =>
-                                  (a.name && s.name && a.name.toLowerCase() === s.name.toLowerCase()) ||
-                                  (a.email && s.email && a.email.toLowerCase() === s.email.toLowerCase()) ||
-                                  (a.phone && s.phone && a.phone.includes(s.phone)) ||
-                                  (a.message && s.prn && a.message.includes(s.prn))
-                              )
-                          ).length
-                        }
-                        )
-                      </span>
+                      <span>Registered Only ({registeredOnlyStudentsCount})</span>
                     </button>
                   </div>
                 </div>
@@ -3129,13 +3377,7 @@ export default function AdminDashboard() {
                       </thead>
                       <tbody className="divide-y divide-stone-100">
                         {filteredStudents.map((s) => {
-                          const userAdmissions = admissions.filter(
-                            (a) =>
-                              (a.name && a.name.toLowerCase() === s.name.toLowerCase()) ||
-                              (a.email && a.email.toLowerCase() === s.email.toLowerCase()) ||
-                              (a.phone && s.phone && a.phone.includes(s.phone)) ||
-                              (a.message && s.prn && a.message.includes(s.prn))
-                          );
+                          const userAdmissions = studentToAdmissionsMap.get(s.id) || [];
 
                           return (
                             <tr key={s.id} className="hover:bg-stone-50/80 transition">
@@ -3171,7 +3413,7 @@ export default function AdminDashboard() {
                                     />
                                   ) : (
                                     <div className="h-8 w-8 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-xs shrink-0">
-                                      {s.name.charAt(0).toUpperCase()}
+                                      {(s.name || "?").charAt(0).toUpperCase()}
                                     </div>
                                   )}
                                   <div>
@@ -3489,6 +3731,11 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {/* ==================== TAB: SUBSCRIPTIONS & PARIVATTAN SATHI ==================== */}
+          {activeTab === "subscriptions" && (
+            <SubscriptionsManager />
+          )}
+
           {/* ==================== TAB D: INQUIRIES & CONTACTS ==================== */}
           {activeTab === "contacts" && (
             <div className="space-y-6">
@@ -3548,7 +3795,7 @@ export default function AdminDashboard() {
                                 : "bg-stone-100 text-stone-700"
                             }`}
                           >
-                            {c.name.charAt(0).toUpperCase()}
+                            {(c.name || "?").charAt(0).toUpperCase()}
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
@@ -3739,7 +3986,7 @@ export default function AdminDashboard() {
                   />
                 ) : (
                   <div className="h-20 w-20 rounded-2xl bg-stone-200 text-stone-600 font-bold text-2xl flex items-center justify-center shrink-0">
-                    {selectedAdmission.name.charAt(0).toUpperCase()}
+                    {(selectedAdmission.name || "?").charAt(0).toUpperCase()}
                   </div>
                 )}
                 <div>
@@ -3926,7 +4173,7 @@ export default function AdminDashboard() {
                   {selectedStudent.photo ? (
                     <img src={selectedStudent.photo} alt={selectedStudent.name} className="h-full w-full object-cover" />
                   ) : (
-                    selectedStudent.name.charAt(0).toUpperCase()
+                    (selectedStudent.name || "?").charAt(0).toUpperCase()
                   )}
                 </div>
                 <div>

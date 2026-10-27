@@ -38,7 +38,7 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
   onBack,
   onSuccess,
 }) => {
-  const [method, setMethod] = useState<"razorpay" | "sandbox">("razorpay");
+  const [method, setMethod] = useState<"razorpay">("razorpay");
   const [processing, setProcessing] = useState(false);
 
   const amountToPay = course.finalPayable;
@@ -131,7 +131,7 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
       const keyId = getRazorpayKeyId() || "rzp_live_Tlq7NGeKnZ2WlX";
 
       if (!window.Razorpay) {
-        throw new Error("Razorpay SDK unavailable, switching to instant test mode.");
+        throw new Error("Razorpay SDK unavailable. Please check your internet connection.");
       }
 
       const options = {
@@ -146,12 +146,24 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
           email: formData.email || student.email,
           contact: formData.phone || student.phone,
         },
+        notes: {
+          prn: student.prn,
+          student_name: formData.fullName || student.name,
+          student_email: formData.email || student.email,
+          student_phone: formData.phone || student.phone,
+          course: `${course.title} (${course.code})`,
+        },
         theme: {
           color: "#b5623b",
         },
         handler: async (response: any) => {
+          if (!response?.razorpay_payment_id) {
+            setProcessing(false);
+            toast.error("Payment verification failed. No payment reference received.");
+            return;
+          }
           await completeEnrollment(
-            response.razorpay_payment_id || `PAY_${Date.now()}`,
+            response.razorpay_payment_id,
             "razorpay"
           );
         },
@@ -165,17 +177,11 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
 
       const rzp = new window.Razorpay(options);
       rzp.open();
-    } catch (err) {
-      console.warn("Razorpay popup notice, switching to instant sandbox:", err);
-      // Fallback to instant sandbox if popup blocked or test network error
-      await completeEnrollment(`RZP_SANDBOX_${Date.now()}`, "razorpay");
+    } catch (err: any) {
+      console.error("Razorpay error:", err);
+      setProcessing(false);
+      toast.error("Payment gateway could not be loaded. Please try again.");
     }
-  };
-
-  // Fast Sandbox
-  const handleSandboxPayment = async () => {
-    const fakeId = `PMF_TEST_PAY_${Date.now().toString().slice(-6)}`;
-    await completeEnrollment(fakeId, "test_sandbox");
   };
 
   return (
@@ -208,114 +214,48 @@ export const AdmissionPaymentCard: React.FC<AdmissionPaymentCardProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-6">
-        {/* Left: Payment Method Selection */}
+        {/* Left: Payment Gateway */}
         <div className="rounded-3xl border border-[#e2e5dc] bg-white p-6 sm:p-8 shadow-sm">
           <h3 className="font-serif text-lg font-bold text-[#24312d] mb-4">
-            Select Payment Method
+            Online Payment
           </h3>
 
-          {/* Payment Method Tabs (Online Gateway and Sandbox) */}
-          <div className="grid grid-cols-2 gap-2.5 mb-6">
-            <button
-              type="button"
-              onClick={() => setMethod("razorpay")}
-              className={`rounded-2xl p-3 text-center border transition ${
-                method === "razorpay"
-                  ? "border-[#b5623b] bg-[#b5623b]/5 ring-2 ring-[#b5623b]"
-                  : "border-[#e2e5dc] bg-[#fbfaf7] hover:border-gray-300"
-              }`}
-            >
-              <CreditCard size={22} className={`mx-auto mb-1 ${method === "razorpay" ? "text-[#b5623b]" : "text-gray-500"}`} />
-              <div className="text-xs font-bold text-[#24312d]">Online Gateway</div>
-              <div className="text-[10px] text-[#65706a]">Razorpay / UPI / Cards</div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setMethod("sandbox")}
-              className={`rounded-2xl p-3 text-center border transition ${
-                method === "sandbox"
-                  ? "border-amber-500 bg-amber-50 ring-2 ring-amber-500"
-                  : "border-[#e2e5dc] bg-[#fbfaf7] hover:border-gray-300"
-              }`}
-            >
-              <Zap size={22} className="mx-auto mb-1 text-amber-600" />
-              <div className="text-xs font-bold text-amber-900">Sandbox Mode</div>
-              <div className="text-[10px] text-amber-700">Instant Test</div>
-            </button>
-          </div>
-
-          {/* Mode 1: Razorpay */}
-          {method === "razorpay" && (
-            <div className="space-y-4">
-              <div className="rounded-2xl bg-[#fbfaf7] p-5 border border-[#e2e5dc]">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
-                    💳
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-[#24312d]">Secure Online Payment Gateway</h4>
-                    <p className="text-xs text-[#65706a]">
-                      Pay directly via UPI (GPay, PhonePe, Paytm), Debit/Credit Card, or Netbanking
-                    </p>
-                  </div>
+          <div className="space-y-4">
+            <div className="rounded-2xl bg-[#fbfaf7] p-5 border border-[#e2e5dc]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                  💳
                 </div>
-
-                <div className="mt-4 pt-3 border-t border-[#eef0e8] flex items-center gap-2 text-[11px] text-[#65706a]">
-                  <ShieldCheck size={16} className="text-emerald-600 shrink-0" />
-                  <span>256-bit encrypted and RBI compliant secure gateway</span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                disabled={processing}
-                onClick={handleRazorpayPayment}
-                className="w-full rounded-2xl bg-[#b5623b] py-4 text-sm sm:text-base font-bold text-white shadow-lg hover:bg-[#974a27] transition flex items-center justify-center gap-2 disabled:opacity-60"
-              >
-                {processing ? (
-                  <>Verifying payment...</>
-                ) : (
-                  <>
-                    <Lock size={16} />
-                    Pay ₹{amountToPay.toLocaleString("en-IN")} & Confirm Admission
-                  </>
-                )}
-              </button>
-            </div>
-          )}
-
-          {/* Mode 3: Instant Sandbox */}
-          {method === "sandbox" && (
-            <div className="space-y-4 rounded-2xl bg-amber-50 border border-amber-200 p-5">
-              <div className="flex items-start gap-3">
-                <Zap size={24} className="text-amber-600 shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="text-sm font-bold text-amber-900">
-                    Instant Sandbox Mode
-                  </h4>
-                  <p className="text-xs text-amber-800/90 mt-1 leading-relaxed">
-                    Test the complete student admission flow in 1-click without real payment and generate an official admission receipt.
+                  <h4 className="text-sm font-bold text-[#24312d]">Razorpay Official Payment Gateway</h4>
+                  <p className="text-xs text-[#65706a]">
+                    Pay securely via UPI (GPay, PhonePe, Paytm), Debit/Credit Card, or Netbanking
                   </p>
                 </div>
               </div>
 
-              <button
-                type="button"
-                disabled={processing}
-                onClick={handleSandboxPayment}
-                className="w-full rounded-xl bg-amber-600 hover:bg-amber-700 py-3.5 text-sm font-bold text-white shadow-md transition flex items-center justify-center gap-2"
-              >
-                {processing ? (
-                  <>Completing admission...</>
-                ) : (
-                  <>
-                    ⚡ Confirm Sandbox Admission (Test)
-                  </>
-                )}
-              </button>
+              <div className="mt-4 pt-3 border-t border-[#eef0e8] flex items-center gap-2 text-[11px] text-[#65706a]">
+                <ShieldCheck size={16} className="text-emerald-600 shrink-0" />
+                <span>256-bit encrypted and RBI compliant secure gateway</span>
+              </div>
             </div>
-          )}
+
+            <button
+              type="button"
+              disabled={processing}
+              onClick={handleRazorpayPayment}
+              className="w-full rounded-2xl bg-[#b5623b] py-4 text-sm sm:text-base font-bold text-white shadow-lg hover:bg-[#974a27] transition flex items-center justify-center gap-2 disabled:opacity-60"
+            >
+              {processing ? (
+                <>Verifying payment with bank...</>
+              ) : (
+                <>
+                  <Lock size={16} />
+                  Pay ₹{amountToPay.toLocaleString("en-IN")} & Complete Admission
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Right: Admission Summary & Fee Breakdown */}

@@ -156,6 +156,16 @@ export function createRateLimiter(options = {}) {
    * If allowed: sets rate limit headers on response and returns true.
    */
   function apply(req, res) {
+    // Whitelist paid transactions: Students who have already paid MUST NEVER be blocked
+    let reqBody = req?.body;
+    if (typeof reqBody === "string") {
+      try { reqBody = JSON.parse(reqBody); } catch {}
+    }
+    const hasPaymentId = reqBody?.payment_id || reqBody?.paymentId || reqBody?.razorpay_payment_id;
+    if (hasPaymentId) {
+      return true;
+    }
+
     const result = check(req);
 
     const headers = {
@@ -221,45 +231,64 @@ export function createRateLimiter(options = {}) {
   };
 }
 
+/**
+ * Extracts client IP or IP + email identifier from incoming HTTP request
+ * Ensures different students sharing the same Wi-Fi/cellular NAT IP are never blocked.
+ */
+export function getClientIdentifier(req) {
+  const ip = getClientIp(req);
+  let email = "";
+  try {
+    if (req?.body && typeof req.body === "object") {
+      email = req.body.email || req.body.studentEmail || req.body.donorEmail || "";
+    } else if (typeof req?.body === "string" && req.body.includes("@")) {
+      const parsed = JSON.parse(req.body);
+      email = parsed.email || parsed.studentEmail || parsed.donorEmail || "";
+    }
+  } catch {}
+  return email ? `${ip}_${email.trim().toLowerCase()}` : ip;
+}
+
 // ============================================================================
 // PRECONFIGURED RATE LIMITERS FOR PARIVATTAN MISSION FOUNDATION
 // ============================================================================
 
 /**
  * 1. Email Rate Limiter (/api/send-email)
- * Max 6 email dispatches per 10 minutes per IP.
- * Protects Gmail SMTP credentials and prevents quota exhaustion or spam.
+ * High-capacity window per student (80 per 5 minutes).
+ * Protects Gmail SMTP credentials without blocking genuine applicants.
  */
 export const emailRateLimiter = createRateLimiter({
   prefix: "email",
-  windowMs: 10 * 60 * 1000, // 10 minutes
-  max: 6,
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 80,
+  keyGenerator: getClientIdentifier,
   message:
-    "ईमेल पाठवण्याची मर्यादा संपली आहे. कृपया १० मिनिटांनंतर पुन्हा प्रयत्न करा. (Too many email requests. Please wait 10 minutes before trying again.)",
+    "ईमेल पाठवण्याची मर्यादा संपली आहे. कृपया काही मिनिटांनंतर पुन्हा प्रयत्न करा. (Too many email requests. Please try again after a few minutes.)",
 });
 
 /**
  * 2. Admission Submission Rate Limiter (POST /api/admissions)
- * Max 8 course admission submissions per 15 minutes per IP.
- * Prevents automated bot spam while giving genuine students ample attempts.
+ * High capacity window per applicant (80 submissions per 5 minutes).
+ * Prevents automated bot spam while ensuring students are never blocked.
  */
 export const admissionsCreateRateLimiter = createRateLimiter({
   prefix: "admissions_create",
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 8,
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 80,
+  keyGenerator: getClientIdentifier,
   message:
-    "ॲडमिशन अर्ज पाठवण्याची मर्यादा गाठली आहे. कृपया १५ मिनिटांनी पुन्हा प्रयत्न करा. (Too many admission applications submitted from this IP. Please try again after 15 minutes.)",
+    "ॲडमिशन अर्ज पाठवण्याची मर्यादा गाठली आहे. कृपया ५ मिनिटांनी पुन्हा प्रयत्न करा. (Too many admission applications submitted. Please try again after 5 minutes.)",
 });
 
 /**
  * 3. Admissions Read Rate Limiter (GET /api/admissions)
- * Max 60 queries per minute per IP.
- * Protects MongoDB Atlas from rapid scraping or polling.
+ * High capacity window to ensure admin console queries are never blocked.
  */
 export const admissionsReadRateLimiter = createRateLimiter({
   prefix: "admissions_read",
   windowMs: 60 * 1000, // 1 minute
-  max: 60,
+  max: 300,
   message: "विनंत्यांची मर्यादा गाठली आहे. कृपया १ मिनिट थांबा. (Too many requests. Please wait a minute.)",
 });
 

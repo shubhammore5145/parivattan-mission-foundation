@@ -31,7 +31,8 @@ import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { createAdmission } from "@/lib/supabase-admin";
 import { sendCourseAdmissionEmail } from "@/lib/courseEmailService";
-import { syncAdmissionToStudentPortal } from "@/lib/student-auth";
+import { syncAdmissionToStudentPortal, generateStudentPRN } from "@/lib/student-auth";
+import { getRazorpayKeyId, loadRazorpay } from "@/lib/razorpay";
 import { printElement } from "@/lib/printUtils";
 import { checkCooldown, recordSubmission, getCooldownMessage } from "@/lib/clientRateLimit";
 
@@ -192,9 +193,11 @@ export default function RegistrationForm({
     submissionLockedRef.current = true;
     setIsSubmitting(true);
     const registrationId = `REG-${Date.now().toString().slice(-6)}`;
+    const studentPrn = generateStudentPRN();
 
     const payload = {
       id: registrationId,
+      prn: studentPrn,
       fullName: fullName.trim(),
       mobileNumber: mobileNumber.trim(),
       emailAddress: emailAddress.trim(),
@@ -218,13 +221,90 @@ export default function RegistrationForm({
       status: "Confirmed",
     };
 
+    // Save pending intent locally so data is not lost if user refreshes
+    try {
+      const existing = JSON.parse(
+        localStorage.getItem("parivattan_course_registrations") || "[]"
+      );
+      localStorage.setItem(
+        "parivattan_course_registrations",
+        JSON.stringify([{ ...payload, status: "Pending Payment" }, ...existing])
+      );
+    } catch (locErr) {
+      console.warn("Local storage save notice:", locErr);
+    }
+
+    // Razorpay Payment Flow - Payment is strictly mandatory before confirmation or email
+    try {
+      await loadRazorpay();
+      const keyId = getRazorpayKeyId() || "rzp_live_Tlq7NGeKnZ2WlX";
+
+      if (!window.Razorpay) {
+        throw new Error("Razorpay payment gateway unavailable. Please check your network connection.");
+      }
+
+      const options = {
+        key: keyId,
+        amount: totalAmount * 100, // in paise
+        currency: "INR",
+        name: "Parivattan Mission Foundation",
+        description: `Admission: ${currentLanguage.name} (${activeLevel.level}) - ${activeBatch?.name || "Standard Batch"}`,
+        image: "/img/parivattanE.png",
+        prefill: {
+          name: fullName.trim(),
+          email: emailAddress.trim(),
+          contact: mobileNumber.trim(),
+        },
+        notes: {
+          prn: studentPrn,
+          student_name: fullName.trim(),
+          student_email: emailAddress.trim(),
+          student_phone: mobileNumber.trim(),
+          course: `${currentLanguage.name} (${activeLevel.level}) - ${activeBatch?.name || "Standard Batch"}`,
+        },
+        theme: {
+          color: "#b5623b",
+        },
+        handler: async (response: any) => {
+          if (!response?.razorpay_payment_id) {
+            submissionLockedRef.current = false;
+            setIsSubmitting(false);
+            toast.error("Payment verification failed. No transaction reference received.");
+            return;
+          }
+          await completeConfirmedRegistration(payload, response.razorpay_payment_id, studentPrn);
+        },
+        modal: {
+          ondismiss: () => {
+            submissionLockedRef.current = false;
+            setIsSubmitting(false);
+            toast.info("Payment window was closed. Admission fee has not been received.");
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (err: any) {
+      console.error("Razorpay initiation error:", err);
+      submissionLockedRef.current = false;
+      setIsSubmitting(false);
+      toast.error("Payment gateway could not be loaded. Please disable popup blockers and try again.");
+    }
+  };
+
+  const completeConfirmedRegistration = async (
+    payload: any,
+    paymentId: string,
+    studentPrn: string
+  ) => {
     try {
       // Decrement seats intake immediately
       if (activeBatch?.id) {
         incrementBatchEnrollment(activeBatch.id);
       }
 
-      // Store in admissions records for database compatibility
+      // Store in admissions records for database compatibility (MongoDB Atlas + Supabase)
       await createAdmission({
         name: payload.fullName,
         email: payload.emailAddress,
@@ -233,65 +313,67 @@ export default function RegistrationForm({
         college_name: payload.collegeName,
         address: payload.address,
         program: `${payload.language} (${payload.level}) - ${payload.batch}`,
-        message: `Batch ID: ${activeBatch?.id || ""} | Timing: ${payload.preferredTiming} | Duration: ${payload.duration} | Total Fee: ₹${payload.totalAmount}`,
+        message: `Batch ID: ${activeBatch?.id || ""} | PRN: ${studentPrn} | Payment ID: ${paymentId} | Timing: ${payload.preferredTiming} | Duration: ${payload.duration} | Total Fee: ₹${payload.totalAmount}`,
         amount: payload.totalAmount,
+        payment_id: paymentId,
         batchId: activeBatch?.id,
         batch_id: activeBatch?.id,
         status: "completed",
       });
 
       // Sync into Student Portal & Supabase cloud database
-      await syncAdmissionToStudentPortal({
-        fullName: payload.fullName,
-        email: payload.emailAddress,
-        phone: payload.mobileNumber,
-        courseTitle: `${payload.language} (${payload.level})`,
-        courseCode: `PFLS-${payload.language.slice(0, 2).toUpperCase()}-${payload.level}`,
-        school: "Parivattan Foreign Language School",
-        batchPreference: `${payload.batch} (${payload.preferredTiming})`,
-        amount: payload.totalAmount,
-        paymentId: payload.id,
-        education: payload.education,
-        collegeName: payload.collegeName,
-        address: payload.address,
-      });
-
-      // Save locally to registrations history
-      const existing = JSON.parse(
-        localStorage.getItem("parivattan_course_registrations") || "[]"
-      );
-      localStorage.setItem(
-        "parivattan_course_registrations",
-        JSON.stringify([payload, ...existing])
-      );
+      try {
+        await syncAdmissionToStudentPortal({
+          fullName: payload.fullName,
+          email: payload.emailAddress,
+          phone: payload.mobileNumber,
+          courseTitle: `${payload.language} (${payload.level})`,
+          courseCode: `PFLS-${payload.language.slice(0, 2).toUpperCase()}-${payload.level}`,
+          school: "Parivattan Foreign Language School",
+          batchPreference: `${payload.batch} (${payload.preferredTiming})`,
+          amount: payload.totalAmount,
+          paymentId: paymentId,
+          education: payload.education,
+          collegeName: payload.collegeName,
+          address: payload.address,
+          existingPrn: studentPrn,
+        });
+      } catch (portalErr) {
+        console.warn("Student portal sync notice:", portalErr);
+      }
 
       // Recalculate batch intake map across all records
       try {
         recalculateBatchSeatsFromAdmissions();
       } catch {}
 
-      // Automatically send course admission confirmation email to the student
-      sendCourseAdmissionEmail({
-        studentName: payload.fullName,
-        studentEmail: payload.emailAddress,
-        courseName: `${payload.language} (${payload.level}) - ${payload.batch}`,
-        phone: payload.mobileNumber,
-        batch: payload.batch,
-        timing: payload.preferredTiming,
-        totalAmount: payload.totalAmount,
-        registrationId: payload.id,
-      });
+      // Automatically send course admission confirmation email to the student with await
+      try {
+        await sendCourseAdmissionEmail({
+          studentName: payload.fullName,
+          studentEmail: payload.emailAddress,
+          courseName: `${payload.language} (${payload.level}) - ${payload.batch}`,
+          phone: payload.mobileNumber,
+          batch: payload.batch,
+          timing: payload.preferredTiming,
+          totalAmount: payload.totalAmount,
+          registrationId: paymentId,
+          prn: studentPrn,
+        });
+      } catch (emailErr) {
+        console.warn("Email dispatch notice:", emailErr);
+      }
 
-      setSubmittedData(payload);
-      toast.success("Course Registration submitted successfully! Confirmation email sent.");
-      if (onSuccess) onSuccess(payload);
+      const confirmedPayload = { ...payload, paymentId, status: "Confirmed" };
+      setSubmittedData(confirmedPayload);
+      toast.success("Payment verified! Course Admission confirmed and receipt sent to your email.");
+      if (onSuccess) onSuccess(confirmedPayload);
     } catch (err) {
-      console.error("Registration error:", err);
-      // Fallback save locally
-      setSubmittedData(payload);
-      toast.success("Course Registration recorded successfully!");
+      console.error("Admission completion error:", err);
+      toast.error("Error finalizing admission. Please contact admin with Payment ID: " + paymentId);
     } finally {
       setIsSubmitting(false);
+      submissionLockedRef.current = false;
     }
   };
 
@@ -831,14 +913,14 @@ export default function RegistrationForm({
                 </>
               ) : (
                 <>
-                  <span>Submit Course Registration • ₹{totalAmount.toLocaleString("en-IN")}</span>
+                  <span>Pay ₹{totalAmount.toLocaleString("en-IN")} & Complete Admission</span>
                   <ArrowRight size={16} />
                 </>
               )}
             </button>
 
             <p className="text-center text-[11px] text-[#65706a]">
-              A confirmation message and reference number will be displayed immediately upon submission.
+              Official admission confirmation and receipt will be issued immediately upon verified payment.
             </p>
           </div>
         </form>
