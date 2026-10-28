@@ -73,7 +73,7 @@ const upcomingCauses: UpcomingCause[] = [
   },
 ];
 
-const ONE_TIME_PRESETS = [250, 500, 1000, 2500, 5000];
+const ONE_TIME_PRESETS = [500, 1000, 2500, 5000];
 const MONTHLY_PRESETS = [500, 1000, 2000, 5000];
 
 interface DonationReceiptData {
@@ -529,9 +529,9 @@ export default function DonationCheckoutPage() {
                         })}
                       </div>
                     ) : (
-                      /* One-Time: 5 Preset Buttons + Custom Amount Input */
+                      /* One-Time: 4 Preset Buttons + Custom Amount Input */
                       <>
-                        <div className="mt-5 grid grid-cols-5 gap-2 sm:gap-2.5">
+                        <div className="mt-5 grid grid-cols-4 gap-2 sm:gap-2.5">
                           {ONE_TIME_PRESETS.map((val) => {
                             const isSelected = !isCustom && amount === val;
                             return (
