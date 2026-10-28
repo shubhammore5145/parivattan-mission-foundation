@@ -3161,7 +3161,7 @@ export default function AdminDashboard() {
                                     ) : (
                                       <Send size={11} />
                                     )}
-                                    <span>{sendingEmailId === adm.id ? "पाठवत आहे..." : "ईमेल पाठवा"}</span>
+                                    <span>{sendingEmailId === adm.id ? "Sending..." : "Send Email"}</span>
                                   </button>
                                 </div>
                               ) : (

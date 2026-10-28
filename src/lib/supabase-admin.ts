@@ -195,13 +195,28 @@ export const createAdmission = async (
       ? admissionData.id
       : generateUUID();
 
-  // If no valid payment_id is provided, automatically mark status as "pending"
-  const hasPayment = Boolean(admissionData.payment_id && admissionData.payment_id.trim().length > 0);
-  const resolvedStatus = hasPayment ? (admissionData.status || "completed") : "pending";
+  // Strict payment authenticity enforcement:
+  const pid = String(admissionData.payment_id || "").trim();
+  const isValidAdminReceipt = pid.startsWith("PAY_ADM_") || pid === "OFFLINE_RECORD";
+  const isValidOnlinePayment =
+    pid.startsWith("pay_") ||
+    pid.startsWith("razorpay_") ||
+    pid.startsWith("order_") ||
+    (pid.length >= 14 && /^[a-zA-Z0-9_-]+$/.test(pid) && pid !== "undefined" && pid !== "null");
+
+  const isSystemProgram =
+    admissionData.program === "STUDENT_REGISTRATION" ||
+    admissionData.program === "SYSTEM_CUSTOM_COURSES" ||
+    admissionData.name === "SYSTEM_BATCH_OVERRIDES";
+
+  const hasValidPayment = isValidAdminReceipt || isValidOnlinePayment;
+  const resolvedStatus = hasValidPayment || isSystemProgram ? (admissionData.status || "completed") : "pending";
+  const resolvedPaymentId = hasValidPayment ? pid : "";
 
   const newAdmission: Admission = {
     ...admissionData,
     status: resolvedStatus,
+    payment_id: resolvedPaymentId,
     id: finalId,
     created_at: new Date().toISOString(),
   };
@@ -466,6 +481,21 @@ export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]>
     }
     if (!adm.photo && (adm as any).photoUrl) {
       adm.photo = (adm as any).photoUrl;
+    }
+
+    // Strict payment validation on loaded records:
+    const paymentStr = String(adm.payment_id || "").trim();
+    const hasLegitimatePayment =
+      paymentStr.startsWith("PAY_ADM_") ||
+      paymentStr === "OFFLINE_RECORD" ||
+      paymentStr.startsWith("pay_") ||
+      paymentStr.startsWith("razorpay_") ||
+      paymentStr.startsWith("order_") ||
+      (paymentStr.length >= 14 && /^[a-zA-Z0-9_-]+$/.test(paymentStr) && paymentStr !== "undefined" && paymentStr !== "null");
+
+    if (!hasLegitimatePayment && isRealCourseAdmission(adm)) {
+      adm.status = "pending";
+      adm.payment_id = "";
     }
 
     // 1. Payment ID deduplication (Razorpay or Online payment reference)

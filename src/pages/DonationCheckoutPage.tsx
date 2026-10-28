@@ -774,8 +774,8 @@ export default function DonationCheckoutPage() {
                 <div className="rounded-3xl border border-[#e8e4da] bg-white p-6 sm:p-7 shadow-sm text-center relative overflow-hidden">
                   <div className="flex items-center justify-between gap-2 border-b border-[#f0ece2] pb-3.5 mb-4">
                     <div className="flex items-center gap-2.5 text-left">
-                      <div className="h-9 w-9 rounded-xl bg-[#5f259f]/10 flex items-center justify-center text-[#5f259f] font-bold text-sm shrink-0">
-                        पे
+                      <div className="h-9 w-9 rounded-xl bg-[#5f259f]/10 flex items-center justify-center text-[#5f259f] font-bold text-xs shrink-0">
+                        Pay
                       </div>
                       <div>
                         <h4 className="font-serif font-bold text-sm sm:text-base text-[#1b2b25]">
