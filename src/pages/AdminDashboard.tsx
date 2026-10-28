@@ -4152,6 +4152,83 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
+              {/* Payment & Source Info */}
+              <div className="rounded-xl border border-stone-200 p-3.5 bg-stone-50/50 text-xs">
+                <span className="text-stone-400 block font-bold uppercase mb-2">Payment & Entry Source</span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div>
+                    <span className="text-stone-400 block font-bold text-[10px]">AMOUNT</span>
+                    <span className="font-bold text-emerald-700 text-sm mt-0.5 block">
+                      ₹{Number(selectedAdmission.amount || 0).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-stone-400 block font-bold text-[10px]">PAYMENT / TXN ID</span>
+                    <span className="font-mono font-semibold text-stone-800 text-[11px] mt-0.5 block break-all">
+                      {selectedAdmission.payment_id || "N/A"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-stone-400 block font-bold text-[10px]">ENTRY SOURCE</span>
+                    {(() => {
+                      const pid = selectedAdmission.payment_id || "";
+                      const msg = selectedAdmission.message || "";
+                      let source = "Unknown";
+                      let badge = "bg-stone-100 text-stone-600 border-stone-200";
+                      let icon = "❓";
+
+                      if (pid.startsWith("PAY_ADM_")) {
+                        source = "Admin Added (Manual)";
+                        badge = "bg-amber-50 text-amber-800 border-amber-200";
+                        icon = "🛡️";
+                      } else if (msg.includes("Student Portal") || msg.includes("Enrolled via Student Portal")) {
+                        source = "Student Portal";
+                        badge = "bg-blue-50 text-blue-800 border-blue-200";
+                        icon = "🎓";
+                      } else if (pid === "OFFLINE_RECORD") {
+                        source = "Offline Entry";
+                        badge = "bg-stone-100 text-stone-700 border-stone-300";
+                        icon = "📋";
+                      } else if (pid.startsWith("pay_") || pid.startsWith("razorpay") || pid.startsWith("order_") || pid.length > 15) {
+                        source = "Admission Form (Online Payment)";
+                        badge = "bg-emerald-50 text-emerald-800 border-emerald-200";
+                        icon = "💳";
+                      } else if (pid) {
+                        source = "Admission Form (UPI/Manual)";
+                        badge = "bg-teal-50 text-teal-800 border-teal-200";
+                        icon = "📱";
+                      }
+
+                      return (
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold text-[10px] border mt-0.5 ${badge}`}>
+                          <span>{icon}</span>
+                          <span>{source}</span>
+                        </span>
+                      );
+                    })()}
+                  </div>
+                  <div>
+                    <span className="text-stone-400 block font-bold text-[10px]">CREATED AT</span>
+                    <span className="font-semibold text-stone-800 text-[11px] mt-0.5 block">
+                      {selectedAdmission.created_at
+                        ? new Date(selectedAdmission.created_at).toLocaleString("en-IN", {
+                            day: "2-digit", month: "short", year: "numeric",
+                            hour: "2-digit", minute: "2-digit",
+                          })
+                        : "N/A"}
+                    </span>
+                  </div>
+                </div>
+                {selectedAdmission.message && (
+                  <div className="mt-3 pt-2 border-t border-stone-200">
+                    <span className="text-stone-400 block font-bold text-[10px]">RAW MESSAGE / METADATA</span>
+                    <p className="text-[11px] text-stone-600 mt-1 font-mono bg-white p-2 rounded-lg border border-stone-200 whitespace-pre-wrap break-all max-h-[80px] overflow-y-auto">
+                      {selectedAdmission.message}
+                    </p>
+                  </div>
+                )}
+              </div>
+
               {/* Education & College */}
               <div className="grid grid-cols-2 gap-4 text-xs">
                 <div className="rounded-xl border border-stone-200 p-3.5 bg-stone-50/50">
