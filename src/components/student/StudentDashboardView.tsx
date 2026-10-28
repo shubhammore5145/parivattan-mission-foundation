@@ -40,6 +40,10 @@ import {
   Menu,
   Globe,
   Laptop,
+  BrainCircuit,
+  Trophy,
+  Globe2,
+  Code2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -47,6 +51,7 @@ import { StudentUser, StudentAdmissionRecord } from "@/types/student";
 import { COURSES_DATA } from "@/data/coursesData";
 import { logoutStudent } from "@/lib/student-auth";
 import { printElement } from "@/lib/printUtils";
+import { UnderConstructionView } from "@/components/common/UnderConstructionView";
 
 interface StudentDashboardViewProps {
   student: StudentUser;
@@ -64,7 +69,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
   onLogout,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<
-    "home" | "courses" | "idcard" | "receipts" | "schedule" | "notifications"
+    "home" | "courses" | "idcard" | "receipts" | "schedule" | "notifications" | "materials" | "quizzes"
   >("home");
   const [copiedPrn, setCopiedPrn] = useState(false);
   const [expandedSyllabusId, setExpandedSyllabusId] = useState<string | null>(null);
@@ -241,6 +246,48 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
             >
               <Clock size={18} className={activeSubTab === "schedule" ? "text-[#0b63e5]" : "text-white/85"} />
               <span>Class Schedule</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveSubTab("materials");
+                setSidebarOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer focus:outline-none ${
+                activeSubTab === "materials"
+                  ? "bg-white text-[#0b63e5] font-bold shadow-md shadow-blue-950/25"
+                  : "text-white/85 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <div className="flex items-center gap-3.5">
+                <BookOpen size={18} className={activeSubTab === "materials" ? "text-[#0b63e5]" : "text-white/85"} />
+                <span>Study Materials</span>
+              </div>
+              <span className="text-[10px] bg-amber-400 text-slate-950 font-extrabold px-1.5 py-0.5 rounded-md">
+                Soon
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveSubTab("quizzes");
+                setSidebarOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer focus:outline-none ${
+                activeSubTab === "quizzes"
+                  ? "bg-white text-[#0b63e5] font-bold shadow-md shadow-blue-950/25"
+                  : "text-white/85 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <div className="flex items-center gap-3.5">
+                <BrainCircuit size={18} className={activeSubTab === "quizzes" ? "text-[#0b63e5]" : "text-white/85"} />
+                <span>Practice Quizzes</span>
+              </div>
+              <span className="text-[10px] bg-amber-400 text-slate-950 font-extrabold px-1.5 py-0.5 rounded-md">
+                Soon
+              </span>
             </button>
 
             <button
@@ -439,9 +486,11 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
           {[
             { id: "home", label: "Dashboard Overview", icon: Home },
             { id: "courses", label: "My Courses & Syllabus", icon: BookOpen, count: applications.length },
+            { id: "materials", label: "Study Materials", icon: FileText, badge: "Coming Soon" },
+            { id: "schedule", label: "Class Timetable", icon: Clock },
+            { id: "quizzes", label: "Practice Quizzes", icon: BrainCircuit, badge: "Coming Soon" },
             { id: "idcard", label: "Digital Student ID Card", icon: QrCode },
             { id: "receipts", label: "Fee Receipts & Slips", icon: Printer },
-            { id: "schedule", label: "Class Timetable", icon: Clock },
             { id: "notifications", label: "Official Circulars", icon: Bell, badge: "2 New" },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -704,6 +753,64 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
 
                   <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-white border border-white/30 shadow-xs shrink-0 group-hover:scale-105 transition-transform z-10">
                     <Printer size={32} />
+                  </div>
+                  <div className="absolute -right-6 -bottom-6 w-32 h-32 rounded-full bg-white/10 pointer-events-none" />
+                </div>
+
+                {/* Indigo Card (Study Materials & Notes Hub) */}
+                <div
+                  onClick={() => setActiveSubTab("materials")}
+                  className="rounded-3xl bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white shadow-sm hover:shadow-md transition cursor-pointer flex items-center justify-between group overflow-hidden relative"
+                >
+                  <div className="space-y-1 z-10">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                      <span>Under Curation</span>
+                    </div>
+                    <h4 className="text-xl font-black tracking-tight text-white group-hover:translate-x-1 transition-transform font-sans">
+                      Study Materials
+                    </h4>
+                    <p className="text-xs font-medium text-blue-100 font-sans">
+                      JLPT Notes, German Cheatsheets & Solved Papers
+                    </p>
+                    <div className="pt-2">
+                      <span className="inline-flex items-center gap-1 text-xs font-extrabold bg-white text-indigo-800 px-3.5 py-1.5 rounded-full shadow-xs">
+                        <BookOpen size={13} />
+                        <span>Preview Module →</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-white border border-white/30 shadow-xs shrink-0 group-hover:scale-105 transition-transform z-10">
+                    <BookOpen size={32} />
+                  </div>
+                  <div className="absolute -right-6 -bottom-6 w-32 h-32 rounded-full bg-white/10 pointer-events-none" />
+                </div>
+
+                {/* Purple / Violet Card (Interactive Practice Quizzes) */}
+                <div
+                  onClick={() => setActiveSubTab("quizzes")}
+                  className="rounded-3xl bg-gradient-to-r from-violet-600 to-purple-700 p-6 text-white shadow-sm hover:shadow-md transition cursor-pointer flex items-center justify-between group overflow-hidden relative"
+                >
+                  <div className="space-y-1 z-10">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                      <span>Under Active Engineering</span>
+                    </div>
+                    <h4 className="text-xl font-black tracking-tight text-white group-hover:translate-x-1 transition-transform font-sans">
+                      Practice Quizzes
+                    </h4>
+                    <p className="text-xs font-medium text-violet-100 font-sans">
+                      Japanese Kanji, German Drills & Python Quizzes
+                    </p>
+                    <div className="pt-2">
+                      <span className="inline-flex items-center gap-1 text-xs font-extrabold bg-white text-violet-800 px-3.5 py-1.5 rounded-full shadow-xs">
+                        <BrainCircuit size={13} />
+                        <span>Explore Quizzes →</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-white border border-white/30 shadow-xs shrink-0 group-hover:scale-105 transition-transform z-10">
+                    <BrainCircuit size={32} />
                   </div>
                   <div className="absolute -right-6 -bottom-6 w-32 h-32 rounded-full bg-white/10 pointer-events-none" />
                 </div>
@@ -1411,6 +1518,108 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
               </p>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ================= TAB 6: STUDY MATERIALS & NOTES ================= */}
+      {activeSubTab === "materials" && (
+        <div className="space-y-6">
+          <UnderConstructionView
+            pageTitle="Study Materials & Notes Hub"
+            moduleBadge="Under Active Curation • Academic Module 1"
+            headline="Study Materials & Question Paper Hub"
+            description="We are actively compiling official handouts, JLPT/Goethe study guides, coding lab sheets, and verified mock exam papers for all Parivattan students."
+            progressPercent={78}
+            expectedDate="Upcoming Term (2026)"
+            features={[
+              {
+                title: "Japanese (JLPT N5, N4 & N3) Kanji & Grammar Notes",
+                description:
+                  "Comprehensive Kanji stroke orders, vocabulary lists, particle charts, and reading passages designed for JLPT success.",
+                icon: Globe2,
+                tag: "JLPT Prep",
+              },
+              {
+                title: "German (Goethe-Zertifikat A1 & A2) Grammar & Audio Drills",
+                description:
+                  "Case tables (Nominativ, Akkusativ, Dativ), modal verbs, sentence construction formulas, and listening dialog scripts.",
+                icon: BookOpen,
+                tag: "German Fluency",
+              },
+              {
+                title: "Python & Full-Stack Web Development Cheat Sheets",
+                description:
+                  "Clean, visual syntax guides for Python, JavaScript, HTML/CSS, React, SQL, and practical problem-solving assignments.",
+                icon: Code2,
+                tag: "Tech School",
+              },
+              {
+                title: "Previous Years' Model Exam Papers & Answer Keys",
+                description:
+                  "Solved question banks and mock question sets for foreign languages, civil services, and technical aptitude tests.",
+                icon: FileText,
+                tag: "Question Banks",
+              },
+            ]}
+            embeddedInDashboard={true}
+            primaryAction={{
+              label: "Back to Overview",
+              to: "#",
+              onClick: () => setActiveSubTab("home"),
+            }}
+            secondaryAction={{ label: "Open Fullscreen Page", to: "/study-materials" }}
+          />
+        </div>
+      )}
+
+      {/* ================= TAB 7: PRACTICE QUIZZES & MOCKS ================= */}
+      {activeSubTab === "quizzes" && (
+        <div className="space-y-6">
+          <UnderConstructionView
+            pageTitle="Interactive Practice Quizzes"
+            moduleBadge="Under Active Engineering • Interactive Assessment"
+            headline="Interactive Practice Quizzes & Mock Tests"
+            description="Self-paced assessment drills for Japanese (JLPT), German (Goethe), and Python programming with instant scoring and detailed answers."
+            progressPercent={65}
+            expectedDate="Upcoming Term (2026)"
+            features={[
+              {
+                title: "JLPT N5 & N4 Daily Kanji & Vocabulary Drills",
+                description:
+                  "Fast-paced 10-question flash drills testing Hiragana, Katakana, Kanji readings, and contextual vocabulary with immediate feedback.",
+                icon: Globe2,
+                tag: "JLPT Japanese",
+              },
+              {
+                title: "Goethe-Zertifikat German A1 & A2 Grammar Quizzes",
+                description:
+                  "Interactive fill-in-the-blanks, case endings (der/die/das), verb conjugations, and prepositions practice tests.",
+                icon: BrainCircuit,
+                tag: "German Drills",
+              },
+              {
+                title: "Python Programming Output & Debugging Challenges",
+                description:
+                  "Test your code reading and logical debugging skills with real code snippets, loop challenges, and data structure questions.",
+                icon: Code2,
+                tag: "Python & Coding",
+              },
+              {
+                title: "Instant Scorecards, Explanations & Leaderboards",
+                description:
+                  "Detailed step-by-step solutions for every question, time spent analytics, and motivational milestone badges.",
+                icon: Trophy,
+                tag: "Analytics & Badges",
+              },
+            ]}
+            embeddedInDashboard={true}
+            primaryAction={{
+              label: "Back to Overview",
+              to: "#",
+              onClick: () => setActiveSubTab("home"),
+            }}
+            secondaryAction={{ label: "Open Fullscreen Page", to: "/quizzes" }}
+          />
         </div>
       )}
       </main>
