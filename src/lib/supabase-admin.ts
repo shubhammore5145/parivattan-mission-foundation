@@ -129,6 +129,26 @@ export const sanitizeAdmissionForSupabase = (
     }
   }
 
+  // Map alias document fields if standard column values are empty
+  if (!sanitized.education_proof && (record.marksheetUrl || record.educationProof)) {
+    sanitized.education_proof = record.marksheetUrl || record.educationProof;
+  }
+  if (!sanitized.education_proof_name && (record.educationProofName || record.marksheet_name)) {
+    sanitized.education_proof_name = record.educationProofName || record.marksheet_name || "Education Proof (Marksheet)";
+  }
+  if (!sanitized.identity_proof && record.identityProofUrl) {
+    sanitized.identity_proof = record.identityProofUrl;
+  }
+  if (!sanitized.identity_proof_name && record.identityProofName) {
+    sanitized.identity_proof_name = record.identityProofName;
+  }
+  if (!sanitized.photo && (record.photoUrl || record.photoDataUrl || record.avatar)) {
+    sanitized.photo = record.photoUrl || record.photoDataUrl || record.avatar;
+  }
+  if (!sanitized.caste_certificate && (record.casteCertUrl || record.casteCertificateUrl)) {
+    sanitized.caste_certificate = record.casteCertUrl || record.casteCertificateUrl;
+  }
+
   // Preserve batch info inside message field so it is never lost
   const batchId = record.batch_id || record.batchId;
   if (batchId) {
@@ -426,6 +446,23 @@ export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]>
   const seenStudentCourses = new Set<string>();
 
   for (const adm of rawMerged) {
+    // Normalize attached documents across different sources
+    if (!adm.education_proof && (adm as any).marksheetUrl) {
+      adm.education_proof = (adm as any).marksheetUrl;
+    }
+    if (!adm.marksheetUrl && adm.education_proof) {
+      adm.marksheetUrl = adm.education_proof;
+    }
+    if (!adm.identity_proof && (adm as any).identityProofUrl) {
+      adm.identity_proof = (adm as any).identityProofUrl;
+    }
+    if (!adm.caste_certificate && (adm as any).casteCertUrl) {
+      adm.caste_certificate = (adm as any).casteCertUrl;
+    }
+    if (!adm.photo && (adm as any).photoUrl) {
+      adm.photo = (adm as any).photoUrl;
+    }
+
     // 1. Payment ID deduplication (Razorpay or Online payment reference)
     const pid = adm.payment_id?.trim();
     if (pid && pid !== "OFFLINE_RECORD" && !pid.startsWith("PAY_ADM_")) {

@@ -142,14 +142,14 @@ export const fetchRegisteredStudentsFromCloud = async (forceFresh = false): Prom
         let registeredAt = row.created_at || new Date().toISOString();
         let password: string | undefined = undefined;
         let firebaseUid: string | undefined = undefined;
-        let photo = row.photo || undefined;
+        let photo = row.photo || row.photoUrl || row.avatar || undefined;
         let photo_name = row.photo_name || undefined;
-        let avatar = row.photo || undefined;
-        let identity_proof = row.identity_proof || undefined;
-        let identity_proof_name = row.identity_proof_name || undefined;
-        let education_proof = row.education_proof || undefined;
-        let education_proof_name = row.education_proof_name || undefined;
-        let caste_certificate = row.caste_certificate || undefined;
+        let avatar = row.avatar || row.photo || row.photoUrl || undefined;
+        let identity_proof = row.identity_proof || row.identityProofUrl || undefined;
+        let identity_proof_name = row.identity_proof_name || row.identityProofName || undefined;
+        let education_proof = row.education_proof || row.marksheetUrl || row.educationProof || row.marksheet || undefined;
+        let education_proof_name = row.education_proof_name || row.educationProofName || row.marksheet_name || undefined;
+        let caste_certificate = row.caste_certificate || row.casteCertUrl || undefined;
         let caste_certificate_name = row.caste_certificate_name || undefined;
 
         // Try extracting metadata from JSON message
@@ -164,12 +164,17 @@ export const fetchRegisteredStudentsFromCloud = async (forceFresh = false): Prom
             if (meta.registeredAt) registeredAt = meta.registeredAt;
             if (meta.avatar) avatar = meta.avatar;
             if (meta.photo) photo = meta.photo;
+            if (meta.photoUrl && !photo) photo = meta.photoUrl;
             if (meta.photo_name) photo_name = meta.photo_name;
             if (meta.identity_proof) identity_proof = meta.identity_proof;
+            if (meta.identityProofUrl && !identity_proof) identity_proof = meta.identityProofUrl;
             if (meta.identity_proof_name) identity_proof_name = meta.identity_proof_name;
             if (meta.education_proof) education_proof = meta.education_proof;
+            if (meta.marksheetUrl && !education_proof) education_proof = meta.marksheetUrl;
+            if (meta.marksheet && !education_proof) education_proof = meta.marksheet;
             if (meta.education_proof_name) education_proof_name = meta.education_proof_name;
             if (meta.caste_certificate) caste_certificate = meta.caste_certificate;
+            if (meta.casteCertUrl && !caste_certificate) caste_certificate = meta.casteCertUrl;
             if (meta.caste_certificate_name) caste_certificate_name = meta.caste_certificate_name;
           } catch {}
         }
@@ -204,13 +209,17 @@ export const fetchRegisteredStudentsFromCloud = async (forceFresh = false): Prom
           registeredAt: registeredAt || existing?.registeredAt || new Date().toISOString(),
           avatar: avatar || existing?.avatar || photo || existing?.photo,
           photo: photo || existing?.photo || avatar || existing?.avatar,
+          photoUrl: photo || existing?.photoUrl || avatar || existing?.avatar,
           photo_name: photo_name || existing?.photo_name,
           identity_proof: identity_proof || existing?.identity_proof,
           identity_proof_name: identity_proof_name || existing?.identity_proof_name,
+          identityProofUrl: identity_proof || existing?.identityProofUrl,
           education_proof: education_proof || existing?.education_proof,
           education_proof_name: education_proof_name || existing?.education_proof_name,
+          marksheetUrl: education_proof || existing?.marksheetUrl,
           caste_certificate: caste_certificate || existing?.caste_certificate,
           caste_certificate_name: caste_certificate_name || existing?.caste_certificate_name,
+          casteCertUrl: caste_certificate || existing?.casteCertUrl,
         };
 
         if (emailKey) studentsMap.set(emailKey, studentUser);
@@ -1378,6 +1387,11 @@ export const syncAdmissionToStudentPortal = async (record: {
   pincode?: string;
   category?: string;
   photoUrl?: string;
+  identityProofUrl?: string;
+  marksheetUrl?: string;
+  education_proof?: string;
+  casteCertUrl?: string;
+  caste_certificate?: string;
   existingPrn?: string;
 }): Promise<{ student: StudentUser; admission: StudentAdmissionRecord }> => {
   const allStudents = getAllRegisteredStudents();
@@ -1389,6 +1403,10 @@ export const syncAdmissionToStudentPortal = async (record: {
   );
 
   const prn = record.existingPrn || student?.prn || generateStudentPRN();
+  const effectivePhoto = record.photoUrl;
+  const effectiveIdProof = record.identityProofUrl;
+  const effectiveEduProof = record.education_proof || record.marksheetUrl;
+  const effectiveCasteCert = record.caste_certificate || record.casteCertUrl;
 
   if (!student) {
     const studentUuid = generateUUID();
@@ -1400,17 +1418,48 @@ export const syncAdmissionToStudentPortal = async (record: {
       phone: record.phone,
       city: record.city || "Pune",
       state: "Maharashtra",
-      avatar: record.photoUrl,
+      avatar: effectivePhoto,
+      photo: effectivePhoto,
+      photoUrl: effectivePhoto,
+      identity_proof: effectiveIdProof,
+      identityProofUrl: effectiveIdProof,
+      identity_proof_name: "Identity Proof",
+      education_proof: effectiveEduProof,
+      education_proof_name: "Marksheet / Education Proof",
+      marksheetUrl: effectiveEduProof,
+      caste_certificate: effectiveCasteCert,
+      casteCertUrl: effectiveCasteCert,
+      caste_certificate_name: record.category || "Caste Certificate",
       registeredAt: new Date().toISOString(),
     };
     const updated = [student, ...allStudents];
     localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(updated));
     await saveStudentToCloud(student);
-  } else if (student.prn !== prn) {
-    student.prn = prn;
-    localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(allStudents));
-    await saveStudentToCloud(student);
   } else {
+    if (student.prn !== prn) {
+      student.prn = prn;
+    }
+    if (effectivePhoto && !student.photo) {
+      student.photo = effectivePhoto;
+      student.photoUrl = effectivePhoto;
+      if (!student.avatar) student.avatar = effectivePhoto;
+    }
+    if (effectiveIdProof && !student.identity_proof) {
+      student.identity_proof = effectiveIdProof;
+      student.identityProofUrl = effectiveIdProof;
+      student.identity_proof_name = "Identity Proof";
+    }
+    if (effectiveEduProof && !student.education_proof) {
+      student.education_proof = effectiveEduProof;
+      student.marksheetUrl = effectiveEduProof;
+      student.education_proof_name = "Marksheet / Education Proof";
+    }
+    if (effectiveCasteCert && !student.caste_certificate) {
+      student.caste_certificate = effectiveCasteCert;
+      student.casteCertUrl = effectiveCasteCert;
+      student.caste_certificate_name = record.category || "Caste Certificate";
+    }
+    localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(allStudents));
     await saveStudentToCloud(student);
   }
 
@@ -1445,7 +1494,10 @@ export const syncAdmissionToStudentPortal = async (record: {
     collegeName: record.collegeName || "Parivattan Mission Institute",
     passingYear: "2024",
     percentage: "A Grade",
-    photoUrl: record.photoUrl,
+    photoUrl: effectivePhoto,
+    identityProofUrl: effectiveIdProof,
+    marksheetUrl: effectiveEduProof,
+    casteCertUrl: effectiveCasteCert,
     amount: record.amount,
     paymentId: record.paymentId,
     paymentMethod: "razorpay",

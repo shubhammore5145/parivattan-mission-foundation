@@ -785,6 +785,13 @@ export default function AdminDashboard() {
 
   const handleOpenEditStudent = (student: StudentUser) => {
     setEditingStudent(student);
+    const matchAdm = admissions.find(
+      (a) =>
+        (a.email && student.email && a.email.toLowerCase() === student.email.toLowerCase()) ||
+        (a.phone && student.phone && a.phone.replace(/\D/g, "") === student.phone.replace(/\D/g, "")) ||
+        (a.message && student.prn && a.message.includes(student.prn))
+    );
+
     setStudentFormData({
       id: student.id,
       prn: student.prn || "",
@@ -794,15 +801,15 @@ export default function AdminDashboard() {
       city: student.city || "Pune",
       state: student.state || "Maharashtra",
       password: student.password || "",
-      avatar: student.avatar || student.photo || "",
-      photo: student.photo || student.avatar || "",
-      photo_name: student.photo_name || "",
-      identity_proof: student.identity_proof || "",
-      identity_proof_name: student.identity_proof_name || "",
-      education_proof: student.education_proof || "",
-      education_proof_name: student.education_proof_name || "",
-      caste_certificate: student.caste_certificate || "",
-      caste_certificate_name: student.caste_certificate_name || "",
+      avatar: student.avatar || student.photo || (student as any).photoUrl || matchAdm?.photo || "",
+      photo: student.photo || (student as any).photoUrl || student.avatar || matchAdm?.photo || "",
+      photo_name: student.photo_name || matchAdm?.photo_name || "",
+      identity_proof: student.identity_proof || (student as any).identityProofUrl || matchAdm?.identity_proof || "",
+      identity_proof_name: student.identity_proof_name || matchAdm?.identity_proof_name || "",
+      education_proof: student.education_proof || (student as any).marksheetUrl || matchAdm?.education_proof || matchAdm?.marksheetUrl || "",
+      education_proof_name: student.education_proof_name || (student as any).educationProofName || matchAdm?.education_proof_name || "",
+      caste_certificate: student.caste_certificate || (student as any).casteCertUrl || matchAdm?.caste_certificate || "",
+      caste_certificate_name: student.caste_certificate_name || matchAdm?.caste_certificate_name || "",
       registeredAt: student.registeredAt || new Date().toISOString(),
     });
   };
@@ -856,6 +863,13 @@ export default function AdminDashboard() {
       admission.batchId ||
       matchAdmissionToBatchId(admission) ||
       "";
+    const matchStd = students.find(
+      (s) =>
+        (s.email && admission.email && s.email.toLowerCase() === admission.email.toLowerCase()) ||
+        (s.phone && admission.phone && s.phone.replace(/\D/g, "") === admission.phone.replace(/\D/g, "")) ||
+        (admission.message && s.prn && admission.message.includes(s.prn))
+    );
+
     setAdmissionFormData({
       name: admission.name || "",
       email: admission.email || "",
@@ -872,14 +886,14 @@ export default function AdminDashboard() {
       amount: admission.amount !== undefined ? admission.amount : 100,
       payment_id: admission.payment_id || "",
       status: admission.status || "completed",
-      photo: admission.photo || "",
-      photo_name: admission.photo_name || "",
-      identity_proof: admission.identity_proof || "",
-      identity_proof_name: admission.identity_proof_name || "",
-      education_proof: admission.education_proof || "",
-      education_proof_name: admission.education_proof_name || "",
-      caste_certificate: admission.caste_certificate || "",
-      caste_certificate_name: admission.caste_certificate_name || "",
+      photo: admission.photo || (admission as any).photoUrl || matchStd?.photo || matchStd?.avatar || "",
+      photo_name: admission.photo_name || matchStd?.photo_name || "",
+      identity_proof: admission.identity_proof || (admission as any).identityProofUrl || matchStd?.identity_proof || "",
+      identity_proof_name: admission.identity_proof_name || matchStd?.identity_proof_name || "",
+      education_proof: admission.education_proof || admission.marksheetUrl || matchStd?.education_proof || (matchStd as any)?.marksheetUrl || "",
+      education_proof_name: admission.education_proof_name || (admission as any).educationProofName || matchStd?.education_proof_name || "",
+      caste_certificate: admission.caste_certificate || (admission as any).casteCertUrl || matchStd?.caste_certificate || "",
+      caste_certificate_name: admission.caste_certificate_name || matchStd?.caste_certificate_name || "",
     });
   };
 
@@ -1033,13 +1047,13 @@ export default function AdminDashboard() {
         phone: student.phone || "",
         prn: student.prn || "",
         address: student.city ? `${student.city}, ${student.state || "Maharashtra"}` : prev.address,
-        photo: student.photo || student.avatar || "",
+        photo: student.photo || (student as any).photoUrl || student.avatar || "",
         photo_name: student.photo_name || "",
-        identity_proof: student.identity_proof || "",
+        identity_proof: student.identity_proof || (student as any).identityProofUrl || "",
         identity_proof_name: student.identity_proof_name || "",
-        education_proof: student.education_proof || "",
-        education_proof_name: student.education_proof_name || "",
-        caste_certificate: student.caste_certificate || "",
+        education_proof: student.education_proof || (student as any).marksheetUrl || "",
+        education_proof_name: student.education_proof_name || (student as any).educationProofName || "",
+        caste_certificate: student.caste_certificate || (student as any).casteCertUrl || "",
         caste_certificate_name: student.caste_certificate_name || "",
         payment_id: `PAY_ADM_${Date.now().toString().slice(-6)}`,
       }));
@@ -1064,13 +1078,13 @@ export default function AdminDashboard() {
         phone: found.phone || prev.phone,
         prn: found.prn || prev.prn,
         address: found.city ? `${found.city}, ${found.state || "Maharashtra"}` : prev.address,
-        photo: found.photo || found.avatar || prev.photo,
+        photo: found.photo || (found as any).photoUrl || found.avatar || prev.photo,
         photo_name: found.photo_name || prev.photo_name,
-        identity_proof: found.identity_proof || prev.identity_proof,
+        identity_proof: found.identity_proof || (found as any).identityProofUrl || prev.identity_proof,
         identity_proof_name: found.identity_proof_name || prev.identity_proof_name,
-        education_proof: found.education_proof || prev.education_proof,
-        education_proof_name: found.education_proof_name || prev.education_proof_name,
-        caste_certificate: found.caste_certificate || prev.caste_certificate,
+        education_proof: found.education_proof || (found as any).marksheetUrl || prev.education_proof,
+        education_proof_name: found.education_proof_name || (found as any).educationProofName || prev.education_proof_name,
+        caste_certificate: found.caste_certificate || (found as any).casteCertUrl || prev.caste_certificate,
         caste_certificate_name: found.caste_certificate_name || prev.caste_certificate_name,
       }));
       toast.success(`Selected student "${found.name}" (${found.prn})`);
@@ -3155,39 +3169,70 @@ export default function AdminDashboard() {
 
                             {/* Documents */}
                             <td className="px-4 py-3.5">
-                              <div className="flex flex-col gap-1 text-[11px]">
-                                {adm.identity_proof && (
-                                  <button
-                                    onClick={() =>
-                                      setViewingDoc({
-                                        title: `${adm.name} - ID Proof`,
-                                        url: adm.identity_proof!,
-                                        isImage: adm.identity_proof!.startsWith("data:image/"),
-                                      })
-                                    }
-                                    className="inline-flex items-center gap-1 text-emerald-700 hover:underline font-semibold"
-                                  >
-                                    <FileCheck size={12} /> ID Proof
-                                  </button>
-                                )}
-                                {adm.caste_certificate && (
-                                  <button
-                                    onClick={() =>
-                                      setViewingDoc({
-                                        title: `${adm.name} - Caste Certificate`,
-                                        url: adm.caste_certificate!,
-                                        isImage: adm.caste_certificate!.startsWith("data:image/"),
-                                      })
-                                    }
-                                    className="inline-flex items-center gap-1 text-amber-700 hover:underline font-semibold"
-                                  >
-                                    <Award size={12} /> Caste Cert
-                                  </button>
-                                )}
-                                {!adm.identity_proof && !adm.caste_certificate && (
-                                  <span className="text-stone-300 italic text-[10px]">None attached</span>
-                                )}
-                              </div>
+                              {(() => {
+                                const matchStd = students.find(
+                                  (s) =>
+                                    (s.email && adm.email && s.email.toLowerCase() === adm.email.toLowerCase()) ||
+                                    (s.phone && adm.phone && s.phone.replace(/\D/g, "") === adm.phone.replace(/\D/g, "")) ||
+                                    (adm.message && s.prn && adm.message.includes(s.prn))
+                                );
+                                const eduDoc = adm.education_proof || adm.marksheetUrl || matchStd?.education_proof || (matchStd as any)?.marksheetUrl;
+                                const idDoc = adm.identity_proof || (adm as any).identityProofUrl || matchStd?.identity_proof;
+                                const casteDoc = adm.caste_certificate || (adm as any).casteCertUrl || matchStd?.caste_certificate;
+
+                                return (
+                                  <div className="flex flex-col gap-1 text-[11px]">
+                                    {eduDoc && (
+                                      <button
+                                        onClick={() =>
+                                          setViewingDoc({
+                                            title: `${adm.name} - Marksheet / Education`,
+                                            url: eduDoc,
+                                            isImage: !eduDoc.startsWith("data:application/pdf"),
+                                          })
+                                        }
+                                        className="inline-flex items-center gap-1 text-blue-700 hover:underline font-semibold cursor-pointer"
+                                        title="View Marksheet / Qualification"
+                                      >
+                                        <GraduationCap size={12} /> Marksheet
+                                      </button>
+                                    )}
+                                    {idDoc && (
+                                      <button
+                                        onClick={() =>
+                                          setViewingDoc({
+                                            title: `${adm.name} - ID Proof`,
+                                            url: idDoc,
+                                            isImage: !idDoc.startsWith("data:application/pdf"),
+                                          })
+                                        }
+                                        className="inline-flex items-center gap-1 text-emerald-700 hover:underline font-semibold cursor-pointer"
+                                        title="View ID Proof"
+                                      >
+                                        <FileCheck size={12} /> ID Proof
+                                      </button>
+                                    )}
+                                    {casteDoc && (
+                                      <button
+                                        onClick={() =>
+                                          setViewingDoc({
+                                            title: `${adm.name} - Caste Certificate`,
+                                            url: casteDoc,
+                                            isImage: !casteDoc.startsWith("data:application/pdf"),
+                                          })
+                                        }
+                                        className="inline-flex items-center gap-1 text-amber-700 hover:underline font-semibold cursor-pointer"
+                                        title="View Caste Certificate"
+                                      >
+                                        <Award size={12} /> Caste Cert
+                                      </button>
+                                    )}
+                                    {!eduDoc && !idDoc && !casteDoc && (
+                                      <span className="text-stone-300 italic text-[10px]">None attached</span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </td>
 
                             {/* Status */}
@@ -3371,6 +3416,7 @@ export default function AdminDashboard() {
                           <th className="px-4 py-3.5">Contact Details</th>
                           <th className="px-4 py-3.5">Location</th>
                           <th className="px-4 py-3.5">Registration Date</th>
+                          <th className="px-4 py-3.5">Documents</th>
                           <th className="px-4 py-3.5 text-center">Admissions</th>
                           <th className="px-4 py-3.5 text-center">Actions</th>
                         </tr>
@@ -3447,6 +3493,77 @@ export default function AdminDashboard() {
                                 {s.registeredAt
                                   ? new Date(s.registeredAt).toLocaleDateString("en-IN")
                                   : "-"}
+                              </td>
+
+                              {/* Documents */}
+                              <td className="px-4 py-3.5">
+                                {(() => {
+                                  const admRec = userAdmissions[0] || admissions.find(
+                                    (a) =>
+                                      (a.email && s.email && a.email.toLowerCase() === s.email.toLowerCase()) ||
+                                      (a.phone && s.phone && a.phone.replace(/\D/g, "") === s.phone.replace(/\D/g, "")) ||
+                                      (a.message && s.prn && a.message.includes(s.prn))
+                                  );
+                                  const eduDoc = s.education_proof || (s as any).marksheetUrl || admRec?.education_proof || admRec?.marksheetUrl;
+                                  const idDoc = s.identity_proof || (s as any).identityProofUrl || admRec?.identity_proof;
+                                  const casteDoc = s.caste_certificate || (s as any).casteCertUrl || admRec?.caste_certificate;
+
+                                  return (
+                                    <div className="flex flex-col gap-1 text-[11px]">
+                                      {eduDoc && (
+                                        <button
+                                          onClick={() =>
+                                            setViewingDoc({
+                                              title: `${s.name} - Marksheet / Education`,
+                                              url: eduDoc,
+                                              isImage: !eduDoc.startsWith("data:application/pdf"),
+                                            })
+                                          }
+                                          className="inline-flex items-center gap-1 text-blue-700 hover:underline font-semibold cursor-pointer"
+                                          title="View Marksheet / Qualification"
+                                        >
+                                          <GraduationCap size={12} />
+                                          <span>Marksheet</span>
+                                        </button>
+                                      )}
+                                      {idDoc && (
+                                        <button
+                                          onClick={() =>
+                                            setViewingDoc({
+                                              title: `${s.name} - Identity Proof`,
+                                              url: idDoc,
+                                              isImage: !idDoc.startsWith("data:application/pdf"),
+                                            })
+                                          }
+                                          className="inline-flex items-center gap-1 text-emerald-700 hover:underline font-semibold cursor-pointer"
+                                          title="View ID Proof"
+                                        >
+                                          <FileCheck size={12} />
+                                          <span>ID Proof</span>
+                                        </button>
+                                      )}
+                                      {casteDoc && (
+                                        <button
+                                          onClick={() =>
+                                            setViewingDoc({
+                                              title: `${s.name} - Caste Certificate`,
+                                              url: casteDoc,
+                                              isImage: !casteDoc.startsWith("data:application/pdf"),
+                                            })
+                                          }
+                                          className="inline-flex items-center gap-1 text-amber-700 hover:underline font-semibold cursor-pointer"
+                                          title="View Caste Certificate"
+                                        >
+                                          <Award size={12} />
+                                          <span>Caste Cert</span>
+                                        </button>
+                                      )}
+                                      {!eduDoc && !idDoc && !casteDoc && (
+                                        <span className="text-stone-300 italic text-[10px]">None attached</span>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                               </td>
 
                               {/* Admissions status */}
@@ -4064,70 +4181,175 @@ export default function AdminDashboard() {
                 <span className="text-xs font-bold uppercase text-stone-500 mb-2 block">
                   Attached Verification Documents
                 </span>
-                <div className="grid grid-cols-3 gap-3 text-xs">
-                  {/* Photo */}
-                  <div className="rounded-xl border border-stone-200 p-3 bg-white text-center">
-                    <span className="font-bold text-stone-700 block">Photo</span>
-                    {selectedAdmission.photo ? (
-                      <button
-                        onClick={() =>
-                          setViewingDoc({
-                            title: `${selectedAdmission.name} - Photo`,
-                            url: selectedAdmission.photo!,
-                            isImage: true,
-                          })
-                        }
-                        className="mt-2 text-[11px] font-bold text-[#b5623b] hover:underline"
-                      >
-                        View Photo
-                      </button>
-                    ) : (
-                      <span className="text-[11px] text-stone-400 italic mt-2 block">Not uploaded</span>
-                    )}
-                  </div>
+                {(() => {
+                  const matchStudent = students.find(
+                    (s) =>
+                      (s.email && selectedAdmission.email && s.email.toLowerCase() === selectedAdmission.email.toLowerCase()) ||
+                      (s.phone && selectedAdmission.phone && s.phone.replace(/\D/g, "") === selectedAdmission.phone.replace(/\D/g, "")) ||
+                      (selectedAdmission.message && s.prn && selectedAdmission.message.includes(s.prn))
+                  );
 
-                  {/* ID Proof */}
-                  <div className="rounded-xl border border-stone-200 p-3 bg-white text-center">
-                    <span className="font-bold text-stone-700 block">Identity Proof</span>
-                    {selectedAdmission.identity_proof ? (
-                      <button
-                        onClick={() =>
-                          setViewingDoc({
-                            title: `${selectedAdmission.name} - ID Proof`,
-                            url: selectedAdmission.identity_proof!,
-                            isImage: selectedAdmission.identity_proof!.startsWith("data:image/"),
-                          })
-                        }
-                        className="mt-2 text-[11px] font-bold text-emerald-700 hover:underline"
-                      >
-                        View ID
-                      </button>
-                    ) : (
-                      <span className="text-[11px] text-stone-400 italic mt-2 block">Not uploaded</span>
-                    )}
-                  </div>
+                  const photoDoc = selectedAdmission.photo || (selectedAdmission as any).photoUrl || matchStudent?.photo || matchStudent?.avatar;
+                  const idDoc = selectedAdmission.identity_proof || (selectedAdmission as any).identityProofUrl || matchStudent?.identity_proof;
+                  const eduDoc = selectedAdmission.education_proof || selectedAdmission.marksheetUrl || matchStudent?.education_proof || (matchStudent as any)?.marksheetUrl;
+                  const casteDoc = selectedAdmission.caste_certificate || (selectedAdmission as any).casteCertUrl || matchStudent?.caste_certificate;
 
-                  {/* Caste Certificate */}
-                  <div className="rounded-xl border border-stone-200 p-3 bg-white text-center">
-                    <span className="font-bold text-stone-700 block">Caste Certificate</span>
-                    {selectedAdmission.caste_certificate ? (
-                      <button
-                        onClick={() =>
-                          setViewingDoc({
-                            title: `${selectedAdmission.name} - Caste Cert`,
-                            url: selectedAdmission.caste_certificate!,
-                            isImage: selectedAdmission.caste_certificate!.startsWith("data:image/"),
-                          })
-                        }
-                        className="mt-2 text-[11px] font-bold text-amber-700 hover:underline"
-                      >
-                        View Cert
-                      </button>
-                    ) : (
-                      <span className="text-[11px] text-stone-400 italic mt-2 block">Not uploaded</span>
-                    )}
-                  </div>
-                </div>
+                  return (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                      {/* Photo */}
+                      <div className="rounded-xl border border-stone-200 p-3 bg-white text-center flex flex-col justify-between">
+                        <div>
+                          <span className="font-bold text-stone-700 block text-xs">Passport Photo</span>
+                          <span className="text-[10px] text-stone-400 block truncate mt-0.5">
+                            {selectedAdmission.photo_name || (photoDoc ? "Photo Attached" : "None")}
+                          </span>
+                        </div>
+                        {photoDoc ? (
+                          <div className="mt-2.5 flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${selectedAdmission.name} - Photo`,
+                                  url: photoDoc,
+                                  isImage: true,
+                                })
+                              }
+                              className="px-2 py-1 rounded-md bg-stone-100 hover:bg-stone-200 text-[#b5623b] font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <Eye size={12} />
+                              <span>View</span>
+                            </button>
+                            <a
+                              href={photoDoc}
+                              download={`${selectedAdmission.name}_photo`}
+                              className="p-1 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-700 cursor-pointer"
+                              title="Download Photo"
+                            >
+                              <Download size={12} />
+                            </a>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-stone-400 italic mt-2.5 block">Not uploaded</span>
+                        )}
+                      </div>
+
+                      {/* ID Proof */}
+                      <div className="rounded-xl border border-stone-200 p-3 bg-white text-center flex flex-col justify-between">
+                        <div>
+                          <span className="font-bold text-stone-700 block text-xs">Identity Proof</span>
+                          <span className="text-[10px] text-stone-400 block truncate mt-0.5">
+                            {selectedAdmission.identity_proof_name || (idDoc ? "ID Attached" : "None")}
+                          </span>
+                        </div>
+                        {idDoc ? (
+                          <div className="mt-2.5 flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${selectedAdmission.name} - Identity Proof`,
+                                  url: idDoc,
+                                  isImage: !idDoc.startsWith("data:application/pdf"),
+                                })
+                              }
+                              className="px-2 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <Eye size={12} />
+                              <span>View</span>
+                            </button>
+                            <a
+                              href={idDoc}
+                              download={`${selectedAdmission.name}_id_proof`}
+                              className="p-1 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-700 cursor-pointer"
+                              title="Download ID Proof"
+                            >
+                              <Download size={12} />
+                            </a>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-stone-400 italic mt-2.5 block">Not uploaded</span>
+                        )}
+                      </div>
+
+                      {/* Marksheet / Education Proof */}
+                      <div className="rounded-xl border border-blue-200 p-3 bg-blue-50/30 text-center flex flex-col justify-between">
+                        <div>
+                          <span className="font-bold text-blue-900 block text-xs">Marksheet / Education</span>
+                          <span className="text-[10px] text-blue-600 block truncate mt-0.5">
+                            {selectedAdmission.education_proof_name || (eduDoc ? "Marksheet Attached" : "None")}
+                          </span>
+                        </div>
+                        {eduDoc ? (
+                          <div className="mt-2.5 flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${selectedAdmission.name} - Marksheet / Education Proof`,
+                                  url: eduDoc,
+                                  isImage: !eduDoc.startsWith("data:application/pdf"),
+                                })
+                              }
+                              className="px-2 py-1 rounded-md bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <GraduationCap size={12} />
+                              <span>View</span>
+                            </button>
+                            <a
+                              href={eduDoc}
+                              download={`${selectedAdmission.name}_marksheet`}
+                              className="p-1 rounded-md bg-blue-100 hover:bg-blue-200 text-blue-800 cursor-pointer"
+                              title="Download Marksheet"
+                            >
+                              <Download size={12} />
+                            </a>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-stone-400 italic mt-2.5 block">Not uploaded</span>
+                        )}
+                      </div>
+
+                      {/* Caste Certificate */}
+                      <div className="rounded-xl border border-stone-200 p-3 bg-white text-center flex flex-col justify-between">
+                        <div>
+                          <span className="font-bold text-stone-700 block text-xs">Caste Certificate</span>
+                          <span className="text-[10px] text-stone-400 block truncate mt-0.5">
+                            {selectedAdmission.caste_certificate_name || (casteDoc ? "Certificate Attached" : "None")}
+                          </span>
+                        </div>
+                        {casteDoc ? (
+                          <div className="mt-2.5 flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${selectedAdmission.name} - Caste Cert`,
+                                  url: casteDoc,
+                                  isImage: !casteDoc.startsWith("data:application/pdf"),
+                                })
+                              }
+                              className="px-2 py-1 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <Eye size={12} />
+                              <span>View</span>
+                            </button>
+                            <a
+                              href={casteDoc}
+                              download={`${selectedAdmission.name}_caste_cert`}
+                              className="p-1 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-700 cursor-pointer"
+                              title="Download Caste Certificate"
+                            >
+                              <Download size={12} />
+                            </a>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-stone-400 italic mt-2.5 block">Not uploaded</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
@@ -4244,171 +4466,194 @@ export default function AdminDashboard() {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {/* Photo */}
-                  <div className="p-3 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-between">
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <Camera size={14} className="text-stone-500 shrink-0" />
-                      <div className="truncate">
-                        <span className="font-bold text-stone-800 block text-[11px]">Passport Photo</span>
-                        <span className="text-[10px] text-stone-500 truncate block">
-                          {selectedStudent.photo_name || (selectedStudent.photo ? "Photo Attached" : "Not Uploaded")}
-                        </span>
-                      </div>
-                    </div>
-                    {selectedStudent.photo ? (
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setViewingDoc({
-                              title: `${selectedStudent.name} - Photo`,
-                              url: selectedStudent.photo!,
-                              isImage: true,
-                            })
-                          }
-                          className="p-1 rounded hover:bg-stone-200 text-stone-700"
-                          title="View Photo"
-                        >
-                          <Eye size={13} />
-                        </button>
-                        <a
-                          href={selectedStudent.photo}
-                          download={`${selectedStudent.name}_photo`}
-                          className="p-1 rounded hover:bg-stone-200 text-stone-700"
-                          title="Download"
-                        >
-                          <Download size={13} />
-                        </a>
-                      </div>
-                    ) : (
-                      <span className="text-[10px] text-stone-400 font-medium">None</span>
-                    )}
-                  </div>
+                {(() => {
+                  const matchAdm = admissions.find(
+                    (a) =>
+                      (a.email && selectedStudent.email && a.email.toLowerCase() === selectedStudent.email.toLowerCase()) ||
+                      (a.phone && selectedStudent.phone && a.phone.replace(/\D/g, "") === selectedStudent.phone.replace(/\D/g, "")) ||
+                      (a.message && selectedStudent.prn && a.message.includes(selectedStudent.prn))
+                  );
 
-                  {/* ID Proof */}
-                  <div className="p-3 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-between">
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <Shield size={14} className="text-stone-500 shrink-0" />
-                      <div className="truncate">
-                        <span className="font-bold text-stone-800 block text-[11px]">Identity Proof</span>
-                        <span className="text-[10px] text-stone-500 truncate block">
-                          {selectedStudent.identity_proof_name || (selectedStudent.identity_proof ? "ID Attached" : "Not Uploaded")}
-                        </span>
-                      </div>
-                    </div>
-                    {selectedStudent.identity_proof ? (
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setViewingDoc({
-                              title: `${selectedStudent.name} - Identity Proof`,
-                              url: selectedStudent.identity_proof!,
-                              isImage: !selectedStudent.identity_proof!.startsWith("data:application/pdf"),
-                            })
-                          }
-                          className="p-1 rounded hover:bg-stone-200 text-stone-700"
-                          title="View ID"
-                        >
-                          <Eye size={13} />
-                        </button>
-                        <a
-                          href={selectedStudent.identity_proof}
-                          download={`${selectedStudent.name}_id_proof`}
-                          className="p-1 rounded hover:bg-stone-200 text-stone-700"
-                          title="Download"
-                        >
-                          <Download size={13} />
-                        </a>
-                      </div>
-                    ) : (
-                      <span className="text-[10px] text-stone-400 font-medium">None</span>
-                    )}
-                  </div>
+                  const photoDoc = selectedStudent.photo || (selectedStudent as any).photoUrl || selectedStudent.avatar || matchAdm?.photo || (matchAdm as any)?.photoUrl;
+                  const photoName = selectedStudent.photo_name || matchAdm?.photo_name || (photoDoc ? "Photo Attached" : "Not Uploaded");
 
-                  {/* Education / Marksheet */}
-                  <div className="p-3 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-between">
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <GraduationCap size={14} className="text-stone-500 shrink-0" />
-                      <div className="truncate">
-                        <span className="font-bold text-stone-800 block text-[11px]">Marksheet / Education</span>
-                        <span className="text-[10px] text-stone-500 truncate block">
-                          {selectedStudent.education_proof_name || (selectedStudent.education_proof ? "Marksheet Attached" : "Not Uploaded")}
-                        </span>
-                      </div>
-                    </div>
-                    {selectedStudent.education_proof ? (
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setViewingDoc({
-                              title: `${selectedStudent.name} - Marksheet`,
-                              url: selectedStudent.education_proof!,
-                              isImage: !selectedStudent.education_proof!.startsWith("data:application/pdf"),
-                            })
-                          }
-                          className="p-1 rounded hover:bg-stone-200 text-stone-700"
-                          title="View Marksheet"
-                        >
-                          <Eye size={13} />
-                        </button>
-                        <a
-                          href={selectedStudent.education_proof}
-                          download={`${selectedStudent.name}_education_proof`}
-                          className="p-1 rounded hover:bg-stone-200 text-stone-700"
-                          title="Download"
-                        >
-                          <Download size={13} />
-                        </a>
-                      </div>
-                    ) : (
-                      <span className="text-[10px] text-stone-400 font-medium">None</span>
-                    )}
-                  </div>
+                  const idDoc = selectedStudent.identity_proof || (selectedStudent as any).identityProofUrl || matchAdm?.identity_proof || (matchAdm as any)?.identityProofUrl;
+                  const idName = selectedStudent.identity_proof_name || matchAdm?.identity_proof_name || (idDoc ? "ID Attached" : "Not Uploaded");
 
-                  {/* Caste Certificate */}
-                  <div className="p-3 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-between">
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <Award size={14} className="text-stone-500 shrink-0" />
-                      <div className="truncate">
-                        <span className="font-bold text-stone-800 block text-[11px]">Caste Certificate</span>
-                        <span className="text-[10px] text-stone-500 truncate block">
-                          {selectedStudent.caste_certificate_name || (selectedStudent.caste_certificate ? "Certificate Attached" : "Not Uploaded")}
-                        </span>
+                  const eduDoc = selectedStudent.education_proof || (selectedStudent as any).marksheetUrl || matchAdm?.education_proof || matchAdm?.marksheetUrl;
+                  const eduName = selectedStudent.education_proof_name || (selectedStudent as any).educationProofName || matchAdm?.education_proof_name || (matchAdm as any)?.educationProofName || (eduDoc ? "Marksheet Attached" : "Not Uploaded");
+
+                  const casteDoc = selectedStudent.caste_certificate || (selectedStudent as any).casteCertUrl || matchAdm?.caste_certificate || (matchAdm as any)?.casteCertUrl;
+                  const casteName = selectedStudent.caste_certificate_name || matchAdm?.caste_certificate_name || (casteDoc ? "Certificate Attached" : "Not Uploaded");
+
+                  return (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {/* Photo */}
+                      <div className="p-3 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-between">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <Camera size={14} className="text-stone-500 shrink-0" />
+                          <div className="truncate">
+                            <span className="font-bold text-stone-800 block text-[11px]">Passport Photo</span>
+                            <span className="text-[10px] text-stone-500 truncate block">
+                              {photoName}
+                            </span>
+                          </div>
+                        </div>
+                        {photoDoc ? (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${selectedStudent.name} - Photo`,
+                                  url: photoDoc,
+                                  isImage: true,
+                                })
+                              }
+                              className="p-1 rounded hover:bg-stone-200 text-stone-700 cursor-pointer"
+                              title="View Photo"
+                            >
+                              <Eye size={13} />
+                            </button>
+                            <a
+                              href={photoDoc}
+                              download={`${selectedStudent.name}_photo`}
+                              className="p-1 rounded hover:bg-stone-200 text-stone-700 cursor-pointer"
+                              title="Download"
+                            >
+                              <Download size={13} />
+                            </a>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-stone-400 font-medium">None</span>
+                        )}
+                      </div>
+
+                      {/* ID Proof */}
+                      <div className="p-3 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-between">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <Shield size={14} className="text-stone-500 shrink-0" />
+                          <div className="truncate">
+                            <span className="font-bold text-stone-800 block text-[11px]">Identity Proof</span>
+                            <span className="text-[10px] text-stone-500 truncate block">
+                              {idName}
+                            </span>
+                          </div>
+                        </div>
+                        {idDoc ? (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${selectedStudent.name} - Identity Proof`,
+                                  url: idDoc,
+                                  isImage: !idDoc.startsWith("data:application/pdf"),
+                                })
+                              }
+                              className="p-1 rounded hover:bg-stone-200 text-stone-700 cursor-pointer"
+                              title="View ID"
+                            >
+                              <Eye size={13} />
+                            </button>
+                            <a
+                              href={idDoc}
+                              download={`${selectedStudent.name}_id_proof`}
+                              className="p-1 rounded hover:bg-stone-200 text-stone-700 cursor-pointer"
+                              title="Download"
+                            >
+                              <Download size={13} />
+                            </a>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-stone-400 font-medium">None</span>
+                        )}
+                      </div>
+
+                      {/* Education / Marksheet */}
+                      <div className="p-3 rounded-xl border border-blue-200 bg-blue-50/40 flex items-center justify-between">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <GraduationCap size={14} className="text-blue-700 shrink-0" />
+                          <div className="truncate">
+                            <span className="font-bold text-blue-900 block text-[11px]">Marksheet / Education</span>
+                            <span className="text-[10px] text-blue-700 truncate block">
+                              {eduName}
+                            </span>
+                          </div>
+                        </div>
+                        {eduDoc ? (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${selectedStudent.name} - Marksheet`,
+                                  url: eduDoc,
+                                  isImage: !eduDoc.startsWith("data:application/pdf"),
+                                })
+                              }
+                              className="p-1 rounded hover:bg-blue-100 text-blue-800 cursor-pointer"
+                              title="View Marksheet"
+                            >
+                              <Eye size={13} />
+                            </button>
+                            <a
+                              href={eduDoc}
+                              download={`${selectedStudent.name}_education_proof`}
+                              className="p-1 rounded hover:bg-blue-100 text-blue-800 cursor-pointer"
+                              title="Download"
+                            >
+                              <Download size={13} />
+                            </a>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-stone-400 font-medium">None</span>
+                        )}
+                      </div>
+
+                      {/* Caste Certificate */}
+                      <div className="p-3 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-between">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <Award size={14} className="text-stone-500 shrink-0" />
+                          <div className="truncate">
+                            <span className="font-bold text-stone-800 block text-[11px]">Caste Certificate</span>
+                            <span className="text-[10px] text-stone-500 truncate block">
+                              {casteName}
+                            </span>
+                          </div>
+                        </div>
+                        {casteDoc ? (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${selectedStudent.name} - Caste Certificate`,
+                                  url: casteDoc,
+                                  isImage: !casteDoc.startsWith("data:application/pdf"),
+                                })
+                              }
+                              className="p-1 rounded hover:bg-stone-200 text-stone-700 cursor-pointer"
+                              title="View Caste Cert"
+                            >
+                              <Eye size={13} />
+                            </button>
+                            <a
+                              href={casteDoc}
+                              download={`${selectedStudent.name}_caste_cert`}
+                              className="p-1 rounded hover:bg-stone-200 text-stone-700 cursor-pointer"
+                              title="Download"
+                            >
+                              <Download size={13} />
+                            </a>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-stone-400 font-medium">None</span>
+                        )}
                       </div>
                     </div>
-                    {selectedStudent.caste_certificate ? (
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setViewingDoc({
-                              title: `${selectedStudent.name} - Caste Certificate`,
-                              url: selectedStudent.caste_certificate!,
-                              isImage: !selectedStudent.caste_certificate!.startsWith("data:application/pdf"),
-                            })
-                          }
-                          className="p-1 rounded hover:bg-stone-200 text-stone-700"
-                          title="View Caste Cert"
-                        >
-                          <Eye size={13} />
-                        </button>
-                        <a
-                          href={selectedStudent.caste_certificate}
-                          download={`${selectedStudent.name}_caste_cert`}
-                          className="p-1 rounded hover:bg-stone-200 text-stone-700"
-                          title="Download"
-                        >
-                          <Download size={13} />
-                        </a>
-                      </div>
-                    ) : (
-                      <span className="text-[10px] text-stone-400 font-medium">None</span>
-                    )}
-                  </div>
-                </div>
+                  );
+                })()}
               </div>
             </div>
 

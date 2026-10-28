@@ -631,6 +631,11 @@ export default function AdmissionsPage() {
           pincode: currentPincode,
           category: casteCategory,
           photoUrl: photoFile.dataUrl,
+          identityProofUrl: idProofFile.dataUrl,
+          marksheetUrl: educationProofFile.dataUrl,
+          education_proof: educationProofFile.dataUrl,
+          casteCertUrl: casteCertFile.dataUrl || undefined,
+          caste_certificate: casteCertFile.dataUrl || undefined,
           existingPrn: studentPrn,
         });
       } catch (portalErr) {
