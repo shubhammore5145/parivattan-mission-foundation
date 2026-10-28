@@ -111,6 +111,7 @@ import CourseManager from "@/components/admin/CourseManager";
 import NewsAndAnnouncementsManager from "@/components/admin/NewsAndAnnouncementsManager";
 import TrashManager from "@/components/admin/TrashManager";
 import SubscriptionsManager from "@/components/admin/SubscriptionsManager";
+import ScheduleManager from "@/components/admin/ScheduleManager";
 import { getSubscriptionsData } from "@/lib/subscriptionService";
 import { getStoredAnnouncements } from "@/data/newsAndAnnouncementsData";
 import {
@@ -131,9 +132,9 @@ import {
 export default function AdminDashboard() {
   const navigate = useNavigate();
 
-  // Active Tab: "admissions" | "students" | "subscriptions" | "courses" | "news" | "donations" | "contacts" | "visitors" | "trash"
+  // Active Tab: "admissions" | "students" | "subscriptions" | "courses" | "schedule" | "news" | "donations" | "contacts" | "visitors" | "trash"
   const [activeTab, setActiveTab] = useState<
-    "admissions" | "students" | "subscriptions" | "courses" | "news" | "donations" | "contacts" | "visitors" | "trash"
+    "admissions" | "students" | "subscriptions" | "courses" | "schedule" | "news" | "donations" | "contacts" | "visitors" | "trash"
   >("admissions");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [subscriptionsCount, setSubscriptionsCount] = useState<number>(0);
@@ -1747,6 +1748,32 @@ export default function AdminDashboard() {
                   {coursesCount}
                 </span>
               </button>
+
+              <button
+                onClick={() => {
+                  setActiveTab("schedule");
+                  setSidebarOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === "schedule"
+                    ? "bg-[#1abc9c] text-white shadow-md shadow-[#1abc9c]/25 font-extrabold"
+                    : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Clock size={17} />
+                  <span>Class Timetable</span>
+                </div>
+                <span
+                  className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
+                    activeTab === "schedule"
+                      ? "bg-white/20 text-white font-bold"
+                      : "bg-slate-800 text-slate-400"
+                  }`}
+                >
+                  Editor
+                </span>
+              </button>
             </nav>
           </div>
 
@@ -2445,6 +2472,18 @@ export default function AdminDashboard() {
                 <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 text-[10px] text-emerald-800 font-mono font-bold">
                   {coursesCount}
                 </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab("schedule")}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                  activeTab === "schedule"
+                    ? "bg-white text-slate-900 shadow-xs font-extrabold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <Clock size={15} />
+                <span>Class Timetable</span>
               </button>
 
               <button
@@ -4030,6 +4069,13 @@ export default function AdminDashboard() {
           {activeTab === "courses" && (
             <div className="space-y-6 animate-in fade-in duration-200">
               <CourseManager />
+            </div>
+          )}
+
+          {/* ==================== TAB SCHEDULE: CLASS TIMETABLE & GUIDELINES MANAGEMENT ==================== */}
+          {activeTab === "schedule" && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              <ScheduleManager />
             </div>
           )}
 
