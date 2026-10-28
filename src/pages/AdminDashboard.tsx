@@ -3103,23 +3103,25 @@ export default function AdminDashboard() {
 
                             {/* Payment / Fee Status */}
                             <td className="px-4 py-3.5">
-                              {adm.amount && Number(adm.amount) > 0 ? (
+                              {adm.payment_id && adm.payment_id.trim().length > 0 ? (
                                 <div className="space-y-1">
                                   <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-md font-bold text-[11px]">
                                     <CheckCircle2 size={12} className="text-emerald-600 shrink-0" />
-                                    <span>₹{Number(adm.amount).toLocaleString("en-IN")} Paid</span>
+                                    <span>₹{Number(adm.amount || 0).toLocaleString("en-IN")} Paid</span>
                                   </span>
-                                  <div className="text-[10px] text-stone-400 font-mono truncate max-w-[150px]" title={adm.payment_id || "Online / Razorpay"}>
-                                    Txn: {adm.payment_id || "Razorpay / Online"}
+                                  <div className="text-[10px] text-stone-400 font-mono truncate max-w-[150px]" title={adm.payment_id}>
+                                    Txn: {adm.payment_id}
                                   </div>
                                 </div>
                               ) : (
                                 <div className="space-y-1">
-                                  <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-md font-medium text-[11px]">
-                                    <Clock size={12} className="text-amber-600 shrink-0" />
-                                    <span>Unpaid / ₹0</span>
+                                  <span className="inline-flex items-center gap-1 bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-md font-bold text-[11px]">
+                                    <XCircle size={12} className="text-rose-600 shrink-0" />
+                                    <span>Payment Unpaid / ₹0</span>
                                   </span>
-                                  <div className="text-[10px] text-stone-400">Payment Pending</div>
+                                  <div className="text-[10px] text-amber-700 font-medium">
+                                    Pending Fee: ₹{Number(adm.amount || 0).toLocaleString("en-IN")}
+                                  </div>
                                 </div>
                               )}
                             </td>
@@ -4128,10 +4130,17 @@ export default function AdminDashboard() {
                             </span>
                           )}
                         </div>
-                        <div className="text-xs text-emerald-700 font-bold flex items-center gap-1">
-                          <CheckCircle2 size={13} />
-                          <span>Fee: ₹{selectedAdmission.amount || 100} Paid</span>
-                        </div>
+                        {selectedAdmission.payment_id && selectedAdmission.payment_id.trim().length > 0 ? (
+                          <div className="text-xs text-emerald-700 font-bold flex items-center gap-1">
+                            <CheckCircle2 size={13} />
+                            <span>Fee: ₹{Number(selectedAdmission.amount || 0).toLocaleString("en-IN")} Paid</span>
+                          </div>
+                        ) : (
+                          <div className="text-xs text-rose-600 font-bold flex items-center gap-1">
+                            <XCircle size={13} />
+                            <span>Fee: ₹{Number(selectedAdmission.amount || 0).toLocaleString("en-IN")} Unpaid / Pending</span>
+                          </div>
+                        )}
                       </div>
                     );
                   })()}

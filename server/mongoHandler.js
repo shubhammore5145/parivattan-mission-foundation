@@ -108,8 +108,12 @@ export async function createAdmissionInMongo(admissionData) {
       ? String(admissionData.id).trim()
       : `adm_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
 
+  const hasPayment = Boolean(admissionData.payment_id && String(admissionData.payment_id).trim().length > 0);
+  const resolvedStatus = hasPayment ? (admissionData.status || "completed") : "pending";
+
   const record = {
     ...admissionData,
+    status: resolvedStatus,
     id: finalId,
     created_at: admissionData.created_at || new Date().toISOString(),
     _createdAt: new Date(),

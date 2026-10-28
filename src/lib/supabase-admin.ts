@@ -195,8 +195,13 @@ export const createAdmission = async (
       ? admissionData.id
       : generateUUID();
 
+  // If no valid payment_id is provided, automatically mark status as "pending"
+  const hasPayment = Boolean(admissionData.payment_id && admissionData.payment_id.trim().length > 0);
+  const resolvedStatus = hasPayment ? (admissionData.status || "completed") : "pending";
+
   const newAdmission: Admission = {
     ...admissionData,
+    status: resolvedStatus,
     id: finalId,
     created_at: new Date().toISOString(),
   };
