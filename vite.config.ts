@@ -5,6 +5,7 @@ import { componentTagger } from "lovable-tagger";
 import { handleSendEmail } from "./server/emailHandler.js";
 import { handleAdmissionsRequest } from "./server/mongoHandler.js";
 import { handleSubscriptionsRequest } from "./server/subscriptionHandler.js";
+import { handleVisitorsRequest } from "./server/visitorHandler.js";
 import { emailRateLimiter } from "./server/rateLimiter.js";
 
 function backendDevServerPlugin(): Plugin {
@@ -77,6 +78,33 @@ function backendDevServerPlugin(): Plugin {
           res.statusCode = 500;
           res.end(JSON.stringify({ success: false, error: err?.message || "Failed to fetch subscriptions" }));
         }
+      });
+
+      // 4. Visitors & Footprint analytics service
+      server.middlewares.use("/api/visitors", async (req: any, res: any) => {
+        let raw = "";
+        req.on("data", (chunk: any) => {
+          raw += chunk;
+        });
+        req.on("end", async () => {
+          try {
+            if (raw) {
+              try {
+                req.body = JSON.parse(raw);
+              } catch {
+                req.body = raw;
+              }
+            } else {
+              req.body = {};
+            }
+            await handleVisitorsRequest(req, res);
+          } catch (err: any) {
+            console.error("[VisitorsDevServer] Error:", err);
+            res.setHeader("Content-Type", "application/json");
+            res.statusCode = 500;
+            res.end(JSON.stringify({ success: false, error: err?.message || "Failed to process visitors" }));
+          }
+        });
       });
     },
   };

@@ -23,8 +23,6 @@ import {
   GraduationCap,
   Bell,
   BookOpen,
-  Search,
-  X,
   ChevronDown,
   ChevronUp,
   PhoneCall,
@@ -48,12 +46,6 @@ export default function CoursesPage() {
     return () => window.removeEventListener("courses-updated", handleCoursesUpdate);
   }, []);
 
-  // Search and Category Filter
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<
-    "all" | "languages" | "upcoming"
-  >("all");
-
   // Modal state for language course details
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<LanguageCourse | null>(null);
@@ -62,36 +54,9 @@ export default function CoursesPage() {
   // FAQ Accordion State
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
-  // Filtered Language Courses
-  const filteredLanguages = useMemo(() => {
-    if (selectedCategory === "upcoming") return [];
-    const q = searchQuery.toLowerCase().trim();
-    if (!q) return coursesList;
-    return coursesList.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.nativeName.toLowerCase().includes(q) ||
-        c.shortDesc.toLowerCase().includes(q) ||
-        c.levelsSummary.toLowerCase().includes(q) ||
-        c.levels.some((lvl) => lvl.level.toLowerCase().includes(q))
-    );
-  }, [searchQuery, selectedCategory, coursesList]);
-
-  // Filtered Upcoming Courses
-  const filteredUpcoming = useMemo(() => {
-    if (selectedCategory === "languages") return [];
-    const q = searchQuery.toLowerCase().trim();
-    if (!q) return UPCOMING_COURSES;
-    return UPCOMING_COURSES.filter(
-      (u) =>
-        u.name.toLowerCase().includes(q) ||
-        u.nativeName.toLowerCase().includes(q) ||
-        u.description.toLowerCase().includes(q) ||
-        u.country.toLowerCase().includes(q) ||
-        u.targetExam.toLowerCase().includes(q)
-    );
-  }, [searchQuery, selectedCategory]);
-
+  // Language & Upcoming Courses Lists
+  const filteredLanguages = coursesList;
+  const filteredUpcoming = UPCOMING_COURSES;
   const totalResultsCount = filteredLanguages.length + filteredUpcoming.length;
 
   // Handlers
@@ -281,90 +246,6 @@ export default function CoursesPage() {
                 </p>
               </div>
             </div>
-          </div>
-        </section>
-
-        {/* ========================================================= */}
-        {/* INTERACTIVE SEARCH & CATEGORY FILTER BAR                  */}
-        {/* ========================================================= */}
-        <section className="px-4 pt-6 pb-4 max-w-6xl mx-auto sticky top-20 z-30">
-          <div className="rounded-2xl border border-[#e2e5dc] bg-white/95 backdrop-blur-md p-3 sm:p-4 shadow-md flex flex-col md:flex-row items-center justify-between gap-3">
-            {/* Search Input Box */}
-            <div className="relative w-full md:w-80 flex items-center">
-              <Search
-                size={16}
-                className="absolute left-3.5 text-[#65706a] pointer-events-none"
-              />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search courses, exams (JLPT, Python, Goethe)..."
-                className="w-full rounded-xl bg-[#fbfaf7] border border-[#e2e5dc] pl-9 pr-8 py-2 text-xs sm:text-sm text-[#24312d] placeholder:text-[#88938d] focus:outline-none focus:ring-2 focus:ring-[#b5623b]"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-2.5 text-gray-400 hover:text-gray-600"
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-
-            {/* Category Filter Pills */}
-            <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto">
-              <button
-                type="button"
-                onClick={() => setSelectedCategory("all")}
-                className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
-                  selectedCategory === "all"
-                    ? "bg-[#24312d] text-white shadow-xs"
-                    : "bg-[#fbfaf7] text-[#65706a] border border-[#e2e5dc] hover:text-[#24312d]"
-                }`}
-              >
-                All Programs (7)
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedCategory("languages")}
-                className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
-                  selectedCategory === "languages"
-                    ? "bg-[#b5623b] text-white shadow-xs"
-                    : "bg-[#fbfaf7] text-[#65706a] border border-[#e2e5dc] hover:text-[#24312d]"
-                }`}
-              >
-                Languages (4)
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedCategory("upcoming")}
-                className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition cursor-pointer ${
-                  selectedCategory === "upcoming"
-                    ? "bg-amber-600 text-white shadow-xs"
-                    : "bg-[#fbfaf7] text-[#65706a] border border-[#e2e5dc] hover:text-[#24312d]"
-                }`}
-              >
-                Upcoming 2026 (3)
-              </button>
-            </div>
-          </div>
-
-          {/* Results summary indicator */}
-          <div className="px-2 pt-2 flex items-center justify-between text-xs text-[#65706a]">
-            <span>
-              Showing <strong>{totalResultsCount}</strong> course programs
-              {searchQuery ? ` matching "${searchQuery}"` : ""}
-            </span>
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="text-[#b5623b] hover:underline font-semibold"
-              >
-                Reset search
-              </button>
-            )}
           </div>
         </section>
 
