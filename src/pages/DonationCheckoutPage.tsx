@@ -792,11 +792,11 @@ export default function DonationCheckoutPage() {
                   </div>
 
                   {/* QR Image Container */}
-                  <div className="mx-auto max-w-[210px] sm:max-w-[230px] p-3 rounded-2xl bg-[#faf9f5] border-2 border-dashed border-[#5f259f]/30 shadow-xs">
+                  <div className="mx-auto w-[210px] sm:w-[230px] p-3 rounded-2xl bg-white border-2 border-dashed border-[#5f259f]/30 shadow-xs">
                     <img
                       src="/img/phonepe-qr.png"
-                      alt="PhonePe Accepted Here QR - Parivattan Mission Foundation"
-                      className="w-full h-auto rounded-xl object-contain mx-auto"
+                      alt="UPI QR Code - Parivattan Mission Foundation"
+                      className="w-full h-auto aspect-square rounded-xl object-contain mx-auto"
                     />
                   </div>
 
