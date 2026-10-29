@@ -1,87 +1,17 @@
-import { supabase, isRealCourseAdmission } from "./supabase-admin";
+import { supabase, isRealCourseAdmission, getAllAdmissions } from "./supabase-admin";
 import { recalculateBatchSeatsFromAdmissions } from "@/data/languageCoursesData";
 
 export const SYSTEM_BATCH_OVERRIDES_ID = "00000000-0000-0000-0000-000000000001";
 
 /**
  * Synchronizes batch seat occupancy, student admissions, and admin capacity overrides
- * directly from Supabase cloud database across all devices and browsers.
+ * across all devices and browsers with MongoDB Atlas and cloud backup.
  */
 export const syncBatchSeatsFromCloud = async (): Promise<void> => {
   try {
-    const { data, error } = await supabase
-      .from("admissions")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.warn("Notice syncing admissions from cloud:", error.message);
-      return;
-    }
-
-    if (Array.isArray(data)) {
-      // 1. Process cloud admin capacity overrides if present
-      const sysRow = data.find(
-        (r) =>
-          r.id === SYSTEM_BATCH_OVERRIDES_ID ||
-          r.program === "SYSTEM_BATCH_SETTINGS" ||
-          r.name === "SYSTEM_BATCH_OVERRIDES"
-      );
-
-      if (sysRow && sysRow.message) {
-        try {
-          const cloudOverrides = JSON.parse(sysRow.message);
-          if (cloudOverrides && typeof cloudOverrides === "object") {
-            const localOverrides = JSON.parse(
-              localStorage.getItem("parivattan_admin_batch_overrides") || "{}"
-            );
-            const merged = { ...cloudOverrides, ...localOverrides };
-            localStorage.setItem(
-              "parivattan_admin_batch_overrides",
-              JSON.stringify(merged)
-            );
-          }
-        } catch (e) {
-          console.warn("Could not parse cloud batch overrides:", e);
-        }
-      }
-
-      // Process cloud custom courses if present
-      const coursesRow = data.find(
-        (r) =>
-          r.id === "00000000-0000-0000-0000-000000000002" ||
-          r.program === "SYSTEM_CUSTOM_COURSES" ||
-          r.name === "SYSTEM_CUSTOM_COURSES"
-      );
-      if (coursesRow && coursesRow.message) {
-        try {
-          const parsedCourses = JSON.parse(coursesRow.message);
-          if (Array.isArray(parsedCourses) && parsedCourses.length > 0) {
-            localStorage.setItem("parivattan_custom_courses", JSON.stringify(parsedCourses));
-            if (typeof window !== "undefined") {
-              window.dispatchEvent(new Event("courses-updated"));
-            }
-          }
-        } catch (e) {
-          console.warn("Could not parse cloud custom courses:", e);
-        }
-      }
-
-      // 2. Filter out non-course admissions (e.g. system configs, portal account signups)
-      const realAdmissions = data.filter(isRealCourseAdmission);
-
-      // 3. Cache real admissions in localStorage for instant offline access
-      try {
-        localStorage.setItem(
-          "parivattan_admissions",
-          JSON.stringify(realAdmissions)
-        );
-      } catch {}
-
-      // 4. Recalculate batch intake map across all batches
+    const realAdmissions = await getAllAdmissions();
+    if (Array.isArray(realAdmissions) && realAdmissions.length > 0) {
       recalculateBatchSeatsFromAdmissions(realAdmissions);
-
-      // 5. Notify all components
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("batch-seats-updated"));
       }
@@ -149,7 +79,14 @@ export const initBatchSeatsRealtimeSync = (): (() => void) => {
           syncBatchSeatsFromCloud();
         }
       )
-      .subscribe();
+      .subscribe((status: string) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          // Prevent infinite reconnect WebSocket loops when Supabase is quota-limited (402)
+          try {
+            channel?.unsubscribe();
+          } catch {}
+        }
+      });
   } catch (e) {
     console.warn("Could not attach realtime batch seats subscription:", e);
   }

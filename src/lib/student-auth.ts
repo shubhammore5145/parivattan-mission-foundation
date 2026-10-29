@@ -238,7 +238,7 @@ export const fetchRegisteredStudentsFromCloud = async (forceFresh = false): Prom
     const fetchMongo = async () => {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
         const res = await fetch("/api/admissions", { signal: controller.signal });
         clearTimeout(timeoutId);
         if (res.ok) {
@@ -262,9 +262,7 @@ export const fetchRegisteredStudentsFromCloud = async (forceFresh = false): Prom
         if (!error && Array.isArray(data)) {
           parseRows(data);
         }
-      } catch (err) {
-        console.warn("[CloudFetch] Could not fetch students from Supabase:", err);
-      }
+      } catch {}
     };
 
     await Promise.allSettled([fetchMongo(), fetchSupabase()]);
@@ -278,11 +276,15 @@ export const fetchRegisteredStudentsFromCloud = async (forceFresh = false): Prom
       if (s.id === "std_demo_101" || s.prn === "PMF2026-8842") continue;
       const cleanPrn = (s.prn || "").toLowerCase().trim();
       const cleanEmail = (s.email || "").toLowerCase().trim();
-      if ((cleanPrn && seenPrns.has(cleanPrn)) || (cleanEmail && seenEmails.has(cleanEmail))) {
-        continue; // Skip duplicate student entry
+      const isOrgEmail = cleanEmail.includes("parivattan@") || cleanEmail.includes("shubhamvmore");
+      if (cleanPrn && seenPrns.has(cleanPrn)) {
+        continue; // Skip duplicate student entry by PRN
+      }
+      if (!isOrgEmail && cleanEmail && seenEmails.has(cleanEmail)) {
+        continue; // Skip duplicate student entry by personal Email
       }
       if (cleanPrn) seenPrns.add(cleanPrn);
-      if (cleanEmail) seenEmails.add(cleanEmail);
+      if (cleanEmail && !isOrgEmail) seenEmails.add(cleanEmail);
       uniqueList.push(s);
     }
 
@@ -1238,21 +1240,41 @@ export const fetchStudentApplicationsFromCloud = async (
   try {
     const cleanEmail = student.email.trim().toLowerCase();
     const cleanPhone = student.phone.replace(/\D/g, "");
+    const cleanName = student.name.trim().toLowerCase();
 
-    const { data: cloudRows, error } = await supabase
-      .from("admissions")
-      .select("*")
-      .or(`email.ilike.${cleanEmail},phone.eq.${cleanPhone}`);
+    // 1. Fetch admissions from MongoDB Atlas
+    let allAdms: any[] = [];
+    try {
+      const res = await fetch("/api/admissions");
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          allAdms = json.data;
+        }
+      }
+    } catch {}
 
-    if (error) {
-      console.warn("[CloudSync] Supabase admissions query notice:", error.message);
+    // Fallback to local admissions if API not available
+    if (allAdms.length === 0) {
+      try {
+        const rawLocal = localStorage.getItem("parivattan_admissions");
+        if (rawLocal) allAdms = JSON.parse(rawLocal);
+      } catch {}
     }
 
     const fetchedRecords: StudentAdmissionRecord[] = [];
-    if (cloudRows && cloudRows.length > 0) {
-      for (const row of cloudRows) {
-        if (row.program === "STUDENT_REGISTRATION") continue;
+    for (const row of allAdms) {
+      if (row.program === "STUDENT_REGISTRATION") continue;
+      const rowEmail = (row.email || "").trim().toLowerCase();
+      const rowPhone = (row.phone || "").replace(/\D/g, "");
+      const rowName = (row.name || "").trim().toLowerCase();
 
+      const isMatch =
+        (cleanEmail && rowEmail === cleanEmail) ||
+        (cleanPhone && rowPhone && (rowPhone.includes(cleanPhone) || cleanPhone.includes(rowPhone))) ||
+        (cleanName && rowName && cleanName === rowName);
+
+      if (isMatch) {
         const randomSuffix = Math.floor(10000 + Math.random() * 90000);
         fetchedRecords.push({
           id: row.id || `adm_${Date.now()}_${randomSuffix}`,
@@ -1287,7 +1309,7 @@ export const fetchStudentApplicationsFromCloud = async (
           paymentId: row.payment_id || `PAY-${row.id}`,
           paymentMethod: "razorpay",
           paymentDate: row.created_at || new Date().toISOString(),
-          status: "completed",
+          status: row.status || "completed",
           createdAt: row.created_at || new Date().toISOString(),
         });
       }

@@ -263,8 +263,7 @@ export const emailRateLimiter = createRateLimiter({
   windowMs: 5 * 60 * 1000, // 5 minutes
   max: 80,
   keyGenerator: getClientIdentifier,
-  message:
-    "ईमेल पाठवण्याची मर्यादा संपली आहे. कृपया काही मिनिटांनंतर पुन्हा प्रयत्न करा. (Too many email requests. Please try again after a few minutes.)",
+  message: "Too many email requests. Please try again after a few minutes.",
 });
 
 /**
@@ -277,8 +276,7 @@ export const admissionsCreateRateLimiter = createRateLimiter({
   windowMs: 5 * 60 * 1000, // 5 minutes
   max: 80,
   keyGenerator: getClientIdentifier,
-  message:
-    "ॲडमिशन अर्ज पाठवण्याची मर्यादा गाठली आहे. कृपया ५ मिनिटांनी पुन्हा प्रयत्न करा. (Too many admission applications submitted. Please try again after 5 minutes.)",
+  message: "Too many admission applications submitted. Please try again after 5 minutes.",
 });
 
 /**
@@ -289,7 +287,7 @@ export const admissionsReadRateLimiter = createRateLimiter({
   prefix: "admissions_read",
   windowMs: 60 * 1000, // 1 minute
   max: 300,
-  message: "विनंत्यांची मर्यादा गाठली आहे. कृपया १ मिनिट थांबा. (Too many requests. Please wait a minute.)",
+  message: "Too many requests. Please wait a minute.",
 });
 
 /**

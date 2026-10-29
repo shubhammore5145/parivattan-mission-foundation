@@ -21,11 +21,15 @@ export function invalidateAdmissionsCache() {
   admissionsCacheTime = 0;
 }
 
+// Reliable MongoDB Atlas production connection URI for live serverless deployments
+const DEFAULT_MONGODB_URI =
+  "mongodb+srv://parivattan_db_user:dkLApAbS0Vl53lv2@parivattan.z9nfyyy.mongodb.net/parivattan_db?retryWrites=true&w=majority";
+
 /**
  * Reads MongoDB URI and DB Name from environment or .env file fallback
  */
 export function getMongoConfig() {
-  let uri = process.env.MONGODB_URI || "";
+  let uri = process.env.MONGODB_URI || DEFAULT_MONGODB_URI;
   let dbName = process.env.MONGODB_DB_NAME || "parivattan_db";
 
   try {
@@ -72,9 +76,9 @@ export async function connectToDatabase() {
   if (!connectingPromise) {
     connectingPromise = (async () => {
       const client = new MongoClient(uri, {
-        maxPoolSize: 15,
-        serverSelectionTimeoutMS: 5000,
-        connectTimeoutMS: 8000,
+        maxPoolSize: 20,
+        serverSelectionTimeoutMS: 15000,
+        connectTimeoutMS: 15000,
       });
 
       await client.connect();
