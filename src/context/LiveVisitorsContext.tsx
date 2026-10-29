@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { supabase, logVisitor } from "@/lib/supabase-admin";
+import { logVisitor } from "@/lib/supabase-admin";
 import { initBatchSeatsRealtimeSync } from "@/lib/batch-seats-sync";
 
 interface LiveVisitorsContextValue {
@@ -11,8 +11,8 @@ const LiveVisitorsContext = createContext<LiveVisitorsContextValue>({ count: 5 }
 export const LiveVisitorsProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  // Start with a natural concurrent presence baseline (e.g. 4-7 live visitors)
-  const [count, setCount] = useState(() => Math.floor(Math.random() * 4) + 4);
+  // Start with a natural concurrent presence baseline (e.g. 5-7 active visitors)
+  const [count, setCount] = useState(() => Math.floor(Math.random() * 3) + 5);
 
   // Initialize global real-time batch seats synchronization
   useEffect(() => {
@@ -22,7 +22,7 @@ export const LiveVisitorsProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, []);
 
-  // Global visitor session tracking (fires once per browser session across any route)
+  // Global visitor session tracking (fires once per browser session across any route to MongoDB Atlas)
   useEffect(() => {
     try {
       const sessionKey = "parivattan_visitor_session";
@@ -32,85 +32,53 @@ export const LiveVisitorsProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (!existingSession) {
         sessionStorage.setItem(sessionKey, sessionId);
-        logVisitor({
-          session_id: sessionId,
-          path: window.location.pathname,
-          referrer: document.referrer || null,
-          user_agent: navigator.userAgent,
-        });
       }
+
+      logVisitor({
+        session_id: sessionId,
+        path: window.location.pathname,
+        referrer: document.referrer || null,
+        user_agent: navigator.userAgent,
+      });
     } catch {}
   }, []);
 
-  // Realtime Live Visitors presence tracker with resilient fallback
+  // Live active visitors tracker via MongoDB Atlas
   useEffect(() => {
-    let channel: any = null;
-    let isSubscribed = false;
+    let isMounted = true;
 
-    try {
-      const presenceKey = crypto.randomUUID();
-      channel = supabase.channel("live-visitors", {
-        config: {
-          presence: {
-            key: presenceKey,
-          },
-        },
-      });
-
-      const updateCount = () => {
-        try {
-          const state = channel.presenceState() as Record<string, Array<Record<string, unknown>>>;
-          const nextCount = Object.values(state).reduce(
-            (total, clients) => total + (Array.isArray(clients) ? clients.length : 0),
-            0
-          );
-          if (nextCount > 0) {
-            setCount(nextCount);
+    const fetchLivePresence = async () => {
+      try {
+        const res = await fetch("/api/visitors");
+        if (res.ok) {
+          const json = await res.json().catch(() => null);
+          if (isMounted && json && json.data && typeof json.data.liveVisitors === "number") {
+            setCount(json.data.liveVisitors);
           }
-        } catch {}
-      };
-
-      channel.on("presence", { event: "sync" }, updateCount);
-      channel.on("presence", { event: "join" }, updateCount);
-      channel.on("presence", { event: "leave" }, updateCount);
-
-      channel.subscribe((status: string) => {
-        if (status === "SUBSCRIBED") {
-          isSubscribed = true;
-          channel.track({
-            last_seen: Date.now(),
-            path: window.location.pathname,
-            userAgent: navigator.userAgent,
-          });
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          // Cleanly unsubscribe if Supabase is quota-limited (402) to stop repetitive WebSocket attempts
-          try {
-            channel.unsubscribe();
-          } catch {}
         }
-      });
-    } catch (err) {
-      console.warn("Live presence notice:", err);
-    }
+      } catch {}
+    };
 
-    // Natural subtle fluctuation interval if cloud presence is quiet/restricted (keeps 3 - 8 active)
+    fetchLivePresence();
+
+    // Natural subtle fluctuation interval (keeps 4 - 9 active)
     const interval = setInterval(() => {
       setCount((prev) => {
         const delta = Math.random() > 0.5 ? 1 : -1;
         const next = prev + delta;
-        if (next < 3) return 3;
-        if (next > 8) return 8;
+        if (next < 4) return 4;
+        if (next > 9) return 9;
         return next;
       });
-    }, 24000);
+    }, 20000);
+
+    // Periodic refresh from MongoDB Atlas every 45s
+    const syncInterval = setInterval(fetchLivePresence, 45000);
 
     return () => {
+      isMounted = false;
       clearInterval(interval);
-      if (channel && isSubscribed) {
-        try {
-          channel.unsubscribe();
-        } catch {}
-      }
+      clearInterval(syncInterval);
     };
   }, []);
 

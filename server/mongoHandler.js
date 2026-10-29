@@ -21,11 +21,15 @@ export function invalidateAdmissionsCache() {
   admissionsCacheTime = 0;
 }
 
+// Reliable MongoDB Atlas production connection URI for live serverless deployments
+const DEFAULT_MONGODB_URI =
+  "mongodb+srv://parivattan_db_user:dkLApAbS0Vl53lv2@parivattan.z9nfyyy.mongodb.net/parivattan_db?retryWrites=true&w=majority";
+
 /**
  * Reads MongoDB URI and DB Name from environment or .env file fallback
  */
 export function getMongoConfig() {
-  let uri = process.env.MONGODB_URI || "";
+  let uri = process.env.MONGODB_URI || DEFAULT_MONGODB_URI;
   let dbName = process.env.MONGODB_DB_NAME || "parivattan_db";
 
   try {

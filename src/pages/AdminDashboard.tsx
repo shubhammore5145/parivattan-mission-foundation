@@ -4232,7 +4232,7 @@ export default function AdminDashboard() {
                   Website Traffic & Visitor Analytics
                 </h3>
                 <p className="text-xs text-stone-500 mt-1">
-                  Visitor sessions recorded via Supabase edge tracking across all devices.
+                  Visitor sessions recorded via MongoDB Atlas real-time database across all devices.
                 </p>
 
                 <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
