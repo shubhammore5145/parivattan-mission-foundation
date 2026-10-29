@@ -102,6 +102,7 @@ import {
   createAdmission,
   Admission,
   isRealCourseAdmission,
+  isSystemConfigRow,
   checkMongoStatus,
 } from "@/lib/supabase-admin";
 import { sendCourseAdmissionEmail } from "@/lib/courseEmailService";
@@ -272,6 +273,7 @@ export default function AdminDashboard() {
     email: "",
     phone: "",
     gender: "Male",
+    dob: "",
     batchId: "jp-n5-morning",
     program: "Japanese Language (N5) - N5 (Basic) – Morning Batch",
     batchPreference: "N5 (Basic) – Morning Batch",
@@ -444,13 +446,57 @@ export default function AdminDashboard() {
     }
   };
 
-  const loadAdmissions = async () => {
+  const loadAdmissions = async (showToast = false) => {
     try {
-      if (admissions.length === 0) setAdmissionsLoading(true);
+      setAdmissionsLoading(true);
       checkMongoStatus().then(setMongoStatus).catch(() => {});
-      const data = await getAllAdmissions(true);
-      const realCourseAdmissions = data.filter(isRealCourseAdmission);
-      setAdmissions(realCourseAdmissions);
+
+      let data: any[] = [];
+
+      // 1. Direct MongoDB fetch (always freshest & fastest from Atlas)
+      try {
+        const directRes = await fetch("/api/admissions");
+        if (directRes.ok) {
+          const json = await directRes.json();
+          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+            data = json.data;
+          }
+        }
+      } catch (directErr) {
+        console.warn("[AdminDashboard] Direct /api/admissions fetch notice:", directErr);
+      }
+
+      // 2. Fallback to getAllAdmissions if direct fetch was empty
+      if (data.length === 0) {
+        data = await getAllAdmissions(true);
+      }
+
+      // Strict requirement: ONLY genuine course admissions (students who enrolled in a course).
+      // Any student who only registered an account without course enrollment is strictly excluded!
+      const realAdmissions = data.filter(isRealCourseAdmission);
+      if (realAdmissions.length > 0) {
+        setAdmissions(realAdmissions);
+        try {
+          localStorage.setItem("parivattan_admissions", JSON.stringify(realAdmissions));
+        } catch {}
+        loadBatchSeats();
+        if (showToast) {
+          toast.success(`Loaded ${realAdmissions.length} verified course admissions from database`);
+        }
+      } else {
+        // Fallback to local storage if network momentarily failed
+        try {
+          const stored = localStorage.getItem("parivattan_admissions");
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setAdmissions(parsed.filter(isRealCourseAdmission));
+              loadBatchSeats();
+              return;
+            }
+          }
+        } catch {}
+      }
     } catch (err) {
       console.error("Error loading admissions:", err);
     } finally {
@@ -566,6 +612,9 @@ export default function AdminDashboard() {
   }, [batchSeatsList]);
 
   const filteredAdmissions = admissions.filter((a) => {
+    // Strictly course admissions only
+    if (!isRealCourseAdmission(a)) return false;
+
     // Search query filter
     const matchesSearch =
       !admissionsSearch.trim() ||
@@ -575,7 +624,8 @@ export default function AdminDashboard() {
       a.address?.toLowerCase().includes(admissionsSearch.toLowerCase()) ||
       a.id?.toLowerCase().includes(admissionsSearch.toLowerCase()) ||
       a.email?.toLowerCase().includes(admissionsSearch.toLowerCase()) ||
-      a.phone?.toLowerCase().includes(admissionsSearch.toLowerCase());
+      a.phone?.toLowerCase().includes(admissionsSearch.toLowerCase()) ||
+      Boolean(a.message && a.message.toLowerCase().includes(admissionsSearch.toLowerCase()));
 
     const bDetails = getAdmissionBatchDetails(a);
 
@@ -802,10 +852,20 @@ export default function AdminDashboard() {
         (a.message && student.prn && a.message.includes(student.prn))
     );
 
+    const resolvedDob =
+      student.dob ||
+      (student as any).date_of_birth ||
+      matchAdm?.dob ||
+      (matchAdm as any)?.date_of_birth ||
+      matchAdm?.message?.match(/DOB:\s*([0-9\-/]+)/i)?.[1]?.trim() ||
+      "";
+
     setStudentFormData({
       id: student.id,
       prn: student.prn || "",
       name: student.name || "",
+      dob: resolvedDob,
+      gender: student.gender || matchAdm?.gender || "",
       email: student.email || "",
       phone: student.phone || "",
       city: student.city || "Pune",
@@ -840,6 +900,8 @@ export default function AdminDashboard() {
         id: editingStudent.id,
         prn: studentFormData.prn?.trim() || editingStudent.prn,
         name: studentFormData.name?.trim() || editingStudent.name,
+        dob: studentFormData.dob?.trim() || editingStudent.dob,
+        gender: studentFormData.gender || editingStudent.gender,
         email: studentFormData.email?.trim() || editingStudent.email,
         phone: studentFormData.phone?.trim() || editingStudent.phone,
         city: studentFormData.city?.trim() || "Pune",
@@ -847,6 +909,33 @@ export default function AdminDashboard() {
       };
 
       await updateRegisteredStudent(updated);
+
+      // If matching admission exists, sync DOB and gender to admission as well
+      if (studentFormData.dob) {
+        const matchAdm = admissions.find(
+          (a) =>
+            (a.email && updated.email && a.email.toLowerCase() === updated.email.toLowerCase()) ||
+            (a.phone && updated.phone && a.phone.replace(/\D/g, "") === updated.phone.replace(/\D/g, "")) ||
+            (a.message && updated.prn && a.message.includes(updated.prn))
+        );
+        if (matchAdm) {
+          try {
+            await updateAdmission(matchAdm.id, {
+              dob: studentFormData.dob,
+              gender: studentFormData.gender || matchAdm.gender,
+            });
+            setAdmissions((prev) =>
+              prev.map((a) =>
+                a.id === matchAdm.id
+                  ? { ...a, dob: studentFormData.dob, gender: studentFormData.gender || a.gender }
+                  : a
+              )
+            );
+          } catch (admSyncErr) {
+            console.warn("Could not sync admission DOB from student edit:", admSyncErr);
+          }
+        }
+      }
 
       setStudents((prev) =>
         prev.map((s) => (s.id === updated.id || s.prn === updated.prn ? updated : s))
@@ -856,7 +945,7 @@ export default function AdminDashboard() {
         setSelectedStudent(updated);
       }
 
-      toast.success(`Student profile & documents for "${updated.name}" updated successfully!`);
+      toast.success(`Student profile & details for "${updated.name}" updated successfully!`);
       setEditingStudent(null);
     } catch (err: any) {
       console.error("Error updating student:", err);
@@ -880,11 +969,21 @@ export default function AdminDashboard() {
         (admission.message && s.prn && admission.message.includes(s.prn))
     );
 
+    const resolvedDob =
+      admission.dob ||
+      (admission as any).date_of_birth ||
+      (admission as any).dateOfBirth ||
+      admission.message?.match(/DOB:\s*([0-9\-/]+)/i)?.[1]?.trim() ||
+      matchStd?.dob ||
+      (matchStd as any)?.date_of_birth ||
+      "";
+
     setAdmissionFormData({
       name: admission.name || "",
+      dob: resolvedDob,
       email: admission.email || "",
       phone: admission.phone || "",
-      gender: admission.gender || "",
+      gender: admission.gender || matchStd?.gender || "",
       program: admission.program || "",
       batch_id: resolvedBatchId,
       batchId: resolvedBatchId,
@@ -919,16 +1018,42 @@ export default function AdminDashboard() {
     setIsSavingAdmission(true);
     try {
       const finalBatchId = admissionFormData.batch_id || admissionFormData.batchId || "";
-      await updateAdmission(editingAdmission.id, {
+      const updatedData: Partial<Admission> = {
         ...admissionFormData,
+        dob: admissionFormData.dob || "",
         batch_id: finalBatchId,
         batchId: finalBatchId,
-      });
+      };
+
+      await updateAdmission(editingAdmission.id, updatedData);
+
+      // Sync DOB with registered student profile if present
+      const matchStd = students.find(
+        (s) =>
+          (s.email && editingAdmission.email && s.email.toLowerCase() === editingAdmission.email.toLowerCase()) ||
+          (s.phone && editingAdmission.phone && s.phone.replace(/\D/g, "") === editingAdmission.phone.replace(/\D/g, "")) ||
+          (editingAdmission.message && s.prn && editingAdmission.message.includes(s.prn))
+      );
+      if (matchStd && admissionFormData.dob) {
+        try {
+          const updatedStd = {
+            ...matchStd,
+            dob: admissionFormData.dob,
+            gender: admissionFormData.gender || matchStd.gender,
+          };
+          await updateRegisteredStudent(updatedStd);
+          setStudents((prev) =>
+            prev.map((s) => (s.id === updatedStd.id || s.prn === updatedStd.prn ? updatedStd : s))
+          );
+        } catch (stdSyncErr) {
+          console.warn("Could not sync student profile DOB from admission edit:", stdSyncErr);
+        }
+      }
 
       setAdmissions((prev) =>
         prev.map((a) =>
           a.id === editingAdmission.id
-            ? { ...a, ...admissionFormData, batch_id: finalBatchId, batchId: finalBatchId }
+            ? { ...a, ...updatedData }
             : a
         )
       );
@@ -936,7 +1061,7 @@ export default function AdminDashboard() {
       if (selectedAdmission && selectedAdmission.id === editingAdmission.id) {
         setSelectedAdmission((prev) =>
           prev
-            ? { ...prev, ...admissionFormData, batch_id: finalBatchId, batchId: finalBatchId }
+            ? { ...prev, ...updatedData }
             : null
         );
       }
@@ -1053,6 +1178,8 @@ export default function AdminDashboard() {
       setNewAdmissionData((prev) => ({
         ...prev,
         name: student.name || "",
+        dob: student.dob || (student as any).date_of_birth || "",
+        gender: student.gender || "Male",
         email: student.email || "",
         phone: student.phone || "",
         prn: student.prn || "",
@@ -1071,6 +1198,7 @@ export default function AdminDashboard() {
       setSelectedStudentForAdmission("");
       setNewAdmissionData((prev) => ({
         ...prev,
+        dob: "",
         payment_id: `PAY_ADM_${Date.now().toString().slice(-6)}`,
       }));
     }
@@ -1084,6 +1212,8 @@ export default function AdminDashboard() {
       setNewAdmissionData((prev) => ({
         ...prev,
         name: found.name || prev.name,
+        dob: found.dob || (found as any).date_of_birth || prev.dob || "",
+        gender: found.gender || prev.gender || "Male",
         email: found.email || prev.email,
         phone: found.phone || prev.phone,
         prn: found.prn || prev.prn,
@@ -1129,6 +1259,7 @@ export default function AdminDashboard() {
 
       const admissionRecord = await createAdmission({
         name: newAdmissionData.name.trim(),
+        dob: newAdmissionData.dob.trim() || undefined,
         email: newAdmissionData.email.trim() || undefined,
         phone: newAdmissionData.phone.trim() || undefined,
         gender: newAdmissionData.gender,
@@ -1138,7 +1269,7 @@ export default function AdminDashboard() {
         current_address: newAdmissionData.address,
         permanent_address: newAdmissionData.address,
         program: newAdmissionData.program,
-        message: `PRN: ${finalPrn} | Batch: ${newAdmissionData.batchPreference} | Timing: ${newAdmissionData.timing} | Mode: ${newAdmissionData.payment_method} | Txn: ${paymentRef}`,
+        message: `PRN: ${finalPrn} | Batch: ${newAdmissionData.batchPreference} | Timing: ${newAdmissionData.timing}${newAdmissionData.dob ? ` | DOB: ${newAdmissionData.dob}` : ""} | Mode: ${newAdmissionData.payment_method} | Txn: ${paymentRef}`,
         amount: Number(newAdmissionData.amount) || 0,
         payment_id: paymentRef,
         batch_id: newAdmissionData.batchId,
@@ -1184,6 +1315,7 @@ export default function AdminDashboard() {
         email: "",
         phone: "",
         gender: "Male",
+        dob: "",
         batchId: "jp-n5-morning",
         program: "Japanese Language (N5) - N5 (Basic) – Morning Batch",
         batchPreference: "N5 (Basic) – Morning Batch",
@@ -1499,6 +1631,8 @@ export default function AdminDashboard() {
     const headers = [
       "Application ID",
       "Applicant Name",
+      "Date of Birth (DOB)",
+      "Gender",
       "Program",
       "Education",
       "College Name",
@@ -1507,17 +1641,32 @@ export default function AdminDashboard() {
       "Status",
       "Submitted Date",
     ];
-    const csvData = filteredAdmissions.map((a) => [
-      a.id,
-      `"${a.name || ""}"`,
-      `"${a.program || ""}"`,
-      `"${a.education || ""}"`,
-      `"${a.college_name || ""}"`,
-      `"${(a.address || "").replace(/\n/g, " ")}"`,
-      a.amount || 100,
-      a.status || "completed",
-      a.created_at ? new Date(a.created_at).toLocaleDateString("en-IN") : "",
-    ]);
+    const csvData = filteredAdmissions.map((a) => {
+      const matchStd = students.find(
+        (s) =>
+          (s.email && a.email && s.email.toLowerCase() === a.email.toLowerCase()) ||
+          (s.phone && a.phone && s.phone.replace(/\D/g, "") === a.phone.replace(/\D/g, ""))
+      );
+      const dobVal =
+        a.dob ||
+        (a as any).date_of_birth ||
+        a.message?.match(/DOB:\s*([0-9\-/]+)/i)?.[1]?.trim() ||
+        matchStd?.dob ||
+        "";
+      return [
+        a.id,
+        `"${a.name || ""}"`,
+        `"${dobVal}"`,
+        `"${a.gender || matchStd?.gender || ""}"`,
+        `"${a.program || ""}"`,
+        `"${a.education || ""}"`,
+        `"${a.college_name || ""}"`,
+        `"${(a.address || "").replace(/\n/g, " ")}"`,
+        a.amount || 100,
+        a.status || "completed",
+        a.created_at ? new Date(a.created_at).toLocaleDateString("en-IN") : "",
+      ];
+    });
     const csvContent = [headers.join(","), ...csvData.map((r) => r.join(","))].join(
       "\n"
     );
@@ -1531,6 +1680,8 @@ export default function AdminDashboard() {
     const headers = [
       "Student PRN",
       "Full Name",
+      "Date of Birth (DOB)",
+      "Gender",
       "Email Address",
       "Phone Number",
       "City",
@@ -1540,6 +1691,8 @@ export default function AdminDashboard() {
     const csvData = filteredStudents.map((s) => [
       s.prn,
       `"${s.name}"`,
+      `"${s.dob || (s as any).date_of_birth || ""}"`,
+      `"${s.gender || ""}"`,
       s.email,
       s.phone,
       `"${s.city || ""}"`,
@@ -2922,6 +3075,21 @@ export default function AdminDashboard() {
 
               {/* Admissions Table Card */}
               <div className="rounded-3xl border border-stone-200/80 bg-white p-6 shadow-xs">
+                {/* Header with Title & Admissions Counter */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-100 mb-5">
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#b5623b]">
+                      Verified Course Admissions Directory
+                    </span>
+                    <h3 className="text-xl font-serif font-bold text-[#1b2b25] mt-1">
+                      Enrolled Student Admissions ({admissions.length})
+                    </h3>
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      Official verified records of students enrolled in Japanese, German, English, and French batches.
+                    </p>
+                  </div>
+                </div>
+
                 {/* Search & Filter Toolbar */}
                 <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3.5 mb-6">
                   {/* Search Input */}
@@ -3009,6 +3177,17 @@ export default function AdminDashboard() {
                       </button>
                     )}
 
+                    {/* Reload Live Data from Database */}
+                    <button
+                      onClick={() => loadAdmissions(true)}
+                      disabled={admissionsLoading}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-800 text-xs font-bold border border-blue-200 transition cursor-pointer disabled:opacity-50"
+                      title="Fetch live records directly from MongoDB Atlas"
+                    >
+                      <RotateCcw size={13} className={admissionsLoading ? "animate-spin text-blue-600" : ""} />
+                      <span>Reload Data ({admissions.length})</span>
+                    </button>
+
                     {/* Export CSV */}
                     <button
                       onClick={exportAdmissionsToCsv}
@@ -3065,7 +3244,20 @@ export default function AdminDashboard() {
                       <tbody className="divide-y divide-stone-100">
                         {filteredAdmissions.map((adm) => {
                           const prnMatch = adm.message?.match(/PRN:\s*([A-Za-z0-9-]+)/i);
-                          const studentPrn = prnMatch && prnMatch[1] ? prnMatch[1] : (adm.message?.match(/PMF2026-\d+/) ? adm.message.match(/PMF2026-\d+/)![0] : "");
+                          let studentPrn = prnMatch && prnMatch[1] ? prnMatch[1] : (adm.message?.match(/PMF2026-\d+/) ? adm.message.match(/PMF2026-\d+/)![0] : "");
+                          if (!studentPrn && adm.message && adm.message.trim().startsWith("{")) {
+                            try {
+                              const p = JSON.parse(adm.message);
+                              if (p.prn) studentPrn = p.prn;
+                            } catch {}
+                          }
+
+                          const matchStd = students.find(
+                            (s) =>
+                              (s.email && adm.email && s.email.toLowerCase() === adm.email.toLowerCase()) ||
+                              (s.phone && adm.phone && s.phone.replace(/\D/g, "") === adm.phone.replace(/\D/g, "")) ||
+                              (studentPrn && s.prn && s.prn === studentPrn)
+                          );
 
                           return (
                           <tr key={adm.id} className="hover:bg-stone-50/80 transition">
@@ -3107,6 +3299,19 @@ export default function AdminDashboard() {
                                       PRN: {studentPrn}
                                     </div>
                                   )}
+                                  {(() => {
+                                    const admDob =
+                                      adm.dob ||
+                                      (adm as any).date_of_birth ||
+                                      adm.message?.match(/DOB:\s*([0-9\-/]+)/i)?.[1]?.trim() ||
+                                      matchStd?.dob;
+                                    return admDob ? (
+                                      <div className="text-[10px] text-amber-800 flex items-center gap-1 mt-0.5 font-medium" title={`Date of Birth: ${admDob}`}>
+                                        <Calendar size={10} className="text-[#b5623b]" />
+                                        <span>DOB: {admDob}</span>
+                                      </div>
+                                    ) : null;
+                                  })()}
                                 </div>
                               </div>
                             </td>
@@ -3142,7 +3347,7 @@ export default function AdminDashboard() {
                             {/* Education */}
                             <td className="px-4 py-3.5">
                               <span className="inline-block bg-blue-50 text-blue-700 font-semibold px-2 py-0.5 rounded-md text-[11px] mb-1">
-                                {adm.education || "N/A"}
+                                {adm.education || "Student"}
                               </span>
                               <div className="text-stone-500 text-[11px] truncate max-w-[170px]" title={adm.college_name}>
                                 {adm.college_name || "N/A"}
@@ -3531,6 +3736,12 @@ export default function AdminDashboard() {
                                   <Phone size={12} className="text-stone-400" />
                                   <span>{s.phone}</span>
                                 </div>
+                                {s.dob && (
+                                  <div className="flex items-center gap-1.5 text-emerald-800 font-medium">
+                                    <Calendar size={12} className="text-emerald-600" />
+                                    <span>DOB: {s.dob}</span>
+                                  </div>
+                                )}
                               </td>
 
                               {/* Location */}
@@ -4293,16 +4504,34 @@ export default function AdminDashboard() {
                 )}
               </div>
 
-              {/* Education & College */}
-              <div className="grid grid-cols-2 gap-4 text-xs">
+              {/* Personal & Academic Details: DOB, Gender, Education, College */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                 <div className="rounded-xl border border-stone-200 p-3.5 bg-stone-50/50">
-                  <span className="text-stone-400 block font-bold uppercase">Education</span>
+                  <span className="text-stone-400 block font-bold uppercase text-[10px] flex items-center gap-1">
+                    <Calendar size={11} className="text-[#b5623b]" /> Date of Birth (DOB)
+                  </span>
+                  <span className="font-semibold text-stone-800 text-sm mt-0.5 block">
+                    {selectedAdmission.dob ||
+                      (selectedAdmission as any).date_of_birth ||
+                      selectedAdmission.message?.match(/DOB:\s*([0-9\-/]+)/i)?.[1]?.trim() ||
+                      students.find(s => (s.email && s.email.toLowerCase() === selectedAdmission.email?.toLowerCase()) || (s.phone && s.phone === selectedAdmission.phone))?.dob ||
+                      "Not specified"}
+                  </span>
+                </div>
+                <div className="rounded-xl border border-stone-200 p-3.5 bg-stone-50/50">
+                  <span className="text-stone-400 block font-bold uppercase text-[10px]">Gender</span>
+                  <span className="font-semibold text-stone-800 text-sm mt-0.5 block">
+                    {selectedAdmission.gender || "Not specified"}
+                  </span>
+                </div>
+                <div className="rounded-xl border border-stone-200 p-3.5 bg-stone-50/50">
+                  <span className="text-stone-400 block font-bold uppercase text-[10px]">Education</span>
                   <span className="font-semibold text-stone-800 text-sm mt-0.5 block">
                     {selectedAdmission.education || "N/A"}
                   </span>
                 </div>
                 <div className="rounded-xl border border-stone-200 p-3.5 bg-stone-50/50">
-                  <span className="text-stone-400 block font-bold uppercase">College Name</span>
+                  <span className="text-stone-400 block font-bold uppercase text-[10px]">College Name</span>
                   <span className="font-semibold text-stone-800 text-sm mt-0.5 block">
                     {selectedAdmission.college_name || "N/A"}
                   </span>
@@ -4572,6 +4801,20 @@ export default function AdminDashboard() {
                   <a href={`tel:${selectedStudent.phone}`} className="font-semibold text-stone-800">
                     {selectedStudent.phone}
                   </a>
+                </div>
+                <div>
+                  <span className="text-stone-400 block font-bold flex items-center gap-1">
+                    <Calendar size={11} className="text-emerald-700" /> Date of Birth (DOB)
+                  </span>
+                  <span className="font-semibold text-stone-800">
+                    {selectedStudent.dob || (selectedStudent as any).date_of_birth || "Not specified"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-stone-400 block font-bold">Gender</span>
+                  <span className="font-semibold text-stone-800">
+                    {selectedStudent.gender || "Not specified"}
+                  </span>
                 </div>
                 <div>
                   <span className="text-stone-400 block font-bold">Location</span>
@@ -4939,6 +5182,40 @@ export default function AdminDashboard() {
                       className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900 font-mono"
                       placeholder="10-digit mobile number"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1 flex items-center gap-1.5">
+                      <Calendar size={13} className="text-[#b5623b]" />
+                      Date of Birth (DOB)
+                    </label>
+                    <input
+                      type="date"
+                      value={studentFormData.dob || ""}
+                      onChange={(e) =>
+                        setStudentFormData({ ...studentFormData, dob: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1">
+                      Gender
+                    </label>
+                    <select
+                      value={studentFormData.gender || ""}
+                      onChange={(e) =>
+                        setStudentFormData({ ...studentFormData, gender: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900"
+                    >
+                      <option value="">Select Gender</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                      <option value="Prefer not to say">Prefer not to say</option>
+                    </select>
                   </div>
 
                   <div>
@@ -5813,6 +6090,21 @@ export default function AdminDashboard() {
                       <option value="Other">Other</option>
                       <option value="Prefer not to say">Prefer not to say</option>
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1 flex items-center gap-1.5">
+                      <Calendar size={13} className="text-[#b5623b]" />
+                      Date of Birth (DOB)
+                    </label>
+                    <input
+                      type="date"
+                      value={admissionFormData.dob || ""}
+                      onChange={(e) =>
+                        setAdmissionFormData({ ...admissionFormData, dob: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900"
+                    />
                   </div>
                 </div>
               </div>
@@ -6719,6 +7011,21 @@ export default function AdminDashboard() {
                       <option value="Female">Female</option>
                       <option value="Other">Other</option>
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-stone-700 mb-1 flex items-center gap-1.5">
+                      <Calendar size={13} className="text-[#b5623b]" />
+                      Date of Birth (DOB)
+                    </label>
+                    <input
+                      type="date"
+                      value={newAdmissionData.dob || ""}
+                      onChange={(e) =>
+                        setNewAdmissionData({ ...newAdmissionData, dob: e.target.value })
+                      }
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 outline-none focus:border-[#b5623b] focus:bg-white text-stone-900"
+                    />
                   </div>
 
                   <div>

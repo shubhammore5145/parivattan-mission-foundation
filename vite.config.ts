@@ -43,29 +43,42 @@ function backendDevServerPlugin(): Plugin {
 
       // 2. Student admissions MongoDB service
       server.middlewares.use("/api/admissions", async (req: any, res: any) => {
-        let raw = "";
-        req.on("data", (chunk: any) => {
-          raw += chunk;
-        });
-        req.on("end", async () => {
-          try {
-            if (raw) {
-              try {
-                req.body = JSON.parse(raw);
-              } catch {
-                req.body = raw;
-              }
-            } else {
-              req.body = {};
-            }
+        try {
+          if (req.method === "GET" || req.method === "OPTIONS" || req.method === "HEAD") {
+            req.body = {};
             await handleAdmissionsRequest(req, res);
-          } catch (err: any) {
-            console.error("[AdmissionsDevServer] Error:", err);
-            res.setHeader("Content-Type", "application/json");
-            res.statusCode = 500;
-            res.end(JSON.stringify({ success: false, error: err?.message || "Failed to process admission" }));
+            return;
           }
-        });
+
+          let raw = "";
+          req.on("data", (chunk: any) => {
+            raw += chunk;
+          });
+          req.on("end", async () => {
+            try {
+              if (raw) {
+                try {
+                  req.body = JSON.parse(raw);
+                } catch {
+                  req.body = raw;
+                }
+              } else {
+                req.body = {};
+              }
+              await handleAdmissionsRequest(req, res);
+            } catch (err: any) {
+              console.error("[AdmissionsDevServer] Error:", err);
+              res.setHeader("Content-Type", "application/json");
+              res.statusCode = 500;
+              res.end(JSON.stringify({ success: false, error: err?.message || "Failed to process admission" }));
+            }
+          });
+        } catch (outerErr: any) {
+          console.error("[AdmissionsDevServer] Outer Error:", outerErr);
+          res.setHeader("Content-Type", "application/json");
+          res.statusCode = 500;
+          res.end(JSON.stringify({ success: false, error: outerErr?.message || "Failed to process admission" }));
+        }
       });
 
       // 3. Subscriptions Razorpay service
@@ -82,29 +95,42 @@ function backendDevServerPlugin(): Plugin {
 
       // 4. Visitors & Footprint analytics service
       server.middlewares.use("/api/visitors", async (req: any, res: any) => {
-        let raw = "";
-        req.on("data", (chunk: any) => {
-          raw += chunk;
-        });
-        req.on("end", async () => {
-          try {
-            if (raw) {
-              try {
-                req.body = JSON.parse(raw);
-              } catch {
-                req.body = raw;
-              }
-            } else {
-              req.body = {};
-            }
+        try {
+          if (req.method === "GET" || req.method === "OPTIONS" || req.method === "HEAD") {
+            req.body = {};
             await handleVisitorsRequest(req, res);
-          } catch (err: any) {
-            console.error("[VisitorsDevServer] Error:", err);
-            res.setHeader("Content-Type", "application/json");
-            res.statusCode = 500;
-            res.end(JSON.stringify({ success: false, error: err?.message || "Failed to process visitors" }));
+            return;
           }
-        });
+
+          let raw = "";
+          req.on("data", (chunk: any) => {
+            raw += chunk;
+          });
+          req.on("end", async () => {
+            try {
+              if (raw) {
+                try {
+                  req.body = JSON.parse(raw);
+                } catch {
+                  req.body = raw;
+                }
+              } else {
+                req.body = {};
+              }
+              await handleVisitorsRequest(req, res);
+            } catch (err: any) {
+              console.error("[VisitorsDevServer] Error:", err);
+              res.setHeader("Content-Type", "application/json");
+              res.statusCode = 500;
+              res.end(JSON.stringify({ success: false, error: err?.message || "Failed to process visitors" }));
+            }
+          });
+        } catch (outerErr: any) {
+          console.error("[VisitorsDevServer] Outer Error:", outerErr);
+          res.setHeader("Content-Type", "application/json");
+          res.statusCode = 500;
+          res.end(JSON.stringify({ success: false, error: outerErr?.message || "Failed to process visitors" }));
+        }
       });
     },
   };

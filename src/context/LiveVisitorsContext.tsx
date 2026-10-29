@@ -82,6 +82,11 @@ export const LiveVisitorsProvider: React.FC<{ children: React.ReactNode }> = ({
             path: window.location.pathname,
             userAgent: navigator.userAgent,
           });
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          // Cleanly unsubscribe if Supabase is quota-limited (402) to stop repetitive WebSocket attempts
+          try {
+            channel.unsubscribe();
+          } catch {}
         }
       });
     } catch (err) {

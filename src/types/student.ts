@@ -4,6 +4,9 @@ export interface StudentUser {
   name: string;
   email: string;
   phone: string;
+  dob?: string;
+  date_of_birth?: string;
+  gender?: string;
   password?: string;
   city?: string;
   state?: string;

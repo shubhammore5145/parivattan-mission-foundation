@@ -72,9 +72,9 @@ export async function connectToDatabase() {
   if (!connectingPromise) {
     connectingPromise = (async () => {
       const client = new MongoClient(uri, {
-        maxPoolSize: 15,
-        serverSelectionTimeoutMS: 5000,
-        connectTimeoutMS: 8000,
+        maxPoolSize: 20,
+        serverSelectionTimeoutMS: 15000,
+        connectTimeoutMS: 15000,
       });
 
       await client.connect();

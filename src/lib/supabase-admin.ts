@@ -43,6 +43,8 @@ export interface Donation {
 export interface Admission {
   id: string;
   name: string;
+  dob?: string;
+  date_of_birth?: string;
   education: string;
   college_name: string;
   address: string;
@@ -294,24 +296,29 @@ export const createAdmission = async (
   return { ...newAdmission, ...(supabaseData || {}), ...(mongoData || {}) };
 };
 
-export const isRealCourseAdmission = (row: any): boolean => {
-  if (!row) return false;
+export const isSystemConfigRow = (row: any): boolean => {
+  if (!row) return true;
   if (
     row.id === "00000000-0000-0000-0000-000000000001" ||
     row.id === "00000000-0000-0000-0000-000000000002" ||
     row.name === "SYSTEM_BATCH_OVERRIDES" ||
-    row.name === "SYSTEM_CUSTOM_COURSES"
+    row.name === "SYSTEM_CUSTOM_COURSES" ||
+    row.program === "SYSTEM_BATCH_SETTINGS" ||
+    row.program === "SYSTEM_CUSTOM_COURSES"
   ) {
-    return false;
+    return true;
   }
+  return false;
+};
+
+export const isRealCourseAdmission = (row: any): boolean => {
+  if (isSystemConfigRow(row)) return false;
   const prog = (row.program || "").trim().toUpperCase();
   if (
     prog === "STUDENT_REGISTRATION" ||
     prog === "REGISTERED_ACCOUNT" ||
     prog === "ACCOUNT_SIGNUP" ||
-    prog === "USER_REGISTRATION" ||
-    prog === "SYSTEM_BATCH_SETTINGS" ||
-    prog === "SYSTEM_CUSTOM_COURSES"
+    prog === "USER_REGISTRATION"
   ) {
     return false;
   }
@@ -353,6 +360,8 @@ let activeAdmissionsPromise: Promise<Admission[]> | null = null;
 let lastAdmissionsFetchTime = 0;
 let cachedAdmissionsData: Admission[] = [];
 
+let isSupabaseQuotaRestricted = false;
+
 export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]> => {
   const now = Date.now();
   if (!forceFresh && cachedAdmissionsData.length > 0 && now - lastAdmissionsFetchTime < 3000) {
@@ -371,7 +380,7 @@ export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]>
     const fetchMongo = async () => {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
         const res = await fetch("/api/admissions", { signal: controller.signal });
         clearTimeout(timeoutId);
         if (res.ok) {
@@ -387,13 +396,26 @@ export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]>
     };
 
     const fetchSupabase = async () => {
+      if (isSupabaseQuotaRestricted) return [];
       try {
         const { data, error } = await supabase
           .from("admissions")
           .select("*")
           .order("created_at", { ascending: false });
 
-        if (!error && Array.isArray(data)) {
+        if (error) {
+          if (
+            error.code === "402" ||
+            error.message?.includes("quota") ||
+            (error as any).status === 402 ||
+            error.message?.includes("Payment Required")
+          ) {
+            isSupabaseQuotaRestricted = true;
+          }
+          return [];
+        }
+
+        if (Array.isArray(data)) {
           // Process cloud admin capacity overrides if present
           const sysRow = data.find(
             (r) =>
@@ -509,11 +531,12 @@ export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]>
     }
 
     // 2. Strict Student + Course deduplication:
-    // A student should never have duplicate entries for the exact same course program
+    // Only deduplicate if identical student (same name AND contact) submitted the exact same program
+    const nameKey = (adm.name || "").trim().toLowerCase();
     const contactKey = (adm.email || adm.phone || "").trim().toLowerCase();
     const programKey = (adm.program || "").trim().toLowerCase();
-    if (contactKey && programKey) {
-      const studentCourseKey = `${contactKey}::${programKey}`;
+    if ((nameKey || contactKey) && programKey) {
+      const studentCourseKey = `${nameKey}::${contactKey}::${programKey}`;
       if (seenStudentCourses.has(studentCourseKey)) {
         continue; // Skip duplicate entry for this course
       }
@@ -533,6 +556,18 @@ export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]>
     } catch {}
     return deduplicatedAdmissions;
   }
+
+  // Safe fallback to local storage cache if network momentarily returned empty
+  try {
+    const fallback = localStorage.getItem("parivattan_admissions");
+    if (fallback) {
+      const parsed = JSON.parse(fallback);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        cachedAdmissionsData = parsed;
+        return parsed;
+      }
+    }
+  } catch {}
 
   return [];
   })().finally(() => {
@@ -667,6 +702,8 @@ export const updateAdmission = async (
           currentAddress: updatedFields.current_address !== undefined ? updatedFields.current_address : rec.currentAddress,
           permanentAddress: updatedFields.permanent_address !== undefined ? updatedFields.permanent_address : rec.permanentAddress,
           gender: updatedFields.gender !== undefined ? updatedFields.gender : rec.gender,
+          dob: updatedFields.dob !== undefined ? updatedFields.dob : rec.dob,
+          dateOfBirth: updatedFields.dob !== undefined ? updatedFields.dob : rec.dateOfBirth,
           courseTitle: updatedFields.program !== undefined ? updatedFields.program : rec.courseTitle,
           status: updatedFields.status !== undefined ? updatedFields.status : rec.status,
           amount: updatedFields.amount !== undefined ? updatedFields.amount : rec.amount,
@@ -696,6 +733,8 @@ export const updateAdmission = async (
           qualification: updatedFields.education !== undefined ? updatedFields.education : app.qualification,
           collegeName: updatedFields.college_name !== undefined ? updatedFields.college_name : app.collegeName,
           address: updatedFields.address !== undefined ? updatedFields.address : app.address,
+          dob: updatedFields.dob !== undefined ? updatedFields.dob : app.dob,
+          dateOfBirth: updatedFields.dob !== undefined ? updatedFields.dob : app.dateOfBirth,
           status: updatedFields.status !== undefined ? updatedFields.status : app.status,
           photoUrl: updatedFields.photo !== undefined ? updatedFields.photo : app.photoUrl,
           identityProofUrl: updatedFields.identity_proof !== undefined ? updatedFields.identity_proof : app.identityProofUrl,
