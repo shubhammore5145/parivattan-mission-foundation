@@ -1,4 +1,4 @@
-import { Admission, createAdmission, deleteAdmission, recalculateBatchSeatsFromAdmissions } from "./supabase-admin";
+import { Admission, createAdmission, deleteAdmission } from "./supabase-admin";
 import { StudentUser } from "@/types/student";
 import { saveStudentToCloud, deleteStudentFromCloud, getAllRegisteredStudents } from "./student-auth";
 
@@ -91,7 +91,10 @@ export const getDeletedStudents = (): DeletedStudentItem[] => {
  */
 export const fetchCloudDeletedAdmissions = async (): Promise<DeletedAdmissionItem[]> => {
   try {
-    const res = await fetch("/api/admissions?trash=true");
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch("/api/admissions?trash=true", { signal: controller.signal });
+    clearTimeout(timeoutId);
     if (res.ok) {
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {

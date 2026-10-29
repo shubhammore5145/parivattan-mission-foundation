@@ -139,14 +139,35 @@ const Header = () => {
           >
             Contact
           </Link>
-          <Link 
-            to="/student"
-            className={`nav-item whitespace-nowrap text-sm font-semibold transition-colors cursor-pointer flex items-center gap-1 px-2 py-1 rounded-lg ${isScrolled ? 'text-[#24312d] hover:text-[#b5623b]' : 'text-white hover:text-[#f2c5a8]'}`}
-            title="Student Portal - Register and verify PRN"
-          >
-            <GraduationCap size={16} className="text-[#b5623b]" />
-            <span>Student Portal</span>
-          </Link>
+          <div className="group relative">
+            <Link 
+              to="/student"
+              className={`nav-item whitespace-nowrap text-sm font-semibold transition-colors cursor-pointer flex items-center gap-1 px-2.5 py-1.5 rounded-xl ${isScrolled ? 'text-[#24312d] hover:text-[#b5623b]' : 'text-white hover:text-[#f2c5a8]'}`}
+              title="Student Portal & Learning Hub"
+            >
+              <GraduationCap size={16} className="text-[#b5623b]" />
+              <span>Student Corner</span>
+              <ChevronDown size={14} className="transition-transform group-hover:rotate-180 opacity-75" />
+            </Link>
+            <div className="invisible absolute right-0 top-full z-50 mt-3 w-72 rounded-2xl border border-[#e1e3d9] bg-white p-2 opacity-0 shadow-xl transition-all group-hover:visible group-hover:opacity-100">
+              <Link to="/student" className="block rounded-xl px-3.5 py-2.5 text-xs font-bold text-[#b5623b] hover:bg-[#eef0e8]">
+                🎓 Student Portal & PRN Verification
+              </Link>
+              <div className="h-px bg-stone-100 my-1" />
+              <Link to="/study-materials" className="flex items-center justify-between rounded-xl px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-[#eef0e8]">
+                <span>📚 Study Materials & Notes</span>
+                <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded">Soon</span>
+              </Link>
+              <Link to="/schedule" className="flex items-center justify-between rounded-xl px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-[#eef0e8]">
+                <span>⏰ Class Timetable & Rooms</span>
+                <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded">Soon</span>
+              </Link>
+              <Link to="/quizzes" className="flex items-center justify-between rounded-xl px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-[#eef0e8]">
+                <span>⚡ Interactive Practice Quizzes</span>
+                <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded">Soon</span>
+              </Link>
+            </div>
+          </div>
           <Link 
             to="/admissions#register" 
             className="ml-1 whitespace-nowrap rounded-full bg-[#b5623b] px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:bg-[#954b2c] hover:shadow-xl"
@@ -233,6 +254,37 @@ const Header = () => {
                 PRN
               </span>
             </Link>
+
+            {/* Student Learning Hub Mobile Sub-block */}
+            <div className="rounded-2xl bg-amber-50/70 border border-amber-200/80 p-3 space-y-1 text-xs mb-2">
+              <span className="font-bold uppercase tracking-wider text-[10px] text-amber-800 block mb-1">
+                Student Learning Modules
+              </span>
+              <Link
+                to="/study-materials"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-between py-1.5 px-2 text-slate-700 hover:text-[#1b2b25] hover:bg-white rounded-lg transition font-medium"
+              >
+                <span>Study Materials & Notes</span>
+                <span className="text-[9px] bg-amber-200/80 text-amber-900 font-bold px-1.5 py-0.5 rounded">Coming Soon</span>
+              </Link>
+              <Link
+                to="/schedule"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-between py-1.5 px-2 text-slate-700 hover:text-[#1b2b25] hover:bg-white rounded-lg transition font-medium"
+              >
+                <span>Class Timetable & Schedule</span>
+                <span className="text-[9px] bg-amber-200/80 text-amber-900 font-bold px-1.5 py-0.5 rounded">Coming Soon</span>
+              </Link>
+              <Link
+                to="/quizzes"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-between py-1.5 px-2 text-slate-700 hover:text-[#1b2b25] hover:bg-white rounded-lg transition font-medium"
+              >
+                <span>Interactive Practice Quizzes</span>
+                <span className="text-[9px] bg-amber-200/80 text-amber-900 font-bold px-1.5 py-0.5 rounded">Coming Soon</span>
+              </Link>
+            </div>
 
             {/* Navigation links */}
             <a

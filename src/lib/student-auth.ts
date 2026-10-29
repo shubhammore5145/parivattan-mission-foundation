@@ -110,155 +110,197 @@ export const saveStudentToCloud = async (student: StudentUser): Promise<void> =>
   }
 };
 
+let inFlightStudentsPromise: Promise<StudentUser[]> | null = null;
+let lastStudentsFetchTime = 0;
+let cachedStudentsList: StudentUser[] = [];
+
 /**
  * Fetches all registered students and applicants from Supabase and MongoDB Atlas.
  * Merges with local storage cache so admin always sees all registered students.
  */
-export const fetchRegisteredStudentsFromCloud = async (): Promise<StudentUser[]> => {
-  const studentsMap = new Map<string, StudentUser>();
-
-  // Helper to parse student rows from either Supabase or MongoDB
-  const parseRows = (rows: any[]) => {
-    for (const row of rows) {
-      if (!row || (!row.email && !row.name)) continue;
-
-      let prn = "";
-      let city = "Pune";
-      let state = "Maharashtra";
-      let registeredAt = row.created_at || new Date().toISOString();
-      let password: string | undefined = undefined;
-      let firebaseUid: string | undefined = undefined;
-      let photo = row.photo || undefined;
-      let photo_name = row.photo_name || undefined;
-      let avatar = row.photo || undefined;
-      let identity_proof = row.identity_proof || undefined;
-      let identity_proof_name = row.identity_proof_name || undefined;
-      let education_proof = row.education_proof || undefined;
-      let education_proof_name = row.education_proof_name || undefined;
-      let caste_certificate = row.caste_certificate || undefined;
-      let caste_certificate_name = row.caste_certificate_name || undefined;
-
-      // Try extracting metadata from JSON message
-      if (row.message && typeof row.message === "string" && row.message.trim().startsWith("{")) {
-        try {
-          const meta = JSON.parse(row.message);
-          if (meta.prn) prn = meta.prn;
-          if (meta.city) city = meta.city;
-          if (meta.state) state = meta.state;
-          if (meta.password) password = meta.password;
-          if (meta.firebaseUid) firebaseUid = meta.firebaseUid;
-          if (meta.registeredAt) registeredAt = meta.registeredAt;
-          if (meta.avatar) avatar = meta.avatar;
-          if (meta.photo) photo = meta.photo;
-          if (meta.photo_name) photo_name = meta.photo_name;
-          if (meta.identity_proof) identity_proof = meta.identity_proof;
-          if (meta.identity_proof_name) identity_proof_name = meta.identity_proof_name;
-          if (meta.education_proof) education_proof = meta.education_proof;
-          if (meta.education_proof_name) education_proof_name = meta.education_proof_name;
-          if (meta.caste_certificate) caste_certificate = meta.caste_certificate;
-          if (meta.caste_certificate_name) caste_certificate_name = meta.caste_certificate_name;
-        } catch {}
-      }
-
-      // If not in JSON, extract PRN from text like "PRN: PMF2026-1234"
-      if (!prn && row.message) {
-        const prnMatch = String(row.message).match(/PRN:\s*([A-Za-z0-9-]+)/i);
-        if (prnMatch) prn = prnMatch[1];
-      }
-
-      // Deterministic PRN fallback based on student details
-      if (!prn) {
-        const h = getDeterministicHash(row.email || row.name || row.id);
-        prn = `PMF2026-${String((h % 9000) + 1000)}`;
-      }
-
-      const emailKey = (row.email || "").trim().toLowerCase();
-      const prnKey = prn.toLowerCase();
-
-      const existing = (emailKey && studentsMap.get(emailKey)) || studentsMap.get(prnKey);
-
-      const studentUser: StudentUser = {
-        id: row.id || `std_${prn}`,
-        prn: prn,
-        name: row.name || existing?.name || "Student",
-        email: row.email || existing?.email || "",
-        phone: row.phone || existing?.phone || "",
-        city: city || existing?.city || "Pune",
-        state: state || existing?.state || "Maharashtra",
-        password: password || existing?.password,
-        firebaseUid: firebaseUid || existing?.firebaseUid,
-        registeredAt: registeredAt || existing?.registeredAt || new Date().toISOString(),
-        avatar: avatar || existing?.avatar || photo || existing?.photo,
-        photo: photo || existing?.photo || avatar || existing?.avatar,
-        photo_name: photo_name || existing?.photo_name,
-        identity_proof: identity_proof || existing?.identity_proof,
-        identity_proof_name: identity_proof_name || existing?.identity_proof_name,
-        education_proof: education_proof || existing?.education_proof,
-        education_proof_name: education_proof_name || existing?.education_proof_name,
-        caste_certificate: caste_certificate || existing?.caste_certificate,
-        caste_certificate_name: caste_certificate_name || existing?.caste_certificate_name,
-      };
-
-      if (emailKey) studentsMap.set(emailKey, studentUser);
-      studentsMap.set(prnKey, studentUser);
-    }
-  };
-
-  // 1. Seed with local students cache
-  const localList = getAllRegisteredStudents();
-  for (const s of localList) {
-    if (s.email) studentsMap.set(s.email.toLowerCase(), s);
-    if (s.prn) studentsMap.set(s.prn.toLowerCase(), s);
+export const fetchRegisteredStudentsFromCloud = async (forceFresh = false): Promise<StudentUser[]> => {
+  const now = Date.now();
+  if (!forceFresh && cachedStudentsList.length > 0 && now - lastStudentsFetchTime < 3000) {
+    return cachedStudentsList;
   }
 
-  // 2. Fetch from MongoDB Atlas
-  try {
-    const res = await fetch("/api/admissions");
-    if (res.ok) {
-      const resJson = await res.json();
-      if (Array.isArray(resJson?.data)) {
-        parseRows(resJson.data);
+  if (inFlightStudentsPromise) {
+    return inFlightStudentsPromise;
+  }
+
+  inFlightStudentsPromise = (async () => {
+    const studentsMap = new Map<string, StudentUser>();
+
+    // Helper to parse student rows from either Supabase or MongoDB
+    const parseRows = (rows: any[]) => {
+      for (const row of rows) {
+        if (!row || (!row.email && !row.name)) continue;
+
+        let prn = "";
+        let city = "Pune";
+        let state = "Maharashtra";
+        let registeredAt = row.created_at || new Date().toISOString();
+        let password: string | undefined = undefined;
+        let firebaseUid: string | undefined = undefined;
+        let photo = row.photo || row.photoUrl || row.avatar || undefined;
+        let photo_name = row.photo_name || undefined;
+        let avatar = row.avatar || row.photo || row.photoUrl || undefined;
+        let identity_proof = row.identity_proof || row.identityProofUrl || undefined;
+        let identity_proof_name = row.identity_proof_name || row.identityProofName || undefined;
+        let education_proof = row.education_proof || row.marksheetUrl || row.educationProof || row.marksheet || undefined;
+        let education_proof_name = row.education_proof_name || row.educationProofName || row.marksheet_name || undefined;
+        let caste_certificate = row.caste_certificate || row.casteCertUrl || undefined;
+        let caste_certificate_name = row.caste_certificate_name || undefined;
+
+        // Try extracting metadata from JSON message
+        if (row.message && typeof row.message === "string" && row.message.trim().startsWith("{")) {
+          try {
+            const meta = JSON.parse(row.message);
+            if (meta.prn) prn = meta.prn;
+            if (meta.city) city = meta.city;
+            if (meta.state) state = meta.state;
+            if (meta.password) password = meta.password;
+            if (meta.firebaseUid) firebaseUid = meta.firebaseUid;
+            if (meta.registeredAt) registeredAt = meta.registeredAt;
+            if (meta.avatar) avatar = meta.avatar;
+            if (meta.photo) photo = meta.photo;
+            if (meta.photoUrl && !photo) photo = meta.photoUrl;
+            if (meta.photo_name) photo_name = meta.photo_name;
+            if (meta.identity_proof) identity_proof = meta.identity_proof;
+            if (meta.identityProofUrl && !identity_proof) identity_proof = meta.identityProofUrl;
+            if (meta.identity_proof_name) identity_proof_name = meta.identity_proof_name;
+            if (meta.education_proof) education_proof = meta.education_proof;
+            if (meta.marksheetUrl && !education_proof) education_proof = meta.marksheetUrl;
+            if (meta.marksheet && !education_proof) education_proof = meta.marksheet;
+            if (meta.education_proof_name) education_proof_name = meta.education_proof_name;
+            if (meta.caste_certificate) caste_certificate = meta.caste_certificate;
+            if (meta.casteCertUrl && !caste_certificate) caste_certificate = meta.casteCertUrl;
+            if (meta.caste_certificate_name) caste_certificate_name = meta.caste_certificate_name;
+          } catch {}
+        }
+
+        // If not in JSON, extract PRN from text like "PRN: PMF2026-1234"
+        if (!prn && row.message) {
+          const prnMatch = String(row.message).match(/PRN:\s*([A-Za-z0-9-]+)/i);
+          if (prnMatch) prn = prnMatch[1];
+        }
+
+        // Deterministic PRN fallback based on student details
+        if (!prn) {
+          const h = getDeterministicHash(row.email || row.name || row.id);
+          prn = `PMF2026-${String((h % 9000) + 1000)}`;
+        }
+
+        const emailKey = (row.email || "").trim().toLowerCase();
+        const prnKey = prn.toLowerCase();
+
+        const existing = (emailKey && studentsMap.get(emailKey)) || studentsMap.get(prnKey);
+
+        const studentUser: StudentUser = {
+          id: row.id || `std_${prn}`,
+          prn: prn,
+          name: row.name || existing?.name || "Student",
+          email: row.email || existing?.email || "",
+          phone: row.phone || existing?.phone || "",
+          city: city || existing?.city || "Pune",
+          state: state || existing?.state || "Maharashtra",
+          password: password || existing?.password,
+          firebaseUid: firebaseUid || existing?.firebaseUid,
+          registeredAt: registeredAt || existing?.registeredAt || new Date().toISOString(),
+          avatar: avatar || existing?.avatar || photo || existing?.photo,
+          photo: photo || existing?.photo || avatar || existing?.avatar,
+          photoUrl: photo || existing?.photoUrl || avatar || existing?.avatar,
+          photo_name: photo_name || existing?.photo_name,
+          identity_proof: identity_proof || existing?.identity_proof,
+          identity_proof_name: identity_proof_name || existing?.identity_proof_name,
+          identityProofUrl: identity_proof || existing?.identityProofUrl,
+          education_proof: education_proof || existing?.education_proof,
+          education_proof_name: education_proof_name || existing?.education_proof_name,
+          marksheetUrl: education_proof || existing?.marksheetUrl,
+          caste_certificate: caste_certificate || existing?.caste_certificate,
+          caste_certificate_name: caste_certificate_name || existing?.caste_certificate_name,
+          casteCertUrl: caste_certificate || existing?.casteCertUrl,
+        };
+
+        if (emailKey) studentsMap.set(emailKey, studentUser);
+        studentsMap.set(prnKey, studentUser);
       }
+    };
+
+    // 1. Seed with local students cache
+    const localList = getAllRegisteredStudents();
+    for (const s of localList) {
+      if (s.email) studentsMap.set(s.email.toLowerCase(), s);
+      if (s.prn) studentsMap.set(s.prn.toLowerCase(), s);
     }
-  } catch (mErr) {
-    console.warn("[CloudFetch] Notice fetching students from MongoDB Atlas:", mErr);
-  }
 
-  // 3. Fetch from Supabase
-  try {
-    const { data, error } = await supabase
-      .from("admissions")
-      .select("*")
-      .order("created_at", { ascending: false });
+    // 2. Fetch from MongoDB Atlas & Supabase in parallel
+    const fetchMongo = async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch("/api/admissions", { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const resJson = await res.json();
+          if (Array.isArray(resJson?.data)) {
+            parseRows(resJson.data);
+          }
+        }
+      } catch (mErr) {
+        console.warn("[CloudFetch] Notice fetching students from MongoDB Atlas:", mErr);
+      }
+    };
 
-    if (!error && Array.isArray(data)) {
-      parseRows(data);
-    }
-  } catch (err) {
-    console.warn("[CloudFetch] Could not fetch students from Supabase:", err);
-  }
+    const fetchSupabase = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("admissions")
+          .select("*")
+          .order("created_at", { ascending: false });
 
-  // Deduplicate and filter out dummy records
-  const uniqueList: StudentUser[] = [];
-  const seenPrns = new Set<string>();
+        if (!error && Array.isArray(data)) {
+          parseRows(data);
+        }
+      } catch (err) {
+        console.warn("[CloudFetch] Could not fetch students from Supabase:", err);
+      }
+    };
 
-  for (const s of studentsMap.values()) {
-    if (s.id === "std_demo_101" || s.prn === "PMF2026-8842") continue;
-    const cleanPrn = s.prn.toLowerCase();
-    if (!seenPrns.has(cleanPrn)) {
-      seenPrns.add(cleanPrn);
+    await Promise.allSettled([fetchMongo(), fetchSupabase()]);
+
+    // Deduplicate strictly by both PRN and Email to guarantee no double entries
+    const uniqueList: StudentUser[] = [];
+    const seenPrns = new Set<string>();
+    const seenEmails = new Set<string>();
+
+    for (const s of studentsMap.values()) {
+      if (s.id === "std_demo_101" || s.prn === "PMF2026-8842") continue;
+      const cleanPrn = (s.prn || "").toLowerCase().trim();
+      const cleanEmail = (s.email || "").toLowerCase().trim();
+      if ((cleanPrn && seenPrns.has(cleanPrn)) || (cleanEmail && seenEmails.has(cleanEmail))) {
+        continue; // Skip duplicate student entry
+      }
+      if (cleanPrn) seenPrns.add(cleanPrn);
+      if (cleanEmail) seenEmails.add(cleanEmail);
       uniqueList.push(s);
     }
-  }
 
-  // Update local storage cache
-  try {
-    localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(uniqueList));
-  } catch (e) {
-    console.warn("Could not update local storage cache:", e);
-  }
+    // Update local storage cache
+    try {
+      localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(uniqueList));
+    } catch (e) {
+      console.warn("Could not update local storage cache:", e);
+    }
 
-  return uniqueList;
+    cachedStudentsList = uniqueList;
+    lastStudentsFetchTime = Date.now();
+    return uniqueList;
+  })().finally(() => {
+    inFlightStudentsPromise = null;
+  });
+
+  return inFlightStudentsPromise;
 };
 
 /**
@@ -1345,6 +1387,11 @@ export const syncAdmissionToStudentPortal = async (record: {
   pincode?: string;
   category?: string;
   photoUrl?: string;
+  identityProofUrl?: string;
+  marksheetUrl?: string;
+  education_proof?: string;
+  casteCertUrl?: string;
+  caste_certificate?: string;
   existingPrn?: string;
 }): Promise<{ student: StudentUser; admission: StudentAdmissionRecord }> => {
   const allStudents = getAllRegisteredStudents();
@@ -1356,6 +1403,10 @@ export const syncAdmissionToStudentPortal = async (record: {
   );
 
   const prn = record.existingPrn || student?.prn || generateStudentPRN();
+  const effectivePhoto = record.photoUrl;
+  const effectiveIdProof = record.identityProofUrl;
+  const effectiveEduProof = record.education_proof || record.marksheetUrl;
+  const effectiveCasteCert = record.caste_certificate || record.casteCertUrl;
 
   if (!student) {
     const studentUuid = generateUUID();
@@ -1367,17 +1418,48 @@ export const syncAdmissionToStudentPortal = async (record: {
       phone: record.phone,
       city: record.city || "Pune",
       state: "Maharashtra",
-      avatar: record.photoUrl,
+      avatar: effectivePhoto,
+      photo: effectivePhoto,
+      photoUrl: effectivePhoto,
+      identity_proof: effectiveIdProof,
+      identityProofUrl: effectiveIdProof,
+      identity_proof_name: "Identity Proof",
+      education_proof: effectiveEduProof,
+      education_proof_name: "Marksheet / Education Proof",
+      marksheetUrl: effectiveEduProof,
+      caste_certificate: effectiveCasteCert,
+      casteCertUrl: effectiveCasteCert,
+      caste_certificate_name: record.category || "Caste Certificate",
       registeredAt: new Date().toISOString(),
     };
     const updated = [student, ...allStudents];
     localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(updated));
     await saveStudentToCloud(student);
-  } else if (student.prn !== prn) {
-    student.prn = prn;
-    localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(allStudents));
-    await saveStudentToCloud(student);
   } else {
+    if (student.prn !== prn) {
+      student.prn = prn;
+    }
+    if (effectivePhoto && !student.photo) {
+      student.photo = effectivePhoto;
+      student.photoUrl = effectivePhoto;
+      if (!student.avatar) student.avatar = effectivePhoto;
+    }
+    if (effectiveIdProof && !student.identity_proof) {
+      student.identity_proof = effectiveIdProof;
+      student.identityProofUrl = effectiveIdProof;
+      student.identity_proof_name = "Identity Proof";
+    }
+    if (effectiveEduProof && !student.education_proof) {
+      student.education_proof = effectiveEduProof;
+      student.marksheetUrl = effectiveEduProof;
+      student.education_proof_name = "Marksheet / Education Proof";
+    }
+    if (effectiveCasteCert && !student.caste_certificate) {
+      student.caste_certificate = effectiveCasteCert;
+      student.casteCertUrl = effectiveCasteCert;
+      student.caste_certificate_name = record.category || "Caste Certificate";
+    }
+    localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(allStudents));
     await saveStudentToCloud(student);
   }
 
@@ -1412,7 +1494,10 @@ export const syncAdmissionToStudentPortal = async (record: {
     collegeName: record.collegeName || "Parivattan Mission Institute",
     passingYear: "2024",
     percentage: "A Grade",
-    photoUrl: record.photoUrl,
+    photoUrl: effectivePhoto,
+    identityProofUrl: effectiveIdProof,
+    marksheetUrl: effectiveEduProof,
+    casteCertUrl: effectiveCasteCert,
     amount: record.amount,
     paymentId: record.paymentId,
     paymentMethod: "razorpay",

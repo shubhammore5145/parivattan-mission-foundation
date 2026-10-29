@@ -10,16 +10,23 @@ export interface StudentUser {
   avatar?: string;
   photo?: string;
   photo_name?: string;
+  photoUrl?: string;
   identity_proof?: string;
   identity_proof_name?: string;
+  identityProofUrl?: string;
+  identityProofName?: string;
   education_proof?: string;
   education_proof_name?: string;
+  marksheetUrl?: string;
+  educationProofName?: string;
   caste_certificate?: string;
   caste_certificate_name?: string;
+  casteCertUrl?: string;
   registeredAt: string;
   firebaseUid?: string;
   isEmailVerified?: boolean;
   verificationCode?: string;
+  [key: string]: any;
 }
 
 export type CourseCategory = 'all' | 'technology' | 'languages' | 'overseas' | 'vocational';

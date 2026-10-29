@@ -175,6 +175,8 @@ export function getDonationHtml(params) {
   `;
 }
 
+const sentEmailIdempotency = new Map();
+
 export async function handleSendEmail(params) {
   const type = (params.type || "").toLowerCase();
   const isDonation = type === "donation" || Boolean(params.donorEmail);
@@ -185,6 +187,18 @@ export async function handleSendEmail(params) {
 
   if (!recipient || !recipient.includes("@")) {
     return { success: false, error: "Missing or invalid recipient email address." };
+  }
+
+  const course = params.courseName || params.course || "Course";
+  const prn = params.prn || params.registrationId || "";
+
+  // Idempotency: Prevent duplicate email within 3 minutes for identical recipient + course/prn
+  const idempotencyKey = `${recipient.toLowerCase()}:${isDonation ? (params.paymentId || params.receiptNo || "don") : `${course}:${prn}`}`;
+  const now = Date.now();
+  const lastSent = sentEmailIdempotency.get(idempotencyKey);
+  if (lastSent && now - lastSent.time < 3 * 60 * 1000) {
+    console.log(`[SMTP Dispatch] Skipping duplicate email to ${recipient} (already sent ${Math.round((now - lastSent.time) / 1000)}s ago)`);
+    return { success: true, messageId: lastSent.messageId, recipient, duplicate: true };
   }
 
   const { user } = getCredentials();
@@ -199,9 +213,8 @@ export async function handleSendEmail(params) {
     subject = `🙏 Donation Receipt: ₹${amount} | ${receiptNo} - Parivattan Mission Foundation`;
     html = getDonationHtml(params);
   } else {
-    const course = params.courseName || params.course || "Course";
-    const prn = params.prn || params.registrationId || "PMF-" + Date.now().toString().slice(-6);
-    subject = `🎓 Admission Confirmation: ${course} (PRN: ${prn}) - Parivattan Mission Foundation`;
+    const displayPrn = prn || "PMF-" + Date.now().toString().slice(-6);
+    subject = `🎓 Admission Confirmation: ${course} (PRN: ${displayPrn}) - Parivattan Mission Foundation`;
     html = getAdmissionHtml(params);
   }
 
@@ -215,6 +228,7 @@ export async function handleSendEmail(params) {
     replyTo: "contact@parivattan.org",
   });
 
+  sentEmailIdempotency.set(idempotencyKey, { time: now, messageId: info.messageId });
   console.log(`[SMTP Dispatch] Successfully sent to ${recipient}! Message ID: ${info.messageId}`);
   return { success: true, messageId: info.messageId, recipient };
 }

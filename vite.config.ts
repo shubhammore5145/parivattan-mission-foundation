@@ -4,6 +4,7 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { handleSendEmail } from "./server/emailHandler.js";
 import { handleAdmissionsRequest } from "./server/mongoHandler.js";
+import { handleSubscriptionsRequest } from "./server/subscriptionHandler.js";
 import { emailRateLimiter } from "./server/rateLimiter.js";
 
 function backendDevServerPlugin(): Plugin {
@@ -64,6 +65,18 @@ function backendDevServerPlugin(): Plugin {
             res.end(JSON.stringify({ success: false, error: err?.message || "Failed to process admission" }));
           }
         });
+      });
+
+      // 3. Subscriptions Razorpay service
+      server.middlewares.use("/api/subscriptions", async (req: any, res: any) => {
+        try {
+          await handleSubscriptionsRequest(req, res);
+        } catch (err: any) {
+          console.error("[SubscriptionsDevServer] Error:", err);
+          res.setHeader("Content-Type", "application/json");
+          res.statusCode = 500;
+          res.end(JSON.stringify({ success: false, error: err?.message || "Failed to fetch subscriptions" }));
+        }
       });
     },
   };

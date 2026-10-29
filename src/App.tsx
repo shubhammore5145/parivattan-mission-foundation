@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,6 +18,9 @@ import RulesPage from "./pages/RulesPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import ContactPage from "./pages/ContactPage";
 import StudentPortalPage from "./pages/StudentPortalPage";
+import StudyMaterialsPage from "./pages/StudyMaterialsPage";
+import SchedulePage from "./pages/SchedulePage";
+import PracticeQuizzesPage from "./pages/PracticeQuizzesPage";
 import ScrollToTop from "@/components/common/ScrollToTop";
 
 const App = () => (
@@ -42,12 +44,32 @@ const App = () => (
           <Route path="/rules-and-regulations" element={<RulesPage />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+          
+          {/* Student Dedicated Features & Modules */}
+          <Route path="/study-materials" element={<StudyMaterialsPage />} />
+          <Route path="/materials" element={<StudyMaterialsPage />} />
+          <Route path="/notes" element={<StudyMaterialsPage />} />
+          <Route path="/student/study-materials" element={<StudyMaterialsPage />} />
+          <Route path="/student/materials" element={<StudyMaterialsPage />} />
+
+          <Route path="/schedule" element={<SchedulePage />} />
+          <Route path="/timetable" element={<SchedulePage />} />
+          <Route path="/student/schedule" element={<SchedulePage />} />
+          <Route path="/student/timetable" element={<SchedulePage />} />
+
+          <Route path="/quizzes" element={<PracticeQuizzesPage />} />
+          <Route path="/quiz" element={<PracticeQuizzesPage />} />
+          <Route path="/practice-quizzes" element={<PracticeQuizzesPage />} />
+          <Route path="/student/quizzes" element={<PracticeQuizzesPage />} />
+          <Route path="/student/practice-quizzes" element={<PracticeQuizzesPage />} />
+
           <Route path="/login" element={<StudentPortalPage />} />
           <Route path="/student/login" element={<StudentPortalPage />} />
           <Route path="/student" element={<StudentPortalPage />} />
           <Route path="/student/*" element={<StudentPortalPage />} />
           <Route path="/student-portal" element={<StudentPortalPage />} />
           <Route path="/student-section" element={<StudentPortalPage />} />
+          
           <Route path="/about" element={<ContentPage />} />
           <Route path="/team" element={<ContentPage />} />
           <Route path="/our-team" element={<ContentPage />} />

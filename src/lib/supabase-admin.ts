@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { recalculateBatchSeatsFromAdmissions } from "@/data/languageCoursesData";
+export { recalculateBatchSeatsFromAdmissions };
 
 const supabaseUrl =
   import.meta.env.VITE_SUPABASE_URL ||
@@ -47,12 +48,20 @@ export interface Admission {
   address: string;
   identity_proof?: string;
   identity_proof_name?: string;
+  identityProofUrl?: string;
+  identityProofName?: string;
   photo?: string;
   photo_name?: string;
+  photoUrl?: string;
+  photoDataUrl?: string;
   caste_certificate?: string;
   caste_certificate_name?: string;
+  casteCertUrl?: string;
+  casteCertificateName?: string;
   education_proof?: string;
   education_proof_name?: string;
+  marksheetUrl?: string;
+  educationProofName?: string;
   gender?: string;
   current_address?: string;
   permanent_address?: string;
@@ -66,6 +75,7 @@ export interface Admission {
   batchId?: string;
   status: "completed" | "failed" | "pending";
   created_at: string;
+  [key: string]: any;
 }
 
 export const generateUUID = (): string => {
@@ -119,6 +129,26 @@ export const sanitizeAdmissionForSupabase = (
     }
   }
 
+  // Map alias document fields if standard column values are empty
+  if (!sanitized.education_proof && (record.marksheetUrl || record.educationProof)) {
+    sanitized.education_proof = record.marksheetUrl || record.educationProof;
+  }
+  if (!sanitized.education_proof_name && (record.educationProofName || record.marksheet_name)) {
+    sanitized.education_proof_name = record.educationProofName || record.marksheet_name || "Education Proof (Marksheet)";
+  }
+  if (!sanitized.identity_proof && record.identityProofUrl) {
+    sanitized.identity_proof = record.identityProofUrl;
+  }
+  if (!sanitized.identity_proof_name && record.identityProofName) {
+    sanitized.identity_proof_name = record.identityProofName;
+  }
+  if (!sanitized.photo && (record.photoUrl || record.photoDataUrl || record.avatar)) {
+    sanitized.photo = record.photoUrl || record.photoDataUrl || record.avatar;
+  }
+  if (!sanitized.caste_certificate && (record.casteCertUrl || record.casteCertificateUrl)) {
+    sanitized.caste_certificate = record.casteCertUrl || record.casteCertificateUrl;
+  }
+
   // Preserve batch info inside message field so it is never lost
   const batchId = record.batch_id || record.batchId;
   if (batchId) {
@@ -140,7 +170,10 @@ export const checkMongoStatus = async (): Promise<{
   message: string;
 }> => {
   try {
-    const res = await fetch("/api/admissions?health=true");
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    const res = await fetch("/api/admissions?health=true", { signal: controller.signal });
+    clearTimeout(timeoutId);
     if (res.ok) {
       return await res.json();
     }
@@ -162,8 +195,28 @@ export const createAdmission = async (
       ? admissionData.id
       : generateUUID();
 
+  // Strict payment authenticity enforcement:
+  const pid = String(admissionData.payment_id || "").trim();
+  const isValidAdminReceipt = pid.startsWith("PAY_ADM_") || pid === "OFFLINE_RECORD";
+  const isValidOnlinePayment =
+    pid.startsWith("pay_") ||
+    pid.startsWith("razorpay_") ||
+    pid.startsWith("order_") ||
+    (pid.length >= 14 && /^[a-zA-Z0-9_-]+$/.test(pid) && pid !== "undefined" && pid !== "null");
+
+  const isSystemProgram =
+    admissionData.program === "STUDENT_REGISTRATION" ||
+    admissionData.program === "SYSTEM_CUSTOM_COURSES" ||
+    admissionData.name === "SYSTEM_BATCH_OVERRIDES";
+
+  const hasValidPayment = isValidAdminReceipt || isValidOnlinePayment;
+  const resolvedStatus = hasValidPayment || isSystemProgram ? (admissionData.status || "completed") : "pending";
+  const resolvedPaymentId = hasValidPayment ? pid : "";
+
   const newAdmission: Admission = {
     ...admissionData,
+    status: resolvedStatus,
+    payment_id: resolvedPaymentId,
     id: finalId,
     created_at: new Date().toISOString(),
   };
@@ -200,15 +253,11 @@ export const createAdmission = async (
       const result = await res.json().catch(() => ({}));
       const errorMsg =
         result.error ||
-        "Request limit exceeded. Please wait 15 minutes before trying again.";
-      console.warn("[RateLimit] Admission blocked by server rate limit:", errorMsg);
-      throw new Error(errorMsg);
+        "Request limit exceeded. Please wait a moment.";
+      console.warn("[RateLimit] Mongo admission API rate limited, proceeding to Supabase fallback:", errorMsg);
     }
   } catch (mongoErr: any) {
-    if (mongoErr?.message && mongoErr.message.includes("Rate limit")) {
-      throw mongoErr;
-    }
-    console.warn("[MongoDB Atlas] Notice saving to MongoDB admissions API:", mongoErr);
+    console.warn("[MongoDB Atlas] Notice saving to MongoDB admissions API, will use Supabase fallback:", mongoErr);
   }
 
   // 2. ALWAYS ALSO SAVE TO SUPABASE CLOUD DATABASE
@@ -266,6 +315,21 @@ export const isRealCourseAdmission = (row: any): boolean => {
   ) {
     return false;
   }
+
+  // If the record has an actual course program (Japanese, German, French, English, etc.) OR an amount paid > 0,
+  // it is definitively a real course admission!
+  if (
+    (row.amount && Number(row.amount) > 0) ||
+    prog.includes("JAPANESE") ||
+    prog.includes("GERMAN") ||
+    prog.includes("FRENCH") ||
+    prog.includes("ENGLISH") ||
+    prog.includes("LANGUAGE") ||
+    prog.includes("BATCH")
+  ) {
+    return true;
+  }
+
   if (
     row.education === "Registered Student User" &&
     row.college_name === "Parivattan Student Portal" &&
@@ -285,118 +349,182 @@ export const isRealCourseAdmission = (row: any): boolean => {
   return true;
 };
 
-export const getAllAdmissions = async (): Promise<Admission[]> => {
-  let mongoAdmissions: Admission[] = [];
-  let supabaseAdmissions: Admission[] = [];
+let activeAdmissionsPromise: Promise<Admission[]> | null = null;
+let lastAdmissionsFetchTime = 0;
+let cachedAdmissionsData: Admission[] = [];
 
-  // 1. Fetch new admissions from MongoDB database
-  try {
-    const res = await fetch("/api/admissions");
-    if (res.ok) {
-      const result = await res.json();
-      if (result.success && Array.isArray(result.data)) {
-        mongoAdmissions = result.data.filter(isRealCourseAdmission);
-        console.log(`[MongoDB Atlas] Loaded ${mongoAdmissions.length} admissions from MongoDB`);
-      }
-    }
-  } catch (mongoErr) {
-    console.warn("MongoDB admissions fetch notice:", mongoErr);
+export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]> => {
+  const now = Date.now();
+  if (!forceFresh && cachedAdmissionsData.length > 0 && now - lastAdmissionsFetchTime < 3000) {
+    return cachedAdmissionsData;
   }
 
-  // 2. Fetch existing admissions from Supabase (preserving earlier branch / old data as requested)
-  try {
-    const { data, error } = await supabase
-      .from("admissions")
-      .select("*")
-      .order("created_at", { ascending: false });
+  if (activeAdmissionsPromise) {
+    return activeAdmissionsPromise;
+  }
 
-    if (!error && Array.isArray(data)) {
-      // Process cloud admin capacity overrides if present
-      const sysRow = data.find(
-        (r) =>
-          r.id === "00000000-0000-0000-0000-000000000001" ||
-          r.program === "SYSTEM_BATCH_SETTINGS" ||
-          r.name === "SYSTEM_BATCH_OVERRIDES"
-      );
-      if (sysRow && sysRow.message) {
-        try {
-          const cloudOverrides = JSON.parse(sysRow.message);
-          if (cloudOverrides && typeof cloudOverrides === "object") {
-            const localOverrides = JSON.parse(
-              localStorage.getItem("parivattan_admin_batch_overrides") || "{}"
-            );
-            const merged = { ...cloudOverrides, ...localOverrides };
-            localStorage.setItem(
-              "parivattan_admin_batch_overrides",
-              JSON.stringify(merged)
-            );
+  activeAdmissionsPromise = (async () => {
+    let mongoAdmissions: Admission[] = [];
+    let supabaseAdmissions: Admission[] = [];
+
+    // Parallel fetch from both MongoDB and Supabase for maximum speed
+    const fetchMongo = async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch("/api/admissions", { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const result = await res.json();
+          if (result.success && Array.isArray(result.data)) {
+            return result.data.filter(isRealCourseAdmission);
           }
-        } catch {}
+        }
+      } catch (mongoErr) {
+        console.warn("MongoDB admissions fetch notice:", mongoErr);
       }
+      return [];
+    };
 
-      supabaseAdmissions = data.filter(isRealCourseAdmission);
+    const fetchSupabase = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("admissions")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (!error && Array.isArray(data)) {
+          // Process cloud admin capacity overrides if present
+          const sysRow = data.find(
+            (r) =>
+              r.id === "00000000-0000-0000-0000-000000000001" ||
+              r.program === "SYSTEM_BATCH_SETTINGS" ||
+              r.name === "SYSTEM_BATCH_OVERRIDES"
+          );
+          if (sysRow && sysRow.message) {
+            try {
+              const cloudOverrides = JSON.parse(sysRow.message);
+              if (cloudOverrides && typeof cloudOverrides === "object") {
+                const localOverrides = JSON.parse(
+                  localStorage.getItem("parivattan_admin_batch_overrides") || "{}"
+                );
+                const merged = { ...cloudOverrides, ...localOverrides };
+                localStorage.setItem(
+                  "parivattan_admin_batch_overrides",
+                  JSON.stringify(merged)
+                );
+              }
+            } catch {}
+          }
+          return data.filter(isRealCourseAdmission);
+        }
+      } catch (e) {
+        console.warn("Supabase admissions fetch notice:", e);
+      }
+      return [];
+    };
+
+    const [mongoResult, supabaseResult] = await Promise.allSettled([
+      fetchMongo(),
+      fetchSupabase(),
+    ]);
+
+    if (mongoResult.status === "fulfilled") {
+      mongoAdmissions = mongoResult.value;
     }
-  } catch (e) {
-    console.warn("Supabase admissions fetch notice:", e);
-  }
+    if (supabaseResult.status === "fulfilled") {
+      supabaseAdmissions = supabaseResult.value;
+    }
 
-  // 3. Seed with local storage cache
-  let localAdmissions: Admission[] = [];
-  try {
-    const local: any[] = JSON.parse(localStorage.getItem("parivattan_admissions") || "[]");
-    localAdmissions = local.filter(isRealCourseAdmission);
-  } catch {}
+    // 3. Seed with local storage cache
+    let localAdmissions: Admission[] = [];
+    try {
+      const local: any[] = JSON.parse(localStorage.getItem("parivattan_admissions") || "[]");
+      localAdmissions = local.filter(isRealCourseAdmission);
+    } catch {}
 
-  // 4. Merge and deduplicate records: MongoDB (highest priority) -> Supabase -> Local
-  const admissionsMap = new Map<string, Admission>();
+    // 4. Merge and deduplicate records: MongoDB (highest priority) -> Supabase -> Local
+    const admissionsMap = new Map<string, Admission>();
 
-  // Add Local
-  for (const adm of localAdmissions) {
-    if (adm.id) admissionsMap.set(adm.id, adm);
-  }
-  // Add Supabase (overrides local with cloud version)
-  for (const adm of supabaseAdmissions) {
-    if (adm.id) admissionsMap.set(adm.id, adm);
-  }
-  // Add MongoDB (overrides with latest MongoDB student admissions)
-  for (const adm of mongoAdmissions) {
-    if (adm.id) admissionsMap.set(adm.id, adm);
-  }
+    for (const adm of localAdmissions) {
+      if (adm.id) admissionsMap.set(adm.id, adm);
+    }
+    for (const adm of supabaseAdmissions) {
+      if (adm.id) admissionsMap.set(adm.id, adm);
+    }
+    for (const adm of mongoAdmissions) {
+      if (adm.id) admissionsMap.set(adm.id, adm);
+    }
 
-  const rawMerged = Array.from(admissionsMap.values()).sort(
-    (a, b) => new Date(b.created_at || "").getTime() - new Date(a.created_at || "").getTime()
-  );
+    const rawMerged = Array.from(admissionsMap.values()).sort(
+      (a, b) => new Date(b.created_at || "").getTime() - new Date(a.created_at || "").getTime()
+    );
 
-  // Secondary deduplication: prevent double entries from rapid multiple clicks or dual-sync
+  // Secondary deduplication: prevent double entries from rapid multiple clicks, dual-sync, or duplicate saves
   const deduplicatedAdmissions: Admission[] = [];
   const seenPaymentIds = new Set<string>();
-  const seenSubmissions = new Set<string>();
+  const seenStudentCourses = new Set<string>();
 
   for (const adm of rawMerged) {
-    // 1. Payment ID deduplication
-    const pid = adm.payment_id?.trim();
-    if (pid && pid !== "OFFLINE_RECORD" && !pid.startsWith("PAY_ADM_")) {
-      if (seenPaymentIds.has(pid)) {
-        continue; // Skip duplicate record with identical payment reference
-      }
-      seenPaymentIds.add(pid);
+    // Normalize attached documents across different sources
+    if (!adm.education_proof && (adm as any).marksheetUrl) {
+      adm.education_proof = (adm as any).marksheetUrl;
+    }
+    if (!adm.marksheetUrl && adm.education_proof) {
+      adm.marksheetUrl = adm.education_proof;
+    }
+    if (!adm.identity_proof && (adm as any).identityProofUrl) {
+      adm.identity_proof = (adm as any).identityProofUrl;
+    }
+    if (!adm.caste_certificate && (adm as any).casteCertUrl) {
+      adm.caste_certificate = (adm as any).casteCertUrl;
+    }
+    if (!adm.photo && (adm as any).photoUrl) {
+      adm.photo = (adm as any).photoUrl;
     }
 
-    // 2. Near-identical submission deduplication (same student contact + course within 5-min window)
+    // Strict payment validation on loaded records:
+    const paymentStr = String(adm.payment_id || "").trim();
+    const hasLegitimatePayment =
+      paymentStr.startsWith("PAY_ADM_") ||
+      paymentStr === "OFFLINE_RECORD" ||
+      paymentStr.startsWith("pay_") ||
+      paymentStr.startsWith("razorpay_") ||
+      paymentStr.startsWith("order_") ||
+      (paymentStr.length >= 14 && /^[a-zA-Z0-9_-]+$/.test(paymentStr) && paymentStr !== "undefined" && paymentStr !== "null");
+
+    if (!hasLegitimatePayment && isRealCourseAdmission(adm)) {
+      adm.status = "pending";
+      adm.payment_id = "";
+    }
+
+    // 1. Payment ID deduplication (Razorpay or Online payment reference)
+    const pid = adm.payment_id?.trim();
+    if (pid && pid !== "OFFLINE_RECORD" && !pid.startsWith("PAY_ADM_")) {
+      const normalizedPid = pid.toLowerCase();
+      if (seenPaymentIds.has(normalizedPid)) {
+        continue; // Skip duplicate record with identical payment reference
+      }
+      seenPaymentIds.add(normalizedPid);
+    }
+
+    // 2. Strict Student + Course deduplication:
+    // A student should never have duplicate entries for the exact same course program
     const contactKey = (adm.email || adm.phone || "").trim().toLowerCase();
     const programKey = (adm.program || "").trim().toLowerCase();
     if (contactKey && programKey) {
-      const timeMs = new Date(adm.created_at || "").getTime();
-      const timeBucket = Math.floor(timeMs / (5 * 60 * 1000));
-      const submissionKey = `${contactKey}::${programKey}::${timeBucket}`;
-      if (seenSubmissions.has(submissionKey)) {
-        continue; // Skip double submission
+      const studentCourseKey = `${contactKey}::${programKey}`;
+      if (seenStudentCourses.has(studentCourseKey)) {
+        continue; // Skip duplicate entry for this course
       }
-      seenSubmissions.add(submissionKey);
+      seenStudentCourses.add(studentCourseKey);
     }
 
     deduplicatedAdmissions.push(adm);
   }
+
+  cachedAdmissionsData = deduplicatedAdmissions;
+  lastAdmissionsFetchTime = Date.now();
 
   if (deduplicatedAdmissions.length > 0) {
     try {
@@ -407,9 +535,18 @@ export const getAllAdmissions = async (): Promise<Admission[]> => {
   }
 
   return [];
+  })().finally(() => {
+    activeAdmissionsPromise = null;
+  });
+
+  return activeAdmissionsPromise;
 };
 
 export const deleteAdmission = async (id: string): Promise<void> => {
+  // Bust in-memory cache immediately
+  cachedAdmissionsData = cachedAdmissionsData.filter((item) => item.id !== id);
+  lastAdmissionsFetchTime = 0;
+
   // 1. Delete from MongoDB
   try {
     await fetch(`/api/admissions?id=${encodeURIComponent(id)}`, { method: "DELETE" });
@@ -925,12 +1062,19 @@ export const getVisitorStats = async (): Promise<VisitorStats> => {
   startOfMonth.setDate(1);
 
   const countRange = async (from?: Date, to?: Date) => {
-    let query = supabase.from("visitors").select("id", { count: "exact", head: true });
-    if (from) query = query.gte("created_at", from.toISOString());
-    if (to) query = query.lt("created_at", to.toISOString());
-    const { count, error } = await query;
-    if (error) throw error;
-    return count || 0;
+    try {
+      let query = supabase.from("visitors").select("id", { count: "exact", head: true });
+      if (from) query = query.gte("created_at", from.toISOString());
+      if (to) query = query.lt("created_at", to.toISOString());
+      const { count, error } = await query;
+      if (error) {
+        console.warn("Visitor count notice:", error.message);
+        return 0;
+      }
+      return count || 0;
+    } catch {
+      return 0;
+    }
   };
 
   const [today, yesterday, thisWeek, thisMonth, total] = await Promise.all([

@@ -63,7 +63,7 @@ const upcomingCauses: UpcomingCause[] = [
 
 const Donate: React.FC = () => {
   const whatsappMessage = encodeURIComponent(
-    "Namaste Parivattan Team! I would like to know more about the upcoming Donation Campaign and how I can contribute."
+    "Namaste Parivattan Team! I would like to know more about the Donation Campaign and how I can contribute."
   );
 
   return (
@@ -85,11 +85,11 @@ const Donate: React.FC = () => {
             Empower Through Education, <span className="text-[#b5623b] underline decoration-[#e5a37f]/50 decoration-wavy underline-offset-8">For a Brighter Future!</span>
           </h2>
           <p className="mt-4 text-base md:text-lg text-slate-600 leading-relaxed font-sans">
-            Our comprehensive donation campaign to empower rural and underprivileged students will launch very soon.
+            Support rural and underprivileged students with one-time contributions or monthly auto-donations.
           </p>
         </div>
 
-        {/* Main Coming Soon Showcase Card */}
+        {/* Main Showcase Card */}
         <div className="bg-white rounded-3xl shadow-xl border border-stone-200/90 overflow-hidden">
           {/* Top Banner / Announcement */}
           <div className="relative bg-gradient-to-br from-[#24312d] via-[#2c3d38] to-[#1c2623] p-8 md:p-12 text-white overflow-hidden text-center">
@@ -99,19 +99,28 @@ const Donate: React.FC = () => {
 
             <div className="relative z-10 max-w-2xl mx-auto">
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/20 text-[#f2c5a8] text-xs font-bold uppercase tracking-wider mb-5 backdrop-blur-md">
-                <Clock size={14} className="animate-pulse text-amber-300" />
-                <span>Launching Soon</span>
+                <Heart size={14} className="text-amber-300" />
+                <span>Online Donations Active</span>
               </div>
 
               <h3 className="text-3xl md:text-5xl font-serif font-bold text-white tracking-tight mb-4">
-                Coming Soon!
+                Support Our Mission
               </h3>
 
               <p className="text-stone-200 text-sm md:text-base leading-relaxed mb-6 font-sans">
-                We are enhancing our campaign platform to bring full transparency and seamless giving. Targeted educational scholarships, direct student support, and certified online payment options will be available here soon.
+                Targeted educational scholarships, direct student support, and secure online payment options are available. Empower first-generation learners across Maharashtra.
               </p>
 
               <div className="inline-flex flex-wrap items-center justify-center gap-3 pt-2">
+                <Link
+                  to="/donate"
+                  className="inline-flex items-center gap-2 rounded-full bg-[#b5623b] hover:bg-[#9d502d] text-white px-7 py-3 text-sm font-bold shadow-lg transition-all duration-300 hover:scale-105"
+                >
+                  <Heart size={17} />
+                  <span>Donate Online (One-Time / Monthly)</span>
+                  <ArrowRight size={15} />
+                </Link>
+
                 <a
                   href={`https://wa.me/917820831901?text=${whatsappMessage}`}
                   target="_blank"
@@ -137,7 +146,7 @@ const Donate: React.FC = () => {
           <div className="p-6 md:p-10 bg-stone-50/50 border-b border-stone-200">
             <div className="text-center max-w-xl mx-auto mb-8">
               <span className="text-xs font-bold uppercase tracking-wider text-[#b5623b]">
-                Upcoming Causes
+                Key Initiatives
               </span>
               <h4 className="font-serif text-2xl font-bold text-[#24312d] mt-1">
                 Initiatives Supported By This Campaign
@@ -171,7 +180,7 @@ const Donate: React.FC = () => {
 
                     <div className="mt-4 pt-3 border-t border-stone-100 flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700">
                       <CheckCircle2 size={13} className="text-emerald-600" />
-                      <span>Upcoming Initiative</span>
+                      <span>Active Initiative</span>
                     </div>
                   </div>
                 );

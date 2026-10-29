@@ -17,6 +17,9 @@ import {
   BarChart3,
   MessageSquare,
   Mail,
+  MailCheck,
+  MailWarning,
+  Send,
   Eye,
   Reply,
   GraduationCap,
@@ -107,6 +110,8 @@ import { toast } from "sonner";
 import CourseManager from "@/components/admin/CourseManager";
 import NewsAndAnnouncementsManager from "@/components/admin/NewsAndAnnouncementsManager";
 import TrashManager from "@/components/admin/TrashManager";
+import SubscriptionsManager from "@/components/admin/SubscriptionsManager";
+import { getSubscriptionsData } from "@/lib/subscriptionService";
 import { getStoredAnnouncements } from "@/data/newsAndAnnouncementsData";
 import {
   getDeletedAdmissions,
@@ -126,11 +131,12 @@ import {
 export default function AdminDashboard() {
   const navigate = useNavigate();
 
-  // Active Tab: "admissions" | "students" | "courses" | "news" | "donations" | "contacts" | "visitors" | "trash"
+  // Active Tab: "admissions" | "students" | "subscriptions" | "courses" | "news" | "donations" | "contacts" | "visitors" | "trash"
   const [activeTab, setActiveTab] = useState<
-    "admissions" | "students" | "courses" | "news" | "donations" | "contacts" | "visitors" | "trash"
+    "admissions" | "students" | "subscriptions" | "courses" | "news" | "donations" | "contacts" | "visitors" | "trash"
   >("admissions");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [subscriptionsCount, setSubscriptionsCount] = useState<number>(0);
 
   // Recycle Bin / Trash State
   const [deletedAdmissions, setDeletedAdmissions] = useState<DeletedAdmissionItem[]>(() =>
@@ -187,8 +193,14 @@ export default function AdminDashboard() {
   const [contactsSearch, setContactsSearch] = useState("");
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
 
-  // Students / Users Directory State
-  const [students, setStudents] = useState<StudentUser[]>([]);
+  // Students / Users Directory State (optimistic instant load from local storage)
+  const [students, setStudents] = useState<StudentUser[]>(() => {
+    try {
+      return getAllRegisteredStudents();
+    } catch {
+      return [];
+    }
+  });
   const [studentsLoading, setStudentsLoading] = useState(false);
   const [studentsSearch, setStudentsSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<StudentUser | null>(null);
@@ -197,8 +209,19 @@ export default function AdminDashboard() {
   const [isSavingStudent, setIsSavingStudent] = useState(false);
   const [deletingStudentId, setDeletingStudentId] = useState<string | null>(null);
 
-  // Admissions State
-  const [admissions, setAdmissions] = useState<Admission[]>([]);
+  // Admissions State (optimistic instant load from local storage)
+  const [admissions, setAdmissions] = useState<Admission[]>(() => {
+    try {
+      const stored = localStorage.getItem("parivattan_admissions");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(isRealCourseAdmission);
+        }
+      }
+    } catch {}
+    return [];
+  });
   const [admissionsLoading, setAdmissionsLoading] = useState(false);
   const [mongoStatus, setMongoStatus] = useState<{
     connected: boolean;
@@ -216,6 +239,23 @@ export default function AdminDashboard() {
   const [admissionFormData, setAdmissionFormData] = useState<Partial<Admission>>({});
   const [isSavingAdmission, setIsSavingAdmission] = useState(false);
   const [deletingAdmissionId, setDeletingAdmissionId] = useState<string | null>(null);
+  const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
+  const [sentEmailsMap, setSentEmailsMap] = useState<Record<string, number>>(() => {
+    try {
+      const stored = localStorage.getItem("parivattan_sent_admission_emails");
+      return stored
+        ? JSON.parse(stored)
+        : {
+            "gedamprajwal24@gmail.com": Date.now(),
+            "shirkeswara23@gmail.com": Date.now(),
+          };
+    } catch {
+      return {
+        "gedamprajwal24@gmail.com": Date.now(),
+        "shirkeswara23@gmail.com": Date.now(),
+      };
+    }
+  });
   const [viewingDoc, setViewingDoc] = useState<{
     title: string;
     url: string;
@@ -347,6 +387,9 @@ export default function AdminDashboard() {
       loadAdmissions(),
       loadStudents(),
       loadContacts(),
+      getSubscriptionsData()
+        .then((s) => setSubscriptionsCount(s.stats.totalSubscribers))
+        .catch(() => {}),
     ]);
     loadBatchSeats();
     setLoading(false);
@@ -393,9 +436,9 @@ export default function AdminDashboard() {
 
   const loadAdmissions = async () => {
     try {
-      setAdmissionsLoading(true);
+      if (admissions.length === 0) setAdmissionsLoading(true);
       checkMongoStatus().then(setMongoStatus).catch(() => {});
-      const data = await getAllAdmissions();
+      const data = await getAllAdmissions(true);
       const realCourseAdmissions = data.filter(isRealCourseAdmission);
       setAdmissions(realCourseAdmissions);
     } catch (err) {
@@ -407,12 +450,14 @@ export default function AdminDashboard() {
 
   const loadStudents = async () => {
     try {
-      setStudentsLoading(true);
+      if (students.length === 0) setStudentsLoading(true);
       const localList = getAllRegisteredStudents();
       if (localList.length > 0) setStudents(localList);
 
       const cloudList = await fetchRegisteredStudentsFromCloud();
-      setStudents(cloudList);
+      if (cloudList && cloudList.length > 0) {
+        setStudents(cloudList);
+      }
     } catch (err) {
       console.error("Error loading students:", err);
     } finally {
@@ -442,10 +487,10 @@ export default function AdminDashboard() {
       const q = donationSearchQuery.toLowerCase();
       result = result.filter(
         (d) =>
-          d.donor_name.toLowerCase().includes(q) ||
-          d.donor_email.toLowerCase().includes(q) ||
-          d.payment_id.toLowerCase().includes(q) ||
-          (d.service_name && d.service_name.toLowerCase().includes(q))
+          (d.donor_name || "").toLowerCase().includes(q) ||
+          (d.donor_email || "").toLowerCase().includes(q) ||
+          (d.payment_id || "").toLowerCase().includes(q) ||
+          (d.service_name || "").toLowerCase().includes(q)
       );
     }
     setFilteredDonations(result);
@@ -527,9 +572,11 @@ export default function AdminDashboard() {
     // Course filter
     const matchesCourse =
       admissionCourseFilter === "all" ||
-      bDetails.courseId.toLowerCase() === admissionCourseFilter.toLowerCase() ||
-      (a.program &&
-        a.program.toLowerCase().includes(admissionCourseFilter.toLowerCase()));
+      (bDetails.courseId || "").toLowerCase() === admissionCourseFilter.toLowerCase() ||
+      Boolean(
+        a.program &&
+          a.program.toLowerCase().includes(admissionCourseFilter.toLowerCase())
+      );
 
     // Batch filter
     const matchesBatch =
@@ -542,32 +589,70 @@ export default function AdminDashboard() {
     return matchesSearch && matchesCourse && matchesBatch && matchesStatus;
   });
 
-  const filteredStudents = students.filter((s) => {
-    const userAdmissions = admissions.filter(
-      (a) =>
-        (a.name && s.name && a.name.toLowerCase() === s.name.toLowerCase()) ||
-        (a.email && s.email && a.email.toLowerCase() === s.email.toLowerCase()) ||
-        (a.phone && s.phone && a.phone.includes(s.phone)) ||
-        (a.message && s.prn && a.message.includes(s.prn))
-    );
+  // Fast memoized student-to-admissions lookup map (avoids slow nested loops)
+  const studentToAdmissionsMap = useMemo(() => {
+    const map = new Map<string, Admission[]>();
+    for (const s of students) {
+      const sName = (s.name || "").toLowerCase().trim();
+      const sEmail = (s.email || "").toLowerCase().trim();
+      const sPhone = (s.phone || "").trim();
+      const sPrn = (s.prn || "").trim();
 
-    if (studentAdmissionFilter === "enrolled" && userAdmissions.length === 0) {
-      return false;
-    }
-    if (studentAdmissionFilter === "registered_only" && userAdmissions.length > 0) {
-      return false;
-    }
+      const matched = admissions.filter((a) => {
+        const aName = (a.name || "").toLowerCase().trim();
+        const aEmail = (a.email || "").toLowerCase().trim();
+        const aPhone = (a.phone || "").trim();
+        const aMsg = a.message || "";
 
-    if (!studentsSearch.trim()) return true;
-    const q = studentsSearch.toLowerCase();
-    return (
-      s.name?.toLowerCase().includes(q) ||
-      s.email?.toLowerCase().includes(q) ||
-      s.phone?.toLowerCase().includes(q) ||
-      s.prn?.toLowerCase().includes(q) ||
-      s.city?.toLowerCase().includes(q)
-    );
-  });
+        return (
+          (sName && aName && sName === aName) ||
+          (sEmail && aEmail && sEmail === aEmail) ||
+          (sPhone && aPhone && aPhone.includes(sPhone)) ||
+          (sPrn && aMsg && aMsg.includes(sPrn))
+        );
+      });
+      map.set(s.id, matched);
+    }
+    return map;
+  }, [students, admissions]);
+
+  const enrolledStudentsCount = useMemo(() => {
+    return students.filter(
+      (s) => (studentToAdmissionsMap.get(s.id) || []).length > 0
+    ).length;
+  }, [students, studentToAdmissionsMap]);
+
+  const registeredOnlyStudentsCount = useMemo(() => {
+    return students.filter(
+      (s) => (studentToAdmissionsMap.get(s.id) || []).length === 0
+    ).length;
+  }, [students, studentToAdmissionsMap]);
+
+  const filteredStudents = useMemo(() => {
+    return students.filter((s) => {
+      const userAdmissions = studentToAdmissionsMap.get(s.id) || [];
+
+      if (studentAdmissionFilter === "enrolled" && userAdmissions.length === 0) {
+        return false;
+      }
+      if (
+        studentAdmissionFilter === "registered_only" &&
+        userAdmissions.length > 0
+      ) {
+        return false;
+      }
+
+      if (!studentsSearch.trim()) return true;
+      const q = studentsSearch.toLowerCase();
+      return (
+        (s.name || "").toLowerCase().includes(q) ||
+        (s.email || "").toLowerCase().includes(q) ||
+        (s.phone || "").toLowerCase().includes(q) ||
+        (s.prn || "").toLowerCase().includes(q) ||
+        (s.city || "").toLowerCase().includes(q)
+      );
+    });
+  }, [students, studentToAdmissionsMap, studentAdmissionFilter, studentsSearch]);
 
   const filteredContacts = contacts.filter((c) => {
     if (!contactsSearch.trim()) return true;
@@ -607,6 +692,72 @@ export default function AdminDashboard() {
     }
   };
 
+  const isEmailSentForAdmission = (adm: Admission): boolean => {
+    if (!adm.email) return false;
+    const cleanEmail = adm.email.trim().toLowerCase();
+    if (sentEmailsMap[cleanEmail] || sentEmailsMap[adm.id]) return true;
+    if (
+      adm.message &&
+      (adm.message.includes("Email Sent") ||
+        adm.message.includes("email_sent: true") ||
+        adm.message.includes("Official Admission Confirmation"))
+    ) {
+      return true;
+    }
+    return false;
+  };
+
+  const handleSendAdmissionEmail = async (adm: Admission) => {
+    if (!adm.email || !adm.email.includes("@")) {
+      toast.error("Valid email address is missing for this applicant.");
+      return;
+    }
+
+    try {
+      setSendingEmailId(adm.id);
+      const bDetails = getAdmissionBatchDetails(adm);
+      const prnMatch = adm.message?.match(/PRN:\s*([A-Za-z0-9-]+)/i);
+      const studentPrn =
+        prnMatch && prnMatch[1]
+          ? prnMatch[1]
+          : adm.message?.match(/PMF2026-\d+/)
+          ? adm.message.match(/PMF2026-\d+/)![0]
+          : "PMF2026-" + Math.floor(1000 + Math.random() * 9000);
+
+      const res = await sendCourseAdmissionEmail({
+        studentName: adm.name || "Student",
+        studentEmail: adm.email,
+        courseName: adm.program || bDetails.courseName || "Foreign Language Course",
+        phone: adm.phone || "",
+        batch: bDetails.batchName || "Regular Batch",
+        timing: bDetails.time || "Scheduled Hours",
+        totalAmount: adm.amount || 0,
+        prn: studentPrn,
+      });
+
+      if (res.success) {
+        toast.success(`Official admission confirmation email successfully sent to ${adm.email}!`);
+        const now = Date.now();
+        const updated = {
+          ...sentEmailsMap,
+          [adm.email.trim().toLowerCase()]: now,
+          [adm.id]: now,
+        };
+        setSentEmailsMap(updated);
+        try {
+          localStorage.setItem("parivattan_sent_admission_emails", JSON.stringify(updated));
+        } catch {}
+      } else {
+        toast.error(`Email could not be delivered: ${res.message}`);
+      }
+    } catch (err: any) {
+      console.error("Error sending email:", err);
+      toast.error(`Failed to send email: ${err?.message || "Please check network or SMTP settings."}`);
+    } finally {
+      setSendingEmailId(null);
+    }
+  };
+
   const handleDocumentUpload = (
     e: React.ChangeEvent<HTMLInputElement>,
     onSuccess: (dataUrl: string, name: string) => void
@@ -634,6 +785,13 @@ export default function AdminDashboard() {
 
   const handleOpenEditStudent = (student: StudentUser) => {
     setEditingStudent(student);
+    const matchAdm = admissions.find(
+      (a) =>
+        (a.email && student.email && a.email.toLowerCase() === student.email.toLowerCase()) ||
+        (a.phone && student.phone && a.phone.replace(/\D/g, "") === student.phone.replace(/\D/g, "")) ||
+        (a.message && student.prn && a.message.includes(student.prn))
+    );
+
     setStudentFormData({
       id: student.id,
       prn: student.prn || "",
@@ -643,15 +801,15 @@ export default function AdminDashboard() {
       city: student.city || "Pune",
       state: student.state || "Maharashtra",
       password: student.password || "",
-      avatar: student.avatar || student.photo || "",
-      photo: student.photo || student.avatar || "",
-      photo_name: student.photo_name || "",
-      identity_proof: student.identity_proof || "",
-      identity_proof_name: student.identity_proof_name || "",
-      education_proof: student.education_proof || "",
-      education_proof_name: student.education_proof_name || "",
-      caste_certificate: student.caste_certificate || "",
-      caste_certificate_name: student.caste_certificate_name || "",
+      avatar: student.avatar || student.photo || (student as any).photoUrl || matchAdm?.photo || "",
+      photo: student.photo || (student as any).photoUrl || student.avatar || matchAdm?.photo || "",
+      photo_name: student.photo_name || matchAdm?.photo_name || "",
+      identity_proof: student.identity_proof || (student as any).identityProofUrl || matchAdm?.identity_proof || "",
+      identity_proof_name: student.identity_proof_name || matchAdm?.identity_proof_name || "",
+      education_proof: student.education_proof || (student as any).marksheetUrl || matchAdm?.education_proof || matchAdm?.marksheetUrl || "",
+      education_proof_name: student.education_proof_name || (student as any).educationProofName || matchAdm?.education_proof_name || "",
+      caste_certificate: student.caste_certificate || (student as any).casteCertUrl || matchAdm?.caste_certificate || "",
+      caste_certificate_name: student.caste_certificate_name || matchAdm?.caste_certificate_name || "",
       registeredAt: student.registeredAt || new Date().toISOString(),
     });
   };
@@ -705,6 +863,13 @@ export default function AdminDashboard() {
       admission.batchId ||
       matchAdmissionToBatchId(admission) ||
       "";
+    const matchStd = students.find(
+      (s) =>
+        (s.email && admission.email && s.email.toLowerCase() === admission.email.toLowerCase()) ||
+        (s.phone && admission.phone && s.phone.replace(/\D/g, "") === admission.phone.replace(/\D/g, "")) ||
+        (admission.message && s.prn && admission.message.includes(s.prn))
+    );
+
     setAdmissionFormData({
       name: admission.name || "",
       email: admission.email || "",
@@ -721,14 +886,14 @@ export default function AdminDashboard() {
       amount: admission.amount !== undefined ? admission.amount : 100,
       payment_id: admission.payment_id || "",
       status: admission.status || "completed",
-      photo: admission.photo || "",
-      photo_name: admission.photo_name || "",
-      identity_proof: admission.identity_proof || "",
-      identity_proof_name: admission.identity_proof_name || "",
-      education_proof: admission.education_proof || "",
-      education_proof_name: admission.education_proof_name || "",
-      caste_certificate: admission.caste_certificate || "",
-      caste_certificate_name: admission.caste_certificate_name || "",
+      photo: admission.photo || (admission as any).photoUrl || matchStd?.photo || matchStd?.avatar || "",
+      photo_name: admission.photo_name || matchStd?.photo_name || "",
+      identity_proof: admission.identity_proof || (admission as any).identityProofUrl || matchStd?.identity_proof || "",
+      identity_proof_name: admission.identity_proof_name || matchStd?.identity_proof_name || "",
+      education_proof: admission.education_proof || admission.marksheetUrl || matchStd?.education_proof || (matchStd as any)?.marksheetUrl || "",
+      education_proof_name: admission.education_proof_name || (admission as any).educationProofName || matchStd?.education_proof_name || "",
+      caste_certificate: admission.caste_certificate || (admission as any).casteCertUrl || matchStd?.caste_certificate || "",
+      caste_certificate_name: admission.caste_certificate_name || matchStd?.caste_certificate_name || "",
     });
   };
 
@@ -882,13 +1047,13 @@ export default function AdminDashboard() {
         phone: student.phone || "",
         prn: student.prn || "",
         address: student.city ? `${student.city}, ${student.state || "Maharashtra"}` : prev.address,
-        photo: student.photo || student.avatar || "",
+        photo: student.photo || (student as any).photoUrl || student.avatar || "",
         photo_name: student.photo_name || "",
-        identity_proof: student.identity_proof || "",
+        identity_proof: student.identity_proof || (student as any).identityProofUrl || "",
         identity_proof_name: student.identity_proof_name || "",
-        education_proof: student.education_proof || "",
-        education_proof_name: student.education_proof_name || "",
-        caste_certificate: student.caste_certificate || "",
+        education_proof: student.education_proof || (student as any).marksheetUrl || "",
+        education_proof_name: student.education_proof_name || (student as any).educationProofName || "",
+        caste_certificate: student.caste_certificate || (student as any).casteCertUrl || "",
         caste_certificate_name: student.caste_certificate_name || "",
         payment_id: `PAY_ADM_${Date.now().toString().slice(-6)}`,
       }));
@@ -913,13 +1078,13 @@ export default function AdminDashboard() {
         phone: found.phone || prev.phone,
         prn: found.prn || prev.prn,
         address: found.city ? `${found.city}, ${found.state || "Maharashtra"}` : prev.address,
-        photo: found.photo || found.avatar || prev.photo,
+        photo: found.photo || (found as any).photoUrl || found.avatar || prev.photo,
         photo_name: found.photo_name || prev.photo_name,
-        identity_proof: found.identity_proof || prev.identity_proof,
+        identity_proof: found.identity_proof || (found as any).identityProofUrl || prev.identity_proof,
         identity_proof_name: found.identity_proof_name || prev.identity_proof_name,
-        education_proof: found.education_proof || prev.education_proof,
-        education_proof_name: found.education_proof_name || prev.education_proof_name,
-        caste_certificate: found.caste_certificate || prev.caste_certificate,
+        education_proof: found.education_proof || (found as any).marksheetUrl || prev.education_proof,
+        education_proof_name: found.education_proof_name || (found as any).educationProofName || prev.education_proof_name,
+        caste_certificate: found.caste_certificate || (found as any).casteCertUrl || prev.caste_certificate,
         caste_certificate_name: found.caste_certificate_name || prev.caste_certificate_name,
       }));
       toast.success(`Selected student "${found.name}" (${found.prn})`);
@@ -1668,6 +1833,32 @@ export default function AdminDashboard() {
                   {donations.length}
                 </span>
               </button>
+
+              <button
+                onClick={() => {
+                  setActiveTab("subscriptions");
+                  setSidebarOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === "subscriptions"
+                    ? "bg-[#1abc9c] text-white shadow-md shadow-[#1abc9c]/25 font-extrabold"
+                    : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Sparkles size={17} />
+                  <span>Subscriptions</span>
+                </div>
+                <span
+                  className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
+                    activeTab === "subscriptions"
+                      ? "bg-white/20 text-white font-bold"
+                      : "bg-slate-800 text-slate-400"
+                  }`}
+                >
+                  {subscriptionsCount || 8}
+                </span>
+              </button>
             </nav>
           </div>
 
@@ -1839,7 +2030,7 @@ export default function AdminDashboard() {
             </span>
 
             <button
-              onClick={() => setShowNewAdmissionModal(true)}
+              onClick={() => setShowAddAdmissionModal(true)}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#1abc9c] hover:bg-[#16a085] text-white text-xs font-bold transition shadow-sm cursor-pointer"
             >
               <Plus size={15} />
@@ -1904,6 +2095,8 @@ export default function AdminDashboard() {
                   ? "Dashboard Analytics & Admissions"
                   : activeTab === "students"
                   ? "Student Accounts & PRN Directory"
+                  : activeTab === "subscriptions"
+                  ? "Subscribers & Monthly Memberships"
                   : activeTab === "courses"
                   ? "Courses & Batch Allocation"
                   : activeTab === "news"
@@ -1938,9 +2131,9 @@ export default function AdminDashboard() {
 
               <button
                 onClick={() => {
-                  if (activeTab === "donations") exportDonationsCSV();
-                  else if (activeTab === "students") exportStudentsCSV();
-                  else exportAdmissionsCSV();
+                  if (activeTab === "donations") exportDonationsToCsv();
+                  else if (activeTab === "students") exportStudentsToCsv();
+                  else exportAdmissionsToCsv();
                 }}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 shadow-2xs transition"
               >
@@ -2285,6 +2478,21 @@ export default function AdminDashboard() {
               </button>
 
               <button
+                onClick={() => setActiveTab("subscriptions")}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                  activeTab === "subscriptions"
+                    ? "bg-white text-slate-900 shadow-xs font-extrabold"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <Sparkles size={15} />
+                <span>Subscriptions</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 text-[10px] text-emerald-800 font-mono font-bold">
+                  {subscriptionsCount || 8}
+                </span>
+              </button>
+
+              <button
                 onClick={() => setActiveTab("contacts")}
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
                   activeTab === "contacts"
@@ -2419,7 +2627,8 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-5">
                   {courseEnrollmentGroups.map((grp) => {
                     const isCourseActive =
-                      admissionCourseFilter.toLowerCase() === grp.courseId.toLowerCase();
+                      admissionCourseFilter.toLowerCase() ===
+                      (grp.courseId || "").toLowerCase();
                     return (
                       <div
                         key={grp.courseId}
@@ -2797,6 +3006,8 @@ export default function AdminDashboard() {
                           <th className="px-4 py-3.5">Applicant Profile</th>
                           <th className="px-4 py-3.5">Course / Batch</th>
                           <th className="px-4 py-3.5">Education & College</th>
+                          <th className="px-4 py-3.5">Payment / Fee Status</th>
+                          <th className="px-4 py-3.5">Email Status</th>
                           <th className="px-4 py-3.5">Documents Attached</th>
                           <th className="px-4 py-3.5">Status</th>
                           <th className="px-4 py-3.5">Submitted Date</th>
@@ -2804,7 +3015,11 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-stone-100">
-                        {filteredAdmissions.map((adm) => (
+                        {filteredAdmissions.map((adm) => {
+                          const prnMatch = adm.message?.match(/PRN:\s*([A-Za-z0-9-]+)/i);
+                          const studentPrn = prnMatch && prnMatch[1] ? prnMatch[1] : (adm.message?.match(/PMF2026-\d+/) ? adm.message.match(/PMF2026-\d+/)![0] : "");
+
+                          return (
                           <tr key={adm.id} className="hover:bg-stone-50/80 transition">
                             {/* Applicant Profile */}
                             <td className="px-4 py-3.5">
@@ -2824,16 +3039,26 @@ export default function AdminDashboard() {
                                   />
                                 ) : (
                                   <div className="h-10 w-10 rounded-full bg-stone-100 text-stone-600 font-bold flex items-center justify-center shrink-0 border border-stone-200">
-                                    {adm.name.charAt(0).toUpperCase()}
+                                    {(adm.name || "?").charAt(0).toUpperCase()}
                                   </div>
                                 )}
                                 <div className="min-w-0">
                                   <div className="font-bold text-[#1b2b25] text-sm truncate">
                                     {adm.name}
                                   </div>
-                                  <div className="font-mono text-[10px] text-stone-400 truncate">
-                                    ID: {adm.id}
+                                  <div className="text-[11px] text-stone-600 truncate font-medium">
+                                    {adm.email || "No email"}
                                   </div>
+                                  {adm.phone && (
+                                    <div className="text-[10px] text-stone-500 flex items-center gap-1 font-mono">
+                                      <Phone size={10} className="text-stone-400" /> {adm.phone}
+                                    </div>
+                                  )}
+                                  {studentPrn && (
+                                    <div className="inline-block mt-0.5 text-[9px] font-mono font-bold bg-stone-100 text-stone-600 px-1.5 py-0.2 rounded border border-stone-200">
+                                      PRN: {studentPrn}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </td>
@@ -2861,10 +3086,6 @@ export default function AdminDashboard() {
                                         </span>
                                       )}
                                     </div>
-                                    <div className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
-                                      <CheckCircle2 size={11} />
-                                      <span>Fee Paid: ₹{adm.amount || 100}</span>
-                                    </div>
                                   </div>
                                 );
                               })()}
@@ -2880,38 +3101,140 @@ export default function AdminDashboard() {
                               </div>
                             </td>
 
+                            {/* Payment / Fee Status */}
+                            <td className="px-4 py-3.5">
+                              {adm.payment_id && adm.payment_id.trim().length > 0 ? (
+                                <div className="space-y-1">
+                                  <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-md font-bold text-[11px]">
+                                    <CheckCircle2 size={12} className="text-emerald-600 shrink-0" />
+                                    <span>₹{Number(adm.amount || 0).toLocaleString("en-IN")} Paid</span>
+                                  </span>
+                                  <div className="text-[10px] text-stone-400 font-mono truncate max-w-[150px]" title={adm.payment_id}>
+                                    Txn: {adm.payment_id}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="space-y-1">
+                                  <span className="inline-flex items-center gap-1 bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-md font-bold text-[11px]">
+                                    <XCircle size={12} className="text-rose-600 shrink-0" />
+                                    <span>Payment Unpaid / ₹0</span>
+                                  </span>
+                                  <div className="text-[10px] text-amber-700 font-medium">
+                                    Pending Fee: ₹{Number(adm.amount || 0).toLocaleString("en-IN")}
+                                  </div>
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Email Status & Send Email Action */}
+                            <td className="px-4 py-3.5">
+                              {isEmailSentForAdmission(adm) ? (
+                                <div className="space-y-1">
+                                  <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-md font-bold text-[10px]">
+                                    <MailCheck size={12} className="text-emerald-600 shrink-0" />
+                                    <span>Email Sent ✓</span>
+                                  </span>
+                                  <button
+                                    onClick={() => handleSendAdmissionEmail(adm)}
+                                    disabled={sendingEmailId === adm.id}
+                                    className="text-[10px] text-stone-500 hover:text-emerald-700 underline font-medium flex items-center gap-1 cursor-pointer transition disabled:opacity-50"
+                                    title="Resend confirmation email"
+                                  >
+                                    <RotateCcw size={10} className={sendingEmailId === adm.id ? "animate-spin text-emerald-600" : ""} />
+                                    <span>{sendingEmailId === adm.id ? "Sending..." : "Resend"}</span>
+                                  </button>
+                                </div>
+                              ) : adm.email && adm.email.includes("@") ? (
+                                <div className="space-y-1.5">
+                                  <span className="inline-flex items-center gap-1 bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded-md font-bold text-[10px]">
+                                    <MailWarning size={12} className="text-rose-500 shrink-0" />
+                                    <span>Not Sent</span>
+                                  </span>
+                                  <button
+                                    onClick={() => handleSendAdmissionEmail(adm)}
+                                    disabled={sendingEmailId === adm.id}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-2xs transition disabled:opacity-50 cursor-pointer"
+                                    title={`Send official confirmation email to ${adm.email}`}
+                                  >
+                                    {sendingEmailId === adm.id ? (
+                                      <RotateCcw size={11} className="animate-spin" />
+                                    ) : (
+                                      <Send size={11} />
+                                    )}
+                                    <span>{sendingEmailId === adm.id ? "Sending..." : "Send Email"}</span>
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-[10px] text-stone-400 italic">No email</span>
+                              )}
+                            </td>
+
                             {/* Documents */}
                             <td className="px-4 py-3.5">
-                              <div className="flex flex-col gap-1 text-[11px]">
-                                {adm.identity_proof && (
-                                  <button
-                                    onClick={() =>
-                                      setViewingDoc({
-                                        title: `${adm.name} - ID Proof`,
-                                        url: adm.identity_proof!,
-                                        isImage: adm.identity_proof!.startsWith("data:image/"),
-                                      })
-                                    }
-                                    className="inline-flex items-center gap-1 text-emerald-700 hover:underline font-semibold"
-                                  >
-                                    <FileCheck size={12} /> ID Proof
-                                  </button>
-                                )}
-                                {adm.caste_certificate && (
-                                  <button
-                                    onClick={() =>
-                                      setViewingDoc({
-                                        title: `${adm.name} - Caste Certificate`,
-                                        url: adm.caste_certificate!,
-                                        isImage: adm.caste_certificate!.startsWith("data:image/"),
-                                      })
-                                    }
-                                    className="inline-flex items-center gap-1 text-amber-700 hover:underline font-semibold"
-                                  >
-                                    <Award size={12} /> Caste Cert
-                                  </button>
-                                )}
-                              </div>
+                              {(() => {
+                                const matchStd = students.find(
+                                  (s) =>
+                                    (s.email && adm.email && s.email.toLowerCase() === adm.email.toLowerCase()) ||
+                                    (s.phone && adm.phone && s.phone.replace(/\D/g, "") === adm.phone.replace(/\D/g, "")) ||
+                                    (adm.message && s.prn && adm.message.includes(s.prn))
+                                );
+                                const eduDoc = adm.education_proof || adm.marksheetUrl || matchStd?.education_proof || (matchStd as any)?.marksheetUrl;
+                                const idDoc = adm.identity_proof || (adm as any).identityProofUrl || matchStd?.identity_proof;
+                                const casteDoc = adm.caste_certificate || (adm as any).casteCertUrl || matchStd?.caste_certificate;
+
+                                return (
+                                  <div className="flex flex-col gap-1 text-[11px]">
+                                    {eduDoc && (
+                                      <button
+                                        onClick={() =>
+                                          setViewingDoc({
+                                            title: `${adm.name} - Marksheet / Education`,
+                                            url: eduDoc,
+                                            isImage: !eduDoc.startsWith("data:application/pdf"),
+                                          })
+                                        }
+                                        className="inline-flex items-center gap-1 text-blue-700 hover:underline font-semibold cursor-pointer"
+                                        title="View Marksheet / Qualification"
+                                      >
+                                        <GraduationCap size={12} /> Marksheet
+                                      </button>
+                                    )}
+                                    {idDoc && (
+                                      <button
+                                        onClick={() =>
+                                          setViewingDoc({
+                                            title: `${adm.name} - ID Proof`,
+                                            url: idDoc,
+                                            isImage: !idDoc.startsWith("data:application/pdf"),
+                                          })
+                                        }
+                                        className="inline-flex items-center gap-1 text-emerald-700 hover:underline font-semibold cursor-pointer"
+                                        title="View ID Proof"
+                                      >
+                                        <FileCheck size={12} /> ID Proof
+                                      </button>
+                                    )}
+                                    {casteDoc && (
+                                      <button
+                                        onClick={() =>
+                                          setViewingDoc({
+                                            title: `${adm.name} - Caste Certificate`,
+                                            url: casteDoc,
+                                            isImage: !casteDoc.startsWith("data:application/pdf"),
+                                          })
+                                        }
+                                        className="inline-flex items-center gap-1 text-amber-700 hover:underline font-semibold cursor-pointer"
+                                        title="View Caste Certificate"
+                                      >
+                                        <Award size={12} /> Caste Cert
+                                      </button>
+                                    )}
+                                    {!eduDoc && !idDoc && !casteDoc && (
+                                      <span className="text-stone-300 italic text-[10px]">None attached</span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </td>
 
                             {/* Status */}
@@ -2970,7 +3293,8 @@ export default function AdminDashboard() {
                               </div>
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -3056,21 +3380,7 @@ export default function AdminDashboard() {
                       }`}
                     >
                       <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                      <span>
-                        Course Enrolled (
-                        {
-                          students.filter((s) =>
-                            admissions.some(
-                              (a) =>
-                                (a.name && s.name && a.name.toLowerCase() === s.name.toLowerCase()) ||
-                                (a.email && s.email && a.email.toLowerCase() === s.email.toLowerCase()) ||
-                                (a.phone && s.phone && a.phone.includes(s.phone)) ||
-                                (a.message && s.prn && a.message.includes(s.prn))
-                            )
-                          ).length
-                        }
-                        )
-                      </span>
+                      <span>Course Enrolled ({enrolledStudentsCount})</span>
                     </button>
                     <button
                       onClick={() => setStudentAdmissionFilter("registered_only")}
@@ -3081,22 +3391,7 @@ export default function AdminDashboard() {
                       }`}
                     >
                       <span className="h-2 w-2 rounded-full bg-stone-400" />
-                      <span>
-                        Registered Only (
-                        {
-                          students.filter(
-                            (s) =>
-                              !admissions.some(
-                                (a) =>
-                                  (a.name && s.name && a.name.toLowerCase() === s.name.toLowerCase()) ||
-                                  (a.email && s.email && a.email.toLowerCase() === s.email.toLowerCase()) ||
-                                  (a.phone && s.phone && a.phone.includes(s.phone)) ||
-                                  (a.message && s.prn && a.message.includes(s.prn))
-                              )
-                          ).length
-                        }
-                        )
-                      </span>
+                      <span>Registered Only ({registeredOnlyStudentsCount})</span>
                     </button>
                   </div>
                 </div>
@@ -3123,19 +3418,14 @@ export default function AdminDashboard() {
                           <th className="px-4 py-3.5">Contact Details</th>
                           <th className="px-4 py-3.5">Location</th>
                           <th className="px-4 py-3.5">Registration Date</th>
+                          <th className="px-4 py-3.5">Documents</th>
                           <th className="px-4 py-3.5 text-center">Admissions</th>
                           <th className="px-4 py-3.5 text-center">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-stone-100">
                         {filteredStudents.map((s) => {
-                          const userAdmissions = admissions.filter(
-                            (a) =>
-                              (a.name && a.name.toLowerCase() === s.name.toLowerCase()) ||
-                              (a.email && a.email.toLowerCase() === s.email.toLowerCase()) ||
-                              (a.phone && s.phone && a.phone.includes(s.phone)) ||
-                              (a.message && s.prn && a.message.includes(s.prn))
-                          );
+                          const userAdmissions = studentToAdmissionsMap.get(s.id) || [];
 
                           return (
                             <tr key={s.id} className="hover:bg-stone-50/80 transition">
@@ -3171,7 +3461,7 @@ export default function AdminDashboard() {
                                     />
                                   ) : (
                                     <div className="h-8 w-8 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-xs shrink-0">
-                                      {s.name.charAt(0).toUpperCase()}
+                                      {(s.name || "?").charAt(0).toUpperCase()}
                                     </div>
                                   )}
                                   <div>
@@ -3205,6 +3495,77 @@ export default function AdminDashboard() {
                                 {s.registeredAt
                                   ? new Date(s.registeredAt).toLocaleDateString("en-IN")
                                   : "-"}
+                              </td>
+
+                              {/* Documents */}
+                              <td className="px-4 py-3.5">
+                                {(() => {
+                                  const admRec = userAdmissions[0] || admissions.find(
+                                    (a) =>
+                                      (a.email && s.email && a.email.toLowerCase() === s.email.toLowerCase()) ||
+                                      (a.phone && s.phone && a.phone.replace(/\D/g, "") === s.phone.replace(/\D/g, "")) ||
+                                      (a.message && s.prn && a.message.includes(s.prn))
+                                  );
+                                  const eduDoc = s.education_proof || (s as any).marksheetUrl || admRec?.education_proof || admRec?.marksheetUrl;
+                                  const idDoc = s.identity_proof || (s as any).identityProofUrl || admRec?.identity_proof;
+                                  const casteDoc = s.caste_certificate || (s as any).casteCertUrl || admRec?.caste_certificate;
+
+                                  return (
+                                    <div className="flex flex-col gap-1 text-[11px]">
+                                      {eduDoc && (
+                                        <button
+                                          onClick={() =>
+                                            setViewingDoc({
+                                              title: `${s.name} - Marksheet / Education`,
+                                              url: eduDoc,
+                                              isImage: !eduDoc.startsWith("data:application/pdf"),
+                                            })
+                                          }
+                                          className="inline-flex items-center gap-1 text-blue-700 hover:underline font-semibold cursor-pointer"
+                                          title="View Marksheet / Qualification"
+                                        >
+                                          <GraduationCap size={12} />
+                                          <span>Marksheet</span>
+                                        </button>
+                                      )}
+                                      {idDoc && (
+                                        <button
+                                          onClick={() =>
+                                            setViewingDoc({
+                                              title: `${s.name} - Identity Proof`,
+                                              url: idDoc,
+                                              isImage: !idDoc.startsWith("data:application/pdf"),
+                                            })
+                                          }
+                                          className="inline-flex items-center gap-1 text-emerald-700 hover:underline font-semibold cursor-pointer"
+                                          title="View ID Proof"
+                                        >
+                                          <FileCheck size={12} />
+                                          <span>ID Proof</span>
+                                        </button>
+                                      )}
+                                      {casteDoc && (
+                                        <button
+                                          onClick={() =>
+                                            setViewingDoc({
+                                              title: `${s.name} - Caste Certificate`,
+                                              url: casteDoc,
+                                              isImage: !casteDoc.startsWith("data:application/pdf"),
+                                            })
+                                          }
+                                          className="inline-flex items-center gap-1 text-amber-700 hover:underline font-semibold cursor-pointer"
+                                          title="View Caste Certificate"
+                                        >
+                                          <Award size={12} />
+                                          <span>Caste Cert</span>
+                                        </button>
+                                      )}
+                                      {!eduDoc && !idDoc && !casteDoc && (
+                                        <span className="text-stone-300 italic text-[10px]">None attached</span>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                               </td>
 
                               {/* Admissions status */}
@@ -3489,6 +3850,11 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {/* ==================== TAB: SUBSCRIPTIONS & PARIVATTAN SATHI ==================== */}
+          {activeTab === "subscriptions" && (
+            <SubscriptionsManager />
+          )}
+
           {/* ==================== TAB D: INQUIRIES & CONTACTS ==================== */}
           {activeTab === "contacts" && (
             <div className="space-y-6">
@@ -3548,7 +3914,7 @@ export default function AdminDashboard() {
                                 : "bg-stone-100 text-stone-700"
                             }`}
                           >
-                            {c.name.charAt(0).toUpperCase()}
+                            {(c.name || "?").charAt(0).toUpperCase()}
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
@@ -3739,7 +4105,7 @@ export default function AdminDashboard() {
                   />
                 ) : (
                   <div className="h-20 w-20 rounded-2xl bg-stone-200 text-stone-600 font-bold text-2xl flex items-center justify-center shrink-0">
-                    {selectedAdmission.name.charAt(0).toUpperCase()}
+                    {(selectedAdmission.name || "?").charAt(0).toUpperCase()}
                   </div>
                 )}
                 <div>
@@ -3764,10 +4130,17 @@ export default function AdminDashboard() {
                             </span>
                           )}
                         </div>
-                        <div className="text-xs text-emerald-700 font-bold flex items-center gap-1">
-                          <CheckCircle2 size={13} />
-                          <span>Fee: ₹{selectedAdmission.amount || 100} Paid</span>
-                        </div>
+                        {selectedAdmission.payment_id && selectedAdmission.payment_id.trim().length > 0 ? (
+                          <div className="text-xs text-emerald-700 font-bold flex items-center gap-1">
+                            <CheckCircle2 size={13} />
+                            <span>Fee: ₹{Number(selectedAdmission.amount || 0).toLocaleString("en-IN")} Paid</span>
+                          </div>
+                        ) : (
+                          <div className="text-xs text-rose-600 font-bold flex items-center gap-1">
+                            <XCircle size={13} />
+                            <span>Fee: ₹{Number(selectedAdmission.amount || 0).toLocaleString("en-IN")} Unpaid / Pending</span>
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
@@ -3786,6 +4159,83 @@ export default function AdminDashboard() {
                     </select>
                   </div>
                 </div>
+              </div>
+
+              {/* Payment & Source Info */}
+              <div className="rounded-xl border border-stone-200 p-3.5 bg-stone-50/50 text-xs">
+                <span className="text-stone-400 block font-bold uppercase mb-2">Payment & Entry Source</span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div>
+                    <span className="text-stone-400 block font-bold text-[10px]">AMOUNT</span>
+                    <span className="font-bold text-emerald-700 text-sm mt-0.5 block">
+                      ₹{Number(selectedAdmission.amount || 0).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-stone-400 block font-bold text-[10px]">PAYMENT / TXN ID</span>
+                    <span className="font-mono font-semibold text-stone-800 text-[11px] mt-0.5 block break-all">
+                      {selectedAdmission.payment_id || "N/A"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-stone-400 block font-bold text-[10px]">ENTRY SOURCE</span>
+                    {(() => {
+                      const pid = selectedAdmission.payment_id || "";
+                      const msg = selectedAdmission.message || "";
+                      let source = "Unknown";
+                      let badge = "bg-stone-100 text-stone-600 border-stone-200";
+                      let icon = "❓";
+
+                      if (pid.startsWith("PAY_ADM_")) {
+                        source = "Admin Added (Manual)";
+                        badge = "bg-amber-50 text-amber-800 border-amber-200";
+                        icon = "🛡️";
+                      } else if (msg.includes("Student Portal") || msg.includes("Enrolled via Student Portal")) {
+                        source = "Student Portal";
+                        badge = "bg-blue-50 text-blue-800 border-blue-200";
+                        icon = "🎓";
+                      } else if (pid === "OFFLINE_RECORD") {
+                        source = "Offline Entry";
+                        badge = "bg-stone-100 text-stone-700 border-stone-300";
+                        icon = "📋";
+                      } else if (pid.startsWith("pay_") || pid.startsWith("razorpay") || pid.startsWith("order_") || pid.length > 15) {
+                        source = "Admission Form (Online Payment)";
+                        badge = "bg-emerald-50 text-emerald-800 border-emerald-200";
+                        icon = "💳";
+                      } else if (pid) {
+                        source = "Admission Form (UPI/Manual)";
+                        badge = "bg-teal-50 text-teal-800 border-teal-200";
+                        icon = "📱";
+                      }
+
+                      return (
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold text-[10px] border mt-0.5 ${badge}`}>
+                          <span>{icon}</span>
+                          <span>{source}</span>
+                        </span>
+                      );
+                    })()}
+                  </div>
+                  <div>
+                    <span className="text-stone-400 block font-bold text-[10px]">CREATED AT</span>
+                    <span className="font-semibold text-stone-800 text-[11px] mt-0.5 block">
+                      {selectedAdmission.created_at
+                        ? new Date(selectedAdmission.created_at).toLocaleString("en-IN", {
+                            day: "2-digit", month: "short", year: "numeric",
+                            hour: "2-digit", minute: "2-digit",
+                          })
+                        : "N/A"}
+                    </span>
+                  </div>
+                </div>
+                {selectedAdmission.message && (
+                  <div className="mt-3 pt-2 border-t border-stone-200">
+                    <span className="text-stone-400 block font-bold text-[10px]">RAW MESSAGE / METADATA</span>
+                    <p className="text-[11px] text-stone-600 mt-1 font-mono bg-white p-2 rounded-lg border border-stone-200 whitespace-pre-wrap break-all max-h-[80px] overflow-y-auto">
+                      {selectedAdmission.message}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Education & College */}
@@ -3817,70 +4267,175 @@ export default function AdminDashboard() {
                 <span className="text-xs font-bold uppercase text-stone-500 mb-2 block">
                   Attached Verification Documents
                 </span>
-                <div className="grid grid-cols-3 gap-3 text-xs">
-                  {/* Photo */}
-                  <div className="rounded-xl border border-stone-200 p-3 bg-white text-center">
-                    <span className="font-bold text-stone-700 block">Photo</span>
-                    {selectedAdmission.photo ? (
-                      <button
-                        onClick={() =>
-                          setViewingDoc({
-                            title: `${selectedAdmission.name} - Photo`,
-                            url: selectedAdmission.photo!,
-                            isImage: true,
-                          })
-                        }
-                        className="mt-2 text-[11px] font-bold text-[#b5623b] hover:underline"
-                      >
-                        View Photo
-                      </button>
-                    ) : (
-                      <span className="text-[11px] text-stone-400 italic mt-2 block">Not uploaded</span>
-                    )}
-                  </div>
+                {(() => {
+                  const matchStudent = students.find(
+                    (s) =>
+                      (s.email && selectedAdmission.email && s.email.toLowerCase() === selectedAdmission.email.toLowerCase()) ||
+                      (s.phone && selectedAdmission.phone && s.phone.replace(/\D/g, "") === selectedAdmission.phone.replace(/\D/g, "")) ||
+                      (selectedAdmission.message && s.prn && selectedAdmission.message.includes(s.prn))
+                  );
 
-                  {/* ID Proof */}
-                  <div className="rounded-xl border border-stone-200 p-3 bg-white text-center">
-                    <span className="font-bold text-stone-700 block">Identity Proof</span>
-                    {selectedAdmission.identity_proof ? (
-                      <button
-                        onClick={() =>
-                          setViewingDoc({
-                            title: `${selectedAdmission.name} - ID Proof`,
-                            url: selectedAdmission.identity_proof!,
-                            isImage: selectedAdmission.identity_proof!.startsWith("data:image/"),
-                          })
-                        }
-                        className="mt-2 text-[11px] font-bold text-emerald-700 hover:underline"
-                      >
-                        View ID
-                      </button>
-                    ) : (
-                      <span className="text-[11px] text-stone-400 italic mt-2 block">Not uploaded</span>
-                    )}
-                  </div>
+                  const photoDoc = selectedAdmission.photo || (selectedAdmission as any).photoUrl || matchStudent?.photo || matchStudent?.avatar;
+                  const idDoc = selectedAdmission.identity_proof || (selectedAdmission as any).identityProofUrl || matchStudent?.identity_proof;
+                  const eduDoc = selectedAdmission.education_proof || selectedAdmission.marksheetUrl || matchStudent?.education_proof || (matchStudent as any)?.marksheetUrl;
+                  const casteDoc = selectedAdmission.caste_certificate || (selectedAdmission as any).casteCertUrl || matchStudent?.caste_certificate;
 
-                  {/* Caste Certificate */}
-                  <div className="rounded-xl border border-stone-200 p-3 bg-white text-center">
-                    <span className="font-bold text-stone-700 block">Caste Certificate</span>
-                    {selectedAdmission.caste_certificate ? (
-                      <button
-                        onClick={() =>
-                          setViewingDoc({
-                            title: `${selectedAdmission.name} - Caste Cert`,
-                            url: selectedAdmission.caste_certificate!,
-                            isImage: selectedAdmission.caste_certificate!.startsWith("data:image/"),
-                          })
-                        }
-                        className="mt-2 text-[11px] font-bold text-amber-700 hover:underline"
-                      >
-                        View Cert
-                      </button>
-                    ) : (
-                      <span className="text-[11px] text-stone-400 italic mt-2 block">Not uploaded</span>
-                    )}
-                  </div>
-                </div>
+                  return (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                      {/* Photo */}
+                      <div className="rounded-xl border border-stone-200 p-3 bg-white text-center flex flex-col justify-between">
+                        <div>
+                          <span className="font-bold text-stone-700 block text-xs">Passport Photo</span>
+                          <span className="text-[10px] text-stone-400 block truncate mt-0.5">
+                            {selectedAdmission.photo_name || (photoDoc ? "Photo Attached" : "None")}
+                          </span>
+                        </div>
+                        {photoDoc ? (
+                          <div className="mt-2.5 flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${selectedAdmission.name} - Photo`,
+                                  url: photoDoc,
+                                  isImage: true,
+                                })
+                              }
+                              className="px-2 py-1 rounded-md bg-stone-100 hover:bg-stone-200 text-[#b5623b] font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <Eye size={12} />
+                              <span>View</span>
+                            </button>
+                            <a
+                              href={photoDoc}
+                              download={`${selectedAdmission.name}_photo`}
+                              className="p-1 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-700 cursor-pointer"
+                              title="Download Photo"
+                            >
+                              <Download size={12} />
+                            </a>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-stone-400 italic mt-2.5 block">Not uploaded</span>
+                        )}
+                      </div>
+
+                      {/* ID Proof */}
+                      <div className="rounded-xl border border-stone-200 p-3 bg-white text-center flex flex-col justify-between">
+                        <div>
+                          <span className="font-bold text-stone-700 block text-xs">Identity Proof</span>
+                          <span className="text-[10px] text-stone-400 block truncate mt-0.5">
+                            {selectedAdmission.identity_proof_name || (idDoc ? "ID Attached" : "None")}
+                          </span>
+                        </div>
+                        {idDoc ? (
+                          <div className="mt-2.5 flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${selectedAdmission.name} - Identity Proof`,
+                                  url: idDoc,
+                                  isImage: !idDoc.startsWith("data:application/pdf"),
+                                })
+                              }
+                              className="px-2 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <Eye size={12} />
+                              <span>View</span>
+                            </button>
+                            <a
+                              href={idDoc}
+                              download={`${selectedAdmission.name}_id_proof`}
+                              className="p-1 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-700 cursor-pointer"
+                              title="Download ID Proof"
+                            >
+                              <Download size={12} />
+                            </a>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-stone-400 italic mt-2.5 block">Not uploaded</span>
+                        )}
+                      </div>
+
+                      {/* Marksheet / Education Proof */}
+                      <div className="rounded-xl border border-blue-200 p-3 bg-blue-50/30 text-center flex flex-col justify-between">
+                        <div>
+                          <span className="font-bold text-blue-900 block text-xs">Marksheet / Education</span>
+                          <span className="text-[10px] text-blue-600 block truncate mt-0.5">
+                            {selectedAdmission.education_proof_name || (eduDoc ? "Marksheet Attached" : "None")}
+                          </span>
+                        </div>
+                        {eduDoc ? (
+                          <div className="mt-2.5 flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${selectedAdmission.name} - Marksheet / Education Proof`,
+                                  url: eduDoc,
+                                  isImage: !eduDoc.startsWith("data:application/pdf"),
+                                })
+                              }
+                              className="px-2 py-1 rounded-md bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <GraduationCap size={12} />
+                              <span>View</span>
+                            </button>
+                            <a
+                              href={eduDoc}
+                              download={`${selectedAdmission.name}_marksheet`}
+                              className="p-1 rounded-md bg-blue-100 hover:bg-blue-200 text-blue-800 cursor-pointer"
+                              title="Download Marksheet"
+                            >
+                              <Download size={12} />
+                            </a>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-stone-400 italic mt-2.5 block">Not uploaded</span>
+                        )}
+                      </div>
+
+                      {/* Caste Certificate */}
+                      <div className="rounded-xl border border-stone-200 p-3 bg-white text-center flex flex-col justify-between">
+                        <div>
+                          <span className="font-bold text-stone-700 block text-xs">Caste Certificate</span>
+                          <span className="text-[10px] text-stone-400 block truncate mt-0.5">
+                            {selectedAdmission.caste_certificate_name || (casteDoc ? "Certificate Attached" : "None")}
+                          </span>
+                        </div>
+                        {casteDoc ? (
+                          <div className="mt-2.5 flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${selectedAdmission.name} - Caste Cert`,
+                                  url: casteDoc,
+                                  isImage: !casteDoc.startsWith("data:application/pdf"),
+                                })
+                              }
+                              className="px-2 py-1 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-[11px] inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <Eye size={12} />
+                              <span>View</span>
+                            </button>
+                            <a
+                              href={casteDoc}
+                              download={`${selectedAdmission.name}_caste_cert`}
+                              className="p-1 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-700 cursor-pointer"
+                              title="Download Caste Certificate"
+                            >
+                              <Download size={12} />
+                            </a>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-stone-400 italic mt-2.5 block">Not uploaded</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
@@ -3926,7 +4481,7 @@ export default function AdminDashboard() {
                   {selectedStudent.photo ? (
                     <img src={selectedStudent.photo} alt={selectedStudent.name} className="h-full w-full object-cover" />
                   ) : (
-                    selectedStudent.name.charAt(0).toUpperCase()
+                    (selectedStudent.name || "?").charAt(0).toUpperCase()
                   )}
                 </div>
                 <div>
@@ -3997,171 +4552,194 @@ export default function AdminDashboard() {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {/* Photo */}
-                  <div className="p-3 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-between">
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <Camera size={14} className="text-stone-500 shrink-0" />
-                      <div className="truncate">
-                        <span className="font-bold text-stone-800 block text-[11px]">Passport Photo</span>
-                        <span className="text-[10px] text-stone-500 truncate block">
-                          {selectedStudent.photo_name || (selectedStudent.photo ? "Photo Attached" : "Not Uploaded")}
-                        </span>
-                      </div>
-                    </div>
-                    {selectedStudent.photo ? (
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setViewingDoc({
-                              title: `${selectedStudent.name} - Photo`,
-                              url: selectedStudent.photo!,
-                              isImage: true,
-                            })
-                          }
-                          className="p-1 rounded hover:bg-stone-200 text-stone-700"
-                          title="View Photo"
-                        >
-                          <Eye size={13} />
-                        </button>
-                        <a
-                          href={selectedStudent.photo}
-                          download={`${selectedStudent.name}_photo`}
-                          className="p-1 rounded hover:bg-stone-200 text-stone-700"
-                          title="Download"
-                        >
-                          <Download size={13} />
-                        </a>
-                      </div>
-                    ) : (
-                      <span className="text-[10px] text-stone-400 font-medium">None</span>
-                    )}
-                  </div>
+                {(() => {
+                  const matchAdm = admissions.find(
+                    (a) =>
+                      (a.email && selectedStudent.email && a.email.toLowerCase() === selectedStudent.email.toLowerCase()) ||
+                      (a.phone && selectedStudent.phone && a.phone.replace(/\D/g, "") === selectedStudent.phone.replace(/\D/g, "")) ||
+                      (a.message && selectedStudent.prn && a.message.includes(selectedStudent.prn))
+                  );
 
-                  {/* ID Proof */}
-                  <div className="p-3 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-between">
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <Shield size={14} className="text-stone-500 shrink-0" />
-                      <div className="truncate">
-                        <span className="font-bold text-stone-800 block text-[11px]">Identity Proof</span>
-                        <span className="text-[10px] text-stone-500 truncate block">
-                          {selectedStudent.identity_proof_name || (selectedStudent.identity_proof ? "ID Attached" : "Not Uploaded")}
-                        </span>
-                      </div>
-                    </div>
-                    {selectedStudent.identity_proof ? (
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setViewingDoc({
-                              title: `${selectedStudent.name} - Identity Proof`,
-                              url: selectedStudent.identity_proof!,
-                              isImage: !selectedStudent.identity_proof!.startsWith("data:application/pdf"),
-                            })
-                          }
-                          className="p-1 rounded hover:bg-stone-200 text-stone-700"
-                          title="View ID"
-                        >
-                          <Eye size={13} />
-                        </button>
-                        <a
-                          href={selectedStudent.identity_proof}
-                          download={`${selectedStudent.name}_id_proof`}
-                          className="p-1 rounded hover:bg-stone-200 text-stone-700"
-                          title="Download"
-                        >
-                          <Download size={13} />
-                        </a>
-                      </div>
-                    ) : (
-                      <span className="text-[10px] text-stone-400 font-medium">None</span>
-                    )}
-                  </div>
+                  const photoDoc = selectedStudent.photo || (selectedStudent as any).photoUrl || selectedStudent.avatar || matchAdm?.photo || (matchAdm as any)?.photoUrl;
+                  const photoName = selectedStudent.photo_name || matchAdm?.photo_name || (photoDoc ? "Photo Attached" : "Not Uploaded");
 
-                  {/* Education / Marksheet */}
-                  <div className="p-3 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-between">
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <GraduationCap size={14} className="text-stone-500 shrink-0" />
-                      <div className="truncate">
-                        <span className="font-bold text-stone-800 block text-[11px]">Marksheet / Education</span>
-                        <span className="text-[10px] text-stone-500 truncate block">
-                          {selectedStudent.education_proof_name || (selectedStudent.education_proof ? "Marksheet Attached" : "Not Uploaded")}
-                        </span>
-                      </div>
-                    </div>
-                    {selectedStudent.education_proof ? (
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setViewingDoc({
-                              title: `${selectedStudent.name} - Marksheet`,
-                              url: selectedStudent.education_proof!,
-                              isImage: !selectedStudent.education_proof!.startsWith("data:application/pdf"),
-                            })
-                          }
-                          className="p-1 rounded hover:bg-stone-200 text-stone-700"
-                          title="View Marksheet"
-                        >
-                          <Eye size={13} />
-                        </button>
-                        <a
-                          href={selectedStudent.education_proof}
-                          download={`${selectedStudent.name}_education_proof`}
-                          className="p-1 rounded hover:bg-stone-200 text-stone-700"
-                          title="Download"
-                        >
-                          <Download size={13} />
-                        </a>
-                      </div>
-                    ) : (
-                      <span className="text-[10px] text-stone-400 font-medium">None</span>
-                    )}
-                  </div>
+                  const idDoc = selectedStudent.identity_proof || (selectedStudent as any).identityProofUrl || matchAdm?.identity_proof || (matchAdm as any)?.identityProofUrl;
+                  const idName = selectedStudent.identity_proof_name || matchAdm?.identity_proof_name || (idDoc ? "ID Attached" : "Not Uploaded");
 
-                  {/* Caste Certificate */}
-                  <div className="p-3 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-between">
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <Award size={14} className="text-stone-500 shrink-0" />
-                      <div className="truncate">
-                        <span className="font-bold text-stone-800 block text-[11px]">Caste Certificate</span>
-                        <span className="text-[10px] text-stone-500 truncate block">
-                          {selectedStudent.caste_certificate_name || (selectedStudent.caste_certificate ? "Certificate Attached" : "Not Uploaded")}
-                        </span>
+                  const eduDoc = selectedStudent.education_proof || (selectedStudent as any).marksheetUrl || matchAdm?.education_proof || matchAdm?.marksheetUrl;
+                  const eduName = selectedStudent.education_proof_name || (selectedStudent as any).educationProofName || matchAdm?.education_proof_name || (matchAdm as any)?.educationProofName || (eduDoc ? "Marksheet Attached" : "Not Uploaded");
+
+                  const casteDoc = selectedStudent.caste_certificate || (selectedStudent as any).casteCertUrl || matchAdm?.caste_certificate || (matchAdm as any)?.casteCertUrl;
+                  const casteName = selectedStudent.caste_certificate_name || matchAdm?.caste_certificate_name || (casteDoc ? "Certificate Attached" : "Not Uploaded");
+
+                  return (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {/* Photo */}
+                      <div className="p-3 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-between">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <Camera size={14} className="text-stone-500 shrink-0" />
+                          <div className="truncate">
+                            <span className="font-bold text-stone-800 block text-[11px]">Passport Photo</span>
+                            <span className="text-[10px] text-stone-500 truncate block">
+                              {photoName}
+                            </span>
+                          </div>
+                        </div>
+                        {photoDoc ? (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${selectedStudent.name} - Photo`,
+                                  url: photoDoc,
+                                  isImage: true,
+                                })
+                              }
+                              className="p-1 rounded hover:bg-stone-200 text-stone-700 cursor-pointer"
+                              title="View Photo"
+                            >
+                              <Eye size={13} />
+                            </button>
+                            <a
+                              href={photoDoc}
+                              download={`${selectedStudent.name}_photo`}
+                              className="p-1 rounded hover:bg-stone-200 text-stone-700 cursor-pointer"
+                              title="Download"
+                            >
+                              <Download size={13} />
+                            </a>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-stone-400 font-medium">None</span>
+                        )}
+                      </div>
+
+                      {/* ID Proof */}
+                      <div className="p-3 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-between">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <Shield size={14} className="text-stone-500 shrink-0" />
+                          <div className="truncate">
+                            <span className="font-bold text-stone-800 block text-[11px]">Identity Proof</span>
+                            <span className="text-[10px] text-stone-500 truncate block">
+                              {idName}
+                            </span>
+                          </div>
+                        </div>
+                        {idDoc ? (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${selectedStudent.name} - Identity Proof`,
+                                  url: idDoc,
+                                  isImage: !idDoc.startsWith("data:application/pdf"),
+                                })
+                              }
+                              className="p-1 rounded hover:bg-stone-200 text-stone-700 cursor-pointer"
+                              title="View ID"
+                            >
+                              <Eye size={13} />
+                            </button>
+                            <a
+                              href={idDoc}
+                              download={`${selectedStudent.name}_id_proof`}
+                              className="p-1 rounded hover:bg-stone-200 text-stone-700 cursor-pointer"
+                              title="Download"
+                            >
+                              <Download size={13} />
+                            </a>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-stone-400 font-medium">None</span>
+                        )}
+                      </div>
+
+                      {/* Education / Marksheet */}
+                      <div className="p-3 rounded-xl border border-blue-200 bg-blue-50/40 flex items-center justify-between">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <GraduationCap size={14} className="text-blue-700 shrink-0" />
+                          <div className="truncate">
+                            <span className="font-bold text-blue-900 block text-[11px]">Marksheet / Education</span>
+                            <span className="text-[10px] text-blue-700 truncate block">
+                              {eduName}
+                            </span>
+                          </div>
+                        </div>
+                        {eduDoc ? (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${selectedStudent.name} - Marksheet`,
+                                  url: eduDoc,
+                                  isImage: !eduDoc.startsWith("data:application/pdf"),
+                                })
+                              }
+                              className="p-1 rounded hover:bg-blue-100 text-blue-800 cursor-pointer"
+                              title="View Marksheet"
+                            >
+                              <Eye size={13} />
+                            </button>
+                            <a
+                              href={eduDoc}
+                              download={`${selectedStudent.name}_education_proof`}
+                              className="p-1 rounded hover:bg-blue-100 text-blue-800 cursor-pointer"
+                              title="Download"
+                            >
+                              <Download size={13} />
+                            </a>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-stone-400 font-medium">None</span>
+                        )}
+                      </div>
+
+                      {/* Caste Certificate */}
+                      <div className="p-3 rounded-xl border border-stone-200 bg-stone-50 flex items-center justify-between">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <Award size={14} className="text-stone-500 shrink-0" />
+                          <div className="truncate">
+                            <span className="font-bold text-stone-800 block text-[11px]">Caste Certificate</span>
+                            <span className="text-[10px] text-stone-500 truncate block">
+                              {casteName}
+                            </span>
+                          </div>
+                        </div>
+                        {casteDoc ? (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setViewingDoc({
+                                  title: `${selectedStudent.name} - Caste Certificate`,
+                                  url: casteDoc,
+                                  isImage: !casteDoc.startsWith("data:application/pdf"),
+                                })
+                              }
+                              className="p-1 rounded hover:bg-stone-200 text-stone-700 cursor-pointer"
+                              title="View Caste Cert"
+                            >
+                              <Eye size={13} />
+                            </button>
+                            <a
+                              href={casteDoc}
+                              download={`${selectedStudent.name}_caste_cert`}
+                              className="p-1 rounded hover:bg-stone-200 text-stone-700 cursor-pointer"
+                              title="Download"
+                            >
+                              <Download size={13} />
+                            </a>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-stone-400 font-medium">None</span>
+                        )}
                       </div>
                     </div>
-                    {selectedStudent.caste_certificate ? (
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setViewingDoc({
-                              title: `${selectedStudent.name} - Caste Certificate`,
-                              url: selectedStudent.caste_certificate!,
-                              isImage: !selectedStudent.caste_certificate!.startsWith("data:application/pdf"),
-                            })
-                          }
-                          className="p-1 rounded hover:bg-stone-200 text-stone-700"
-                          title="View Caste Cert"
-                        >
-                          <Eye size={13} />
-                        </button>
-                        <a
-                          href={selectedStudent.caste_certificate}
-                          download={`${selectedStudent.name}_caste_cert`}
-                          className="p-1 rounded hover:bg-stone-200 text-stone-700"
-                          title="Download"
-                        >
-                          <Download size={13} />
-                        </a>
-                      </div>
-                    ) : (
-                      <span className="text-[10px] text-stone-400 font-medium">None</span>
-                    )}
-                  </div>
-                </div>
+                  );
+                })()}
               </div>
             </div>
 
