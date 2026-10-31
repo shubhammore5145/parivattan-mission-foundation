@@ -34,7 +34,7 @@ interface CommunitySlide {
 const COMMUNITY_SLIDES: CommunitySlide[] = [
   {
     id: 1,
-    image: "/img/slides/slide1.jpg",
+    image: "/img/slides/slide-live-1.jpeg",
     tagline: "Nourishing Every Household with Care & Dignity",
   },
   {
@@ -54,7 +54,7 @@ const COMMUNITY_SLIDES: CommunitySlide[] = [
   },
   {
     id: 5,
-    image: "/img/slides/slide5.jpg",
+    image: "/img/slides/slide-live-5.jpeg",
     tagline: "Transforming Hardship into Opportunity Through Practical Education",
   },
 ];
@@ -236,10 +236,10 @@ export default function ContactPage() {
                       <div className="space-y-1">
                         <p>
                           <a
-                            href="tel:+917820831901"
+                            href="tel:+919226345875"
                             className="text-white hover:text-[#f2c5a8] text-lg md:text-2xl font-bold font-serif transition-colors"
                           >
-                            +91 7820831901
+                            +91 9226345875 (Admissions) / +91 7820831901
                           </a>
                         </p>
                       </div>
@@ -323,7 +323,7 @@ export default function ContactPage() {
                       Need immediate assistance?
                     </span>
                     <a
-                      href={`https://wa.me/917820831901?text=${whatsappMessage}`}
+                      href={`https://wa.me/919226345875?text=${whatsappMessage}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition-all duration-300 hover:scale-105"
@@ -548,7 +548,7 @@ export default function ContactPage() {
               </Link>
 
               <a
-                href={`https://wa.me/917820831901?text=${encodeURIComponent("Namaste! I would like to volunteer and collaborate with Parivattan Mission Foundation.")}`}
+                href={`https://wa.me/919226345875?text=${encodeURIComponent("Namaste! I would like to volunteer and collaborate with Parivattan Mission Foundation.")}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-8 py-3.5 rounded-full bg-[#24312d] text-white hover:bg-black font-bold text-xs uppercase tracking-wider border border-white/20 shadow-lg transition-all duration-300 hover:scale-105"

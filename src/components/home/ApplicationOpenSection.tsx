@@ -273,7 +273,7 @@ export default function ApplicationOpenSection() {
             </Link>
 
             <a
-              href={`https://wa.me/917820831901?text=${whatsappMessage}`}
+              href={`https://wa.me/919226345875?text=${whatsappMessage}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 text-xs sm:text-sm font-bold transition"
@@ -283,11 +283,11 @@ export default function ApplicationOpenSection() {
             </a>
 
             <a
-              href="tel:+917820831901"
+              href="tel:+919226345875"
               className="inline-flex items-center gap-2 rounded-full bg-white/10 hover:bg-white/20 text-white px-4 py-3 text-xs sm:text-sm font-bold transition border border-white/20"
             >
               <Phone size={15} />
-              <span>+91 78208 31901</span>
+              <span>+91 92263 45875</span>
             </a>
           </div>
         </div>

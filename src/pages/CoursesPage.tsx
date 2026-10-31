@@ -26,6 +26,7 @@ import {
   ChevronDown,
   ChevronUp,
   PhoneCall,
+  MessageCircle,
   Award,
 } from "lucide-react";
 
@@ -606,11 +607,20 @@ export default function CoursesPage() {
               </p>
               <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
                 <a
-                  href="tel:+917820831901"
+                  href="tel:+919226345875"
                   className="rounded-full bg-[#b5623b] hover:bg-[#954b2c] text-white px-6 py-3 text-xs sm:text-sm font-bold shadow-md transition flex items-center gap-2 cursor-pointer"
                 >
                   <PhoneCall size={16} />
-                  <span>Call Admissions: +91 7820831901</span>
+                  <span>Call Admissions: +91 9226345875</span>
+                </a>
+                <a
+                  href={`https://wa.me/919226345875?text=${encodeURIComponent("Namaste! I would like to inquire about course admissions at Parivattan Mission Foundation.")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 text-xs sm:text-sm font-bold shadow-md transition flex items-center gap-2 cursor-pointer"
+                >
+                  <MessageCircle size={16} />
+                  <span>WhatsApp Inquiry</span>
                 </a>
                 <Link
                   to="/admissions"
