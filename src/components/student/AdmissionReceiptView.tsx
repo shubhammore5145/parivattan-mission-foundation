@@ -255,7 +255,7 @@ export const AdmissionReceiptView: React.FC<AdmissionReceiptViewProps> = ({
             <div className="text-[10px] text-[#65706a]">
               <p className="font-bold text-[#24312d]">Digital Verification QR Code</p>
               <p>Official computer-generated admission certificate.</p>
-              <p>Helpline: +91 7820831901 · parivattan.org</p>
+              <p>Admission Helpline: +91 9226345875 · parivattan.org</p>
             </div>
           </div>
 

@@ -94,7 +94,7 @@ export function getAdmissionHtml(params) {
         </div>
 
         <p style="font-size: 13px; color: #64748b; line-height: 1.5; margin: 0;">
-          For any academic queries or batch orientation details, reach us at <a href="mailto:contact@parivattan.org" style="color: #b5623b; text-decoration: none; font-weight: 600;">contact@parivattan.org</a> or call +91 7820831901.
+          For any academic queries or batch orientation details, reach us at <a href="mailto:contact@parivattan.org" style="color: #b5623b; text-decoration: none; font-weight: 600;">contact@parivattan.org</a> or call +91 9226345875.
         </p>
       </div>
 

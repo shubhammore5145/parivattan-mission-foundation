@@ -236,10 +236,10 @@ export default function ContactPage() {
                       <div className="space-y-1">
                         <p>
                           <a
-                            href="tel:+917820831901"
+                            href="tel:+919226345875"
                             className="text-white hover:text-[#f2c5a8] text-lg md:text-2xl font-bold font-serif transition-colors"
                           >
-                            +91 7820831901
+                            +91 9226345875 (Admissions) / +91 7820831901
                           </a>
                         </p>
                       </div>
