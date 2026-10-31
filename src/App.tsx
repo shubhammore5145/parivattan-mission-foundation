@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,7 +18,10 @@ import RulesPage from "./pages/RulesPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import ContactPage from "./pages/ContactPage";
 import StudentPortalPage from "./pages/StudentPortalPage";
+import SchedulePage from "./pages/SchedulePage";
+import GalleryPage from "./pages/GalleryPage";
 import ScrollToTop from "@/components/common/ScrollToTop";
+import { FloatingWhatsAppButton } from "@/components/common/FloatingWhatsAppButton";
 
 const App = () => (
   <TooltipProvider>
@@ -42,19 +44,41 @@ const App = () => (
           <Route path="/rules-and-regulations" element={<RulesPage />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+          
+          {/* Student Dedicated Features & Modules */}
+          <Route path="/study-materials" element={<Navigate to="/student" replace />} />
+          <Route path="/materials" element={<Navigate to="/student" replace />} />
+          <Route path="/notes" element={<Navigate to="/student" replace />} />
+          <Route path="/student/study-materials" element={<Navigate to="/student" replace />} />
+          <Route path="/student/materials" element={<Navigate to="/student" replace />} />
+
+          <Route path="/schedule" element={<SchedulePage />} />
+          <Route path="/timetable" element={<SchedulePage />} />
+          <Route path="/student/schedule" element={<SchedulePage />} />
+          <Route path="/student/timetable" element={<SchedulePage />} />
+
+          <Route path="/quizzes" element={<Navigate to="/student" replace />} />
+          <Route path="/quiz" element={<Navigate to="/student" replace />} />
+          <Route path="/practice-quizzes" element={<Navigate to="/student" replace />} />
+          <Route path="/student/quizzes" element={<Navigate to="/student" replace />} />
+          <Route path="/student/practice-quizzes" element={<Navigate to="/student" replace />} />
+
           <Route path="/login" element={<StudentPortalPage />} />
           <Route path="/student/login" element={<StudentPortalPage />} />
           <Route path="/student" element={<StudentPortalPage />} />
           <Route path="/student/*" element={<StudentPortalPage />} />
           <Route path="/student-portal" element={<StudentPortalPage />} />
           <Route path="/student-section" element={<StudentPortalPage />} />
+          
           <Route path="/about" element={<ContentPage />} />
           <Route path="/team" element={<ContentPage />} />
           <Route path="/our-team" element={<ContentPage />} />
           <Route path="/initiatives" element={<ContentPage />} />
           <Route path="/campaigns" element={<ContentPage />} />
           <Route path="/story" element={<ContentPage />} />
-          <Route path="/gallery" element={<ContentPage />} />
+          <Route path="/gallery" element={<GalleryPage />} />
+          <Route path="/photo-gallery" element={<GalleryPage />} />
+          <Route path="/photos" element={<GalleryPage />} />
           <Route path="/blogs" element={<ContentPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/contact-us" element={<ContactPage />} />
@@ -66,6 +90,7 @@ const App = () => (
     
           <Route path="*" element={<NotFound />} />
         </Routes>
+        <FloatingWhatsAppButton />
       </BrowserRouter>
     </LiveVisitorsProvider>
   </TooltipProvider>

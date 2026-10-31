@@ -33,6 +33,8 @@ import {
   Lock,
   LoaderCircle,
   Phone,
+  PhoneCall,
+  MessageCircle,
   Mail,
   User,
   GraduationCap,
@@ -631,6 +633,11 @@ export default function AdmissionsPage() {
           pincode: currentPincode,
           category: casteCategory,
           photoUrl: photoFile.dataUrl,
+          identityProofUrl: idProofFile.dataUrl,
+          marksheetUrl: educationProofFile.dataUrl,
+          education_proof: educationProofFile.dataUrl,
+          casteCertUrl: casteCertFile.dataUrl || undefined,
+          caste_certificate: casteCertFile.dataUrl || undefined,
           existingPrn: studentPrn,
         });
       } catch (portalErr) {
@@ -939,6 +946,11 @@ export default function AdmissionsPage() {
                     * <strong>Refund Condition:</strong> {submittedReceipt.refundCondition}
                   </p>
                 )}
+
+                <div className="pt-2 border-t border-[#e2e5dc] flex flex-col sm:flex-row items-center justify-between gap-1 text-[11px] text-[#65706a]">
+                  <span>Admission Inquiry Helpline: <a href="tel:+919226345875" className="font-bold text-[#b5623b] hover:underline">+91 9226345875</a></span>
+                  <span>Email: contact@parivattan.org</span>
+                </div>
               </div>
 
               {/* Action Buttons */}
@@ -1009,6 +1021,38 @@ export default function AdmissionsPage() {
                 <p className="text-xs sm:text-sm text-[#65706a] mt-1">
                   Complete your registration with verified student details, documents, and secure payment.
                 </p>
+
+                {/* Admission Inquiry & Counselor Helpline Banner */}
+                <div className="mt-4 p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-transparent border border-[#b5623b]/25 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-[#b5623b] text-white flex items-center justify-center shrink-0 shadow-2xs">
+                      <PhoneCall size={16} />
+                    </div>
+                    <div>
+                      <span className="font-bold text-[#24312d] block text-xs">Admission Inquiry & Counselor Helpline</span>
+                      <span className="text-[#65706a] text-[11px]">Need guidance about courses, eligibility, or fees? Contact us directly:</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <a
+                      href="tel:+919226345875"
+                      className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#b5623b] hover:bg-[#974a27] text-white font-bold text-xs shadow-2xs transition"
+                    >
+                      <Phone size={13} />
+                      <span>+91 9226345875</span>
+                    </a>
+                    <a
+                      href={`https://wa.me/919226345875?text=${encodeURIComponent("Namaste! I would like to inquire about Language Course Admissions at Parivattan Mission Foundation.")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-2xs transition"
+                      title="WhatsApp Inquiry"
+                    >
+                      <MessageCircle size={14} />
+                      <span>WhatsApp</span>
+                    </a>
+                  </div>
+                </div>
 
                 {/* 5-Step Visual Progress Bar */}
                 <div className="mt-4 pt-4 border-t border-[#f1f3ed]">

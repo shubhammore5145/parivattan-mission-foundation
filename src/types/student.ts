@@ -4,22 +4,32 @@ export interface StudentUser {
   name: string;
   email: string;
   phone: string;
+  dob?: string;
+  date_of_birth?: string;
+  gender?: string;
   password?: string;
   city?: string;
   state?: string;
   avatar?: string;
   photo?: string;
   photo_name?: string;
+  photoUrl?: string;
   identity_proof?: string;
   identity_proof_name?: string;
+  identityProofUrl?: string;
+  identityProofName?: string;
   education_proof?: string;
   education_proof_name?: string;
+  marksheetUrl?: string;
+  educationProofName?: string;
   caste_certificate?: string;
   caste_certificate_name?: string;
+  casteCertUrl?: string;
   registeredAt: string;
   firebaseUid?: string;
   isEmailVerified?: boolean;
   verificationCode?: string;
+  [key: string]: any;
 }
 
 export type CourseCategory = 'all' | 'technology' | 'languages' | 'overseas' | 'vocational';

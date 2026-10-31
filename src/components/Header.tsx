@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, Menu, X, GraduationCap, Home, BookOpen, UserCheck } from 'lucide-react';
+import { ChevronDown, Menu, X, GraduationCap, Home, BookOpen, UserCheck, Phone, Camera, ArrowRight, MessageCircle } from 'lucide-react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 
 const Header = () => {
@@ -20,6 +20,29 @@ const Header = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Keyboard navigation for Side Menu (Escape key closes drawer)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Prevent background scroll when side drawer is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [mobileMenuOpen]);
 
   const openAdminDashboard = () => {
     window.open('/admin', '_blank');
@@ -125,6 +148,7 @@ const Header = () => {
             </div>
           </div>
           <a href="/story" onClick={() => setMobileMenuOpen(false)} className={`nav-item whitespace-nowrap text-sm font-medium ${isScrolled ? 'text-[#24312d] hover:text-[#b5623b]' : 'text-white hover:text-[#f2c5a8]'}`}>Our story</a>
+          <Link to="/gallery" onClick={() => setMobileMenuOpen(false)} className={`nav-item whitespace-nowrap text-sm font-medium ${isScrolled ? 'text-[#24312d] hover:text-[#b5623b]' : 'text-white hover:text-[#f2c5a8]'}`}>Gallery</Link>
           <a href="/blogs" onClick={() => setMobileMenuOpen(false)} className={`nav-item whitespace-nowrap text-sm font-medium ${isScrolled ? 'text-[#24312d] hover:text-[#b5623b]' : 'text-white hover:text-[#f2c5a8]'}`}>Blogs</a>
           <a 
             href="/donate" 
@@ -139,14 +163,27 @@ const Header = () => {
           >
             Contact
           </Link>
-          <Link 
-            to="/student"
-            className={`nav-item whitespace-nowrap text-sm font-semibold transition-colors cursor-pointer flex items-center gap-1 px-2 py-1 rounded-lg ${isScrolled ? 'text-[#24312d] hover:text-[#b5623b]' : 'text-white hover:text-[#f2c5a8]'}`}
-            title="Student Portal - Register and verify PRN"
-          >
-            <GraduationCap size={16} className="text-[#b5623b]" />
-            <span>Student Portal</span>
-          </Link>
+          <div className="group relative">
+            <Link 
+              to="/student"
+              className={`nav-item whitespace-nowrap text-sm font-semibold transition-colors cursor-pointer flex items-center gap-1 px-2.5 py-1.5 rounded-xl ${isScrolled ? 'text-[#24312d] hover:text-[#b5623b]' : 'text-white hover:text-[#f2c5a8]'}`}
+              title="Student Portal & Learning Hub"
+            >
+              <GraduationCap size={16} className="text-[#b5623b]" />
+              <span>Student Corner</span>
+              <ChevronDown size={14} className="transition-transform group-hover:rotate-180 opacity-75" />
+            </Link>
+            <div className="invisible absolute right-0 top-full z-50 mt-3 w-72 rounded-2xl border border-[#e1e3d9] bg-white p-2 opacity-0 shadow-xl transition-all group-hover:visible group-hover:opacity-100">
+              <Link to="/student" className="block rounded-xl px-3.5 py-2.5 text-xs font-bold text-[#b5623b] hover:bg-[#eef0e8]">
+                🎓 Student Portal & PRN Verification
+              </Link>
+              <div className="h-px bg-stone-100 my-1" />
+              <Link to="/schedule" className="flex items-center justify-between rounded-xl px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-[#eef0e8]">
+                <span>⏰ Class Timetable & Schedule</span>
+                <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">Active</span>
+              </Link>
+            </div>
+          </div>
           <Link 
             to="/admissions#register" 
             className="ml-1 whitespace-nowrap rounded-full bg-[#b5623b] px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:bg-[#954b2c] hover:shadow-xl"
@@ -157,50 +194,68 @@ const Header = () => {
 
         {/* Mobile Menu Button (Top Right) */}
         <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          onClick={() => setMobileMenuOpen(true)}
           className={`lg:hidden rounded-xl px-2.5 py-1.5 transition-all flex items-center gap-1.5 font-bold text-xs ${
             isScrolled
               ? 'text-[#24312d] bg-stone-100 border border-stone-200 hover:bg-stone-200 shadow-2xs'
               : 'text-white bg-black/40 backdrop-blur-md border border-white/25 hover:bg-black/60'
           }`}
-          aria-label="Toggle menu"
-          aria-expanded={mobileMenuOpen}
+          aria-label="Open menu"
         >
-          {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          <Menu size={20} />
           <span>Menu</span>
         </button>
       </div>
+    </header>
 
-      {/* Mobile Navigation */}
-      <div
-        className={`lg:hidden fixed inset-0 bg-white z-40 transform transition-transform duration-300 ease-in-out ${
-          mobileMenuOpen ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
-        <div className="container mx-auto px-4 py-4 h-full overflow-y-auto">
-          <div className="flex justify-between items-center mb-8">
-            <a href="/" onClick={handleHomeClick} className="flex items-center space-x-2 bg-[#fbfaf7] px-2 py-1 rounded-xl">
+    {/* Universal Navigation Drawer (Full-Screen Root Level Overlay - Works anywhere on the page) */}
+    {mobileMenuOpen && (
+      <div className="fixed inset-0 z-[100] flex justify-end animate-fade-in">
+        {/* Backdrop Overlay */}
+        <div
+          onClick={() => setMobileMenuOpen(false)}
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity cursor-pointer"
+        />
+
+        {/* Slide-in Drawer Container */}
+        <div
+          className="relative z-10 w-full max-w-sm sm:max-w-md h-full bg-white shadow-2xl flex flex-col overflow-hidden animate-slide-in-right"
+        >
+          {/* Drawer Header */}
+          <div className="flex items-center justify-between p-4 sm:p-5 border-b border-stone-200/80 bg-[#fbfaf7] shrink-0">
+            <a href="/" onClick={handleHomeClick} className="flex items-center gap-2.5">
               <img
-                className="h-9 sm:h-10 w-auto object-contain rounded"
+                className="h-8 sm:h-9 w-auto object-contain rounded"
                 src="/img/parivattanE.png"
                 alt="Parivattan Logo"
               />
+              <div className="text-left">
+                <span className="block text-xs sm:text-sm font-bold text-[#24312d] leading-tight font-serif">
+                  Parivattan Mission
+                </span>
+                <span className="block text-[10px] text-[#b5623b] font-semibold">
+                  Education & Learning Foundation
+                </span>
+              </div>
             </a>
             <button
+              type="button"
               onClick={() => setMobileMenuOpen(false)}
-              className="text-slate-800 p-2 hover:bg-blue-50 rounded-lg transition-colors"
+              className="w-9 h-9 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-700 flex items-center justify-center transition cursor-pointer"
               aria-label="Close menu"
             >
-              <X size={24} />
+              <X size={20} />
             </button>
           </div>
-          <nav className="flex flex-col space-y-1.5 pb-8">
-            {/* Quick Action Top Cards for Mobile */}
-            <div className="grid grid-cols-2 gap-2 mb-3">
+
+          {/* Scrollable Drawer Body */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+            {/* Quick Action Top Cards */}
+            <div className="grid grid-cols-2 gap-2">
               <Link
                 to="/admissions"
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-1.5 py-3 px-3 bg-[#b5623b] text-white rounded-xl text-xs font-bold shadow-sm active:scale-95 transition text-center"
+                className="flex items-center justify-center gap-1.5 py-3 px-3 bg-[#b5623b] hover:bg-[#954b2c] text-white rounded-2xl text-xs font-bold shadow-xs active:scale-95 transition text-center"
               >
                 <GraduationCap size={16} />
                 <span>Apply Admission</span>
@@ -208,7 +263,7 @@ const Header = () => {
               <Link
                 to="/donate"
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-1.5 py-3 px-3 bg-[#1b2b25] text-white rounded-xl text-xs font-bold shadow-sm active:scale-95 transition text-center"
+                className="flex items-center justify-center gap-1.5 py-3 px-3 bg-[#1b2b25] hover:bg-black text-white rounded-2xl text-xs font-bold shadow-xs active:scale-95 transition text-center"
               >
                 <span>Donate Now</span>
               </Link>
@@ -218,134 +273,166 @@ const Header = () => {
             <Link
               to="/student"
               onClick={() => setMobileMenuOpen(false)}
-              className="py-3 px-4 bg-emerald-50 border border-emerald-200/80 rounded-2xl font-bold flex items-center justify-between text-[#1b2b25] text-sm mb-1.5 shadow-2xs"
+              className="p-3.5 bg-emerald-50/80 border border-emerald-200/80 rounded-2xl font-bold flex items-center justify-between text-[#1b2b25] text-xs shadow-2xs hover:bg-emerald-100/70 transition"
             >
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
                   <GraduationCap size={16} />
                 </div>
                 <div>
-                  <span className="block text-xs font-bold text-[#1b2b25]">Student Portal</span>
-                  <span className="text-[11px] text-emerald-700 font-semibold">Verify PRN & Profile</span>
+                  <span className="block font-bold text-[#1b2b25]">Student Portal</span>
+                  <span className="text-[11px] text-emerald-700 font-medium">Verify PRN & Profile</span>
                 </div>
               </div>
-              <span className="text-[10px] bg-emerald-600 text-white font-bold px-2 py-0.5 rounded-full">
+              <span className="text-[10px] bg-emerald-600 text-white font-bold px-2.5 py-0.5 rounded-full">
                 PRN
               </span>
             </Link>
 
-            {/* Navigation links */}
-            <a
-              href="/"
-              onClick={handleHomeClick}
-              className="py-2.5 px-3.5 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition"
-            >
-              Home
-            </a>
-
+            {/* Timetable Fast Link */}
             <Link
-              to="/courses"
+              to="/schedule"
               onClick={() => setMobileMenuOpen(false)}
-              className="py-2.5 px-3.5 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition flex items-center justify-between"
+              className="flex items-center justify-between py-2 px-3 bg-amber-50/70 border border-amber-200/80 rounded-xl text-xs text-amber-900 font-semibold hover:bg-amber-100/70 transition"
             >
-              <span>Language Courses (🇯🇵 🇩🇪 🇬🇧 🇫🇷)</span>
-              <span className="text-[10px] bg-[#b5623b]/10 text-[#b5623b] font-bold px-2 py-0.5 rounded-full">Active</span>
+              <span>⏰ Class Timetable & Schedule</span>
+              <span className="text-[9px] bg-amber-200 text-amber-900 font-bold px-1.5 py-0.5 rounded">Active</span>
             </Link>
 
-            <Link
-              to="/admissions"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2.5 px-3.5 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition"
-            >
-              Course Admissions
-            </Link>
-
-            <Link
-              to="/rules"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2.5 px-3.5 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition"
-            >
-              Rules & Regulations
-            </Link>
-
-            <Link
-              to="/about"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2.5 px-3.5 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition"
-            >
-              About Us
-            </Link>
-
-            <Link
-              to="/team"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2.5 px-3.5 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition"
-            >
-              Our Team
-            </Link>
-
-            {/* Initiatives Sub-block */}
-            <div className="rounded-2xl bg-stone-50 border border-stone-200/80 p-3 space-y-1 text-xs">
-              <span className="font-bold uppercase tracking-wider text-[10px] text-stone-500 block mb-1">
-                Our Initiatives
+            {/* Main Navigation Links */}
+            <nav className="flex flex-col space-y-1 pt-2 border-t border-stone-100">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 px-2 mb-1">
+                Main Menu
               </span>
+
+              <a
+                href="/"
+                onClick={handleHomeClick}
+                className="py-2.5 px-3 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition flex items-center justify-between"
+              >
+                <span>Home</span>
+              </a>
+
+              <Link
+                to="/courses"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2.5 px-3 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition flex items-center justify-between"
+              >
+                <span>Language Courses (🇯🇵 🇩🇪 🇬🇧 🇫🇷)</span>
+                <span className="text-[10px] bg-[#b5623b]/10 text-[#b5623b] font-bold px-2 py-0.5 rounded-full">Active</span>
+              </Link>
+
+              <Link
+                to="/admissions"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2.5 px-3 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition"
+              >
+                Course Admissions
+              </Link>
+
+              <Link
+                to="/gallery"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2.5 px-3 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition flex items-center justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  <Camera size={15} className="text-[#b5623b]" />
+                  <span>Photo Gallery</span>
+                </div>
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">New</span>
+              </Link>
+
+              <Link
+                to="/about"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2.5 px-3 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition"
+              >
+                About Us
+              </Link>
+
+              <Link
+                to="/team"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2.5 px-3 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition"
+              >
+                Our Team
+              </Link>
+
+              <Link
+                to="/rules"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2.5 px-3 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition"
+              >
+                Rules & Regulations
+              </Link>
+
               <a
                 href="/initiatives"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block py-1.5 px-2 font-bold text-[#b5623b] hover:bg-white rounded-lg transition"
+                className="py-2.5 px-3 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition"
               >
-                All Initiatives Overview
+                Our Initiatives
               </a>
+
               <a
-                href="/initiatives#overseas"
+                href="/story"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block py-1.5 px-2 text-stone-600 hover:text-[#1b2b25] hover:bg-white rounded-lg transition"
+                className="py-2.5 px-3 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition"
               >
-                Parivattan Overseas Schools
+                Our Story
               </a>
+
               <a
-                href="/initiatives#languages"
+                href="/blogs"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block py-1.5 px-2 text-stone-600 hover:text-[#1b2b25] hover:bg-white rounded-lg transition"
+                className="py-2.5 px-3 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition"
               >
-                Parivattan Foreign Language School
+                Blogs & Updates
               </a>
-              <a
-                href="/initiatives#technology"
+
+              <Link
+                to="/contact"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block py-1.5 px-2 text-stone-600 hover:text-[#1b2b25] hover:bg-white rounded-lg transition"
+                className="py-2.5 px-3 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition"
               >
-                Parivattan Technology School
+                Contact Us
+              </Link>
+            </nav>
+          </div>
+
+          {/* Drawer Sticky Footer with Direct Admission Helpline */}
+          <div className="p-4 bg-stone-50 border-t border-stone-200 shrink-0 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-stone-500 font-medium">Admissions Helpline:</span>
+              <a
+                href="tel:+919226345875"
+                className="font-bold font-mono text-[#b5623b] hover:underline"
+              >
+                +91 9226345875
               </a>
             </div>
-
-            <a
-              href="/story"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2.5 px-3.5 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition"
-            >
-              Our Story
-            </a>
-
-            <a
-              href="/blogs"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2.5 px-3.5 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition"
-            >
-              Blogs & Updates
-            </a>
-
-            <Link
-              to="/contact"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2.5 px-3.5 text-sm font-semibold text-[#24312d] hover:bg-stone-50 rounded-xl transition"
-            >
-              Contact Us
-            </Link>
-          </nav>
+            <div className="flex items-center gap-2">
+              <a
+                href="tel:+919226345875"
+                className="flex-1 py-2 px-3 rounded-xl bg-[#24312d] hover:bg-[#b5623b] text-white text-xs font-bold text-center transition flex items-center justify-center gap-1.5"
+              >
+                <Phone size={13} />
+                <span>Call Helpline</span>
+              </a>
+              <a
+                href="https://wa.me/919226345875"
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold text-center transition flex items-center justify-center gap-1.5"
+              >
+                <MessageCircle size={13} />
+                <span>WhatsApp</span>
+              </a>
+            </div>
+          </div>
         </div>
       </div>
-    </header>
+    )}
 
     {/* Mobile Sticky Bottom Navigation Bar - Accessible anywhere on phone */}
     <nav

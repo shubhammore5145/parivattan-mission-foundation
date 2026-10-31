@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   GraduationCap,
   Sparkles,
@@ -40,6 +40,10 @@ import {
   Menu,
   Globe,
   Laptop,
+  BrainCircuit,
+  Trophy,
+  Globe2,
+  Code2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -47,6 +51,11 @@ import { StudentUser, StudentAdmissionRecord } from "@/types/student";
 import { COURSES_DATA } from "@/data/coursesData";
 import { logoutStudent } from "@/lib/student-auth";
 import { printElement } from "@/lib/printUtils";
+import { UnderConstructionView } from "@/components/common/UnderConstructionView";
+import {
+  getStoredClassSchedule,
+  ClassScheduleConfig,
+} from "@/data/classScheduleData";
 
 interface StudentDashboardViewProps {
   student: StudentUser;
@@ -71,6 +80,24 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
   const [previewPdf, setPreviewPdf] = useState<{ url: string; title: string; subtitle?: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [quickAccessDrawerOpen, setQuickAccessDrawerOpen] = useState(false);
+
+  // Dynamic Class Schedule (Updated by Admin)
+  const [scheduleConfig, setScheduleConfig] = useState<ClassScheduleConfig>(() =>
+    getStoredClassSchedule()
+  );
+
+  useEffect(() => {
+    const handleScheduleUpdate = (e: any) => {
+      if (e.detail) {
+        setScheduleConfig(e.detail);
+      } else {
+        setScheduleConfig(getStoredClassSchedule());
+      }
+    };
+    window.addEventListener("pmf_schedule_updated", handleScheduleUpdate);
+    return () => window.removeEventListener("pmf_schedule_updated", handleScheduleUpdate);
+  }, []);
 
   // Interactive Mini Calendar state (Oct 2026 default)
   const [calendarDate, setCalendarDate] = useState<Date>(new Date(2026, 9, 25));
@@ -358,7 +385,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
       </aside>
 
       {/* 2. CENTER MAIN WORKSPACE (#f8fafc) */}
-      <main className="flex-1 bg-[#f8fafc] p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 overflow-y-auto">
+      <main className="flex-1 bg-[#f8fafc] p-4 sm:p-6 lg:p-8 space-y-6 min-w-0 overflow-y-auto pb-28 lg:pb-8">
         {/* Top Header Row with Mobile Menu & Rounded Search Pill */}
         <div className="flex items-center justify-between gap-4">
           <button
@@ -434,14 +461,14 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
           </div>
         </div>
 
-        {/* SUB-TABS NAVIGATION PILLS (Top Bar for Fast Switching) */}
-        <div className="flex flex-wrap items-center gap-2 pb-2 border-b border-slate-200">
+        {/* SUB-TABS NAVIGATION PILLS (Visible on Tablet/Desktop; on Mobile, Clean Bottom App Dock is used instead) */}
+        <div className="hidden md:flex items-center gap-2 pb-2 border-b border-slate-200 overflow-x-auto no-scrollbar scroll-smooth flex-nowrap md:flex-wrap -mx-1 px-1 sm:mx-0 sm:px-0">
           {[
             { id: "home", label: "Dashboard Overview", icon: Home },
             { id: "courses", label: "My Courses & Syllabus", icon: BookOpen, count: applications.length },
+            { id: "schedule", label: "Class Timetable", icon: Clock },
             { id: "idcard", label: "Digital Student ID Card", icon: QrCode },
             { id: "receipts", label: "Fee Receipts & Slips", icon: Printer },
-            { id: "schedule", label: "Class Timetable", icon: Clock },
             { id: "notifications", label: "Official Circulars", icon: Bell, badge: "2 New" },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -451,7 +478,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveSubTab(tab.id as any)}
-                className={`rounded-2xl px-4 py-2 text-xs sm:text-sm font-bold transition flex items-center gap-2 cursor-pointer ${
+                className={`rounded-2xl px-4 py-2 text-xs sm:text-sm font-bold transition flex items-center gap-2 cursor-pointer shrink-0 whitespace-nowrap ${
                   isActive
                     ? "bg-[#0b63e5] text-white shadow-xs"
                     : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
@@ -1132,7 +1159,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                 Class Schedule & Batch Guidelines
               </h2>
               <p className="text-xs text-slate-500 mt-0.5 font-sans">
-                Parivattan Mission Foundation Academic Session 2026-27 Class Timetable
+                Parivattan Mission Foundation Academic Session {scheduleConfig.academicSession} Class Timetable
               </p>
             </div>
             <button
@@ -1145,44 +1172,86 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
             </button>
           </div>
 
+          {/* Active Batches Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-            <div className="rounded-2xl bg-[#fbfaf7] p-5 border border-[#e2e5dc] space-y-3">
-              <h4 className="font-bold text-sm text-[#b5623b] flex items-center gap-1.5">
-                <Clock size={16} /> Morning Batches
-              </h4>
-              <p className="text-[#525f59]">
-                <strong>Hours:</strong> 08:00 AM to 10:00 AM (Monday to Friday)
-              </p>
-              <p className="text-[#525f59]">
-                <strong>Venue:</strong> Campus Computer Lab 2 & Live Interactive Online Room
-              </p>
-              <p className="text-[#65706a] text-[11px]">
-                Students must log in or arrive at least 10 minutes before the scheduled lecture.
-              </p>
-            </div>
+            {scheduleConfig.batches
+              .filter((b) => b.isActive)
+              .map((batch) => (
+                <div
+                  key={batch.id}
+                  className="rounded-2xl bg-[#fbfaf7] p-5 border border-[#e2e5dc] space-y-3 flex flex-col justify-between"
+                >
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="font-bold text-sm text-[#b5623b] flex items-center gap-1.5">
+                        <Clock size={16} /> {batch.title}
+                      </h4>
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">
+                        {batch.batchType}
+                      </span>
+                    </div>
 
-            <div className="rounded-2xl bg-[#fbfaf7] p-5 border border-[#e2e5dc] space-y-3">
-              <h4 className="font-bold text-sm text-[#b5623b] flex items-center gap-1.5">
-                <Clock size={16} /> Evening Batches
-              </h4>
-              <p className="text-[#525f59]">
-                <strong>Hours:</strong> 06:00 PM to 08:00 PM (Monday to Friday)
-              </p>
-              <p className="text-[#525f59]">
-                <strong>Venue:</strong> Foreign Language School Wing & Virtual Classrooms
-              </p>
-              <p className="text-[#65706a] text-[11px]">
-                Lecture recordings and course handouts are updated regularly on this portal.
-              </p>
-            </div>
+                    <p className="text-[#525f59]">
+                      <strong>Hours:</strong> {batch.hours} ({batch.days})
+                    </p>
+
+                    <p className="text-[#525f59]">
+                      <strong>Venue:</strong> {batch.venue}
+                    </p>
+
+                    {batch.meetingUrl && (
+                      <p className="text-[#525f59] flex items-center gap-2 pt-0.5">
+                        <strong>Virtual Room:</strong>
+                        <a
+                          href={batch.meetingUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-600 hover:underline font-semibold inline-flex items-center gap-1"
+                        >
+                          <Video size={13} />
+                          <span>Join Live Classroom</span>
+                          <ExternalLink size={12} />
+                        </a>
+                      </p>
+                    )}
+
+                    {batch.courseTags && batch.courseTags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {batch.courseTags.map((tag, idx) => (
+                          <span
+                            key={idx}
+                            className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-stone-200/70 text-slate-700"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {batch.notes && (
+                    <p className="text-[#65706a] text-[11px] pt-2 border-t border-[#e8ece3]">
+                      {batch.notes}
+                    </p>
+                  )}
+                </div>
+              ))}
           </div>
 
-          <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-xs text-emerald-900 space-y-1">
-            <h5 className="font-bold">✓ Mandatory Attendance Policy:</h5>
-            <p className="text-[11px]">
-              A minimum of 75% attendance is required to qualify for university and foundation accredited course completion certificates.
-            </p>
-          </div>
+          {/* Academic Policies & Guidelines */}
+          {scheduleConfig.guidelines.map((guide) => (
+            <div
+              key={guide.id}
+              className={`rounded-2xl p-4 text-xs space-y-1 ${
+                guide.isImportant
+                  ? "bg-emerald-50 border border-emerald-200 text-emerald-900"
+                  : "bg-[#fbfaf7] border border-[#e2e5dc] text-slate-700"
+              }`}
+            >
+              <h5 className="font-bold">✓ {guide.title}:</h5>
+              <p className="text-[11px] leading-relaxed">{guide.description}</p>
+            </div>
+          ))}
         </div>
       )}
 
@@ -1407,7 +1476,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
                 Student Inquiries & Technical Support:
               </p>
               <p className="text-[11px] text-[#65706a]">
-                All circulars published on this portal are official documents of the Parivattan Mission Foundation. If you have any questions or experience difficulties downloading these files, please contact the student helpline at <strong>+91 7820831901</strong> or email <strong>contact@parivattan.org</strong>.
+                All circulars published on this portal are official documents of the Parivattan Mission Foundation. If you have any questions or experience difficulties downloading these files, please contact the student helpline at <strong>+91 9226345875 / +91 7820831901</strong> or email <strong>contact@parivattan.org</strong>.
               </p>
             </div>
           </div>
@@ -1416,7 +1485,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
       </main>
 
       {/* 3. RIGHT PANEL (White #ffffff, calendar + tasks + support) */}
-      <aside className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-slate-200/80 bg-white p-5 sm:p-6 space-y-6 shrink-0 flex flex-col justify-between">
+      <aside className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-slate-200/80 bg-white p-5 sm:p-6 space-y-6 shrink-0 flex flex-col justify-between pb-28 lg:pb-6">
         <div className="space-y-6">
           {/* Top User Bar */}
           <div className="flex items-center justify-between pb-4 border-b border-slate-100">
@@ -1574,16 +1643,300 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
           </div>
           <div>
             <h5 className="font-bold text-xs text-slate-800">Need Help or Guidance?</h5>
-            <p className="text-[11px] text-slate-500">Parivattan Student Support Desk</p>
+            <p className="text-[11px] text-slate-500">Parivattan Admission & Student Desk</p>
           </div>
           <a
-            href="tel:+917820831901"
+            href="tel:+919226345875"
             className="block text-xs font-mono font-bold text-[#0b63e5] hover:underline"
           >
-            +91 7820831901
+            +91 9226345875
           </a>
         </div>
       </aside>
+
+      {/* 4. MOBILE NATIVE-APP STYLE BOTTOM DOCK (Sticky Quick Access Navigation Bar for Phone Users) */}
+      <nav
+        aria-label="Mobile Bottom App Navigation"
+        className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] py-1 px-2 lg:hidden flex items-center justify-around safe-area-pb"
+      >
+        {/* Tab 1: Home */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveSubTab("home");
+            setQuickAccessDrawerOpen(false);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          className={`flex-1 flex flex-col items-center justify-center py-1 px-1 rounded-2xl transition cursor-pointer ${
+            activeSubTab === "home"
+              ? "text-[#0b63e5] font-bold"
+              : "text-slate-500 hover:text-slate-800 font-medium"
+          }`}
+        >
+          <div
+            className={`w-9 h-7 rounded-xl flex items-center justify-center transition ${
+              activeSubTab === "home" ? "bg-blue-50 text-[#0b63e5]" : ""
+            }`}
+          >
+            <Home size={19} />
+          </div>
+          <span className="text-[10px] tracking-tight">Home</span>
+        </button>
+
+        {/* Tab 2: Courses */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveSubTab("courses");
+            setQuickAccessDrawerOpen(false);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          className={`flex-1 relative flex flex-col items-center justify-center py-1 px-1 rounded-2xl transition cursor-pointer ${
+            activeSubTab === "courses"
+              ? "text-[#0b63e5] font-bold"
+              : "text-slate-500 hover:text-slate-800 font-medium"
+          }`}
+        >
+          <div
+            className={`w-9 h-7 rounded-xl flex items-center justify-center transition ${
+              activeSubTab === "courses" ? "bg-blue-50 text-[#0b63e5]" : ""
+            }`}
+          >
+            <BookOpen size={19} />
+          </div>
+          {applications.length > 0 && (
+            <span className="absolute top-0.5 right-1/4 w-4 h-4 bg-[#0b63e5] text-white text-[9px] font-extrabold rounded-full flex items-center justify-center shadow-xs">
+              {applications.length}
+            </span>
+          )}
+          <span className="text-[10px] tracking-tight">Courses</span>
+        </button>
+
+        {/* Tab 3: Timetable */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveSubTab("schedule");
+            setQuickAccessDrawerOpen(false);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          className={`flex-1 flex flex-col items-center justify-center py-1 px-1 rounded-2xl transition cursor-pointer ${
+            activeSubTab === "schedule"
+              ? "text-[#0b63e5] font-bold"
+              : "text-slate-500 hover:text-slate-800 font-medium"
+          }`}
+        >
+          <div
+            className={`w-9 h-7 rounded-xl flex items-center justify-center transition ${
+              activeSubTab === "schedule" ? "bg-blue-50 text-[#0b63e5]" : ""
+            }`}
+          >
+            <Clock size={19} />
+          </div>
+          <span className="text-[10px] tracking-tight">Timetable</span>
+        </button>
+
+        {/* Tab 4: ID Card */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveSubTab("idcard");
+            setQuickAccessDrawerOpen(false);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          className={`flex-1 flex flex-col items-center justify-center py-1 px-1 rounded-2xl transition cursor-pointer ${
+            activeSubTab === "idcard"
+              ? "text-[#0b63e5] font-bold"
+              : "text-slate-500 hover:text-slate-800 font-medium"
+          }`}
+        >
+          <div
+            className={`w-9 h-7 rounded-xl flex items-center justify-center transition ${
+              activeSubTab === "idcard" ? "bg-blue-50 text-[#0b63e5]" : ""
+            }`}
+          >
+            <QrCode size={19} />
+          </div>
+          <span className="text-[10px] tracking-tight">ID Card</span>
+        </button>
+
+        {/* Tab 5: Quick Access Menu */}
+        <button
+          type="button"
+          onClick={() => setQuickAccessDrawerOpen(true)}
+          className={`flex-1 relative flex flex-col items-center justify-center py-1 px-1 rounded-2xl transition cursor-pointer ${
+            quickAccessDrawerOpen ||
+            ["receipts", "notifications"].includes(activeSubTab)
+              ? "text-[#0b63e5] font-bold"
+              : "text-slate-500 hover:text-slate-800 font-medium"
+          }`}
+        >
+          <div
+            className={`w-9 h-7 rounded-xl flex items-center justify-center transition ${
+              quickAccessDrawerOpen ||
+              ["receipts", "notifications"].includes(activeSubTab)
+                ? "bg-blue-50 text-[#0b63e5]"
+                : ""
+            }`}
+          >
+            <Layers size={19} />
+          </div>
+          <span className="absolute top-1 right-1/4 w-2 h-2 bg-rose-500 rounded-full" />
+          <span className="text-[10px] tracking-tight">Quick Menu</span>
+        </button>
+      </nav>
+
+      {/* 5. MOBILE QUICK ACCESS BOTTOM SHEET DRAWER */}
+      {quickAccessDrawerOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden flex flex-col justify-end bg-black/60 backdrop-blur-xs animate-fade-in">
+          {/* Overlay click to dismiss */}
+          <div
+            className="flex-1 cursor-pointer"
+            onClick={() => setQuickAccessDrawerOpen(false)}
+          />
+
+          {/* Bottom Sheet Box */}
+          <div className="bg-white rounded-t-3xl shadow-2xl p-5 border-t border-slate-200 max-h-[85vh] overflow-y-auto space-y-4 animate-slide-in-bottom">
+            {/* Top Handle & Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-blue-50 text-[#0b63e5] flex items-center justify-center">
+                  <Layers size={19} />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-slate-900">Student Quick Access</h3>
+                  <p className="text-[11px] text-slate-500 font-mono">PRN: {student.prn}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuickAccessDrawerOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Quick Navigation Action Grid */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveSubTab("receipts");
+                  setQuickAccessDrawerOpen(false);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className={`p-3 rounded-2xl border text-left flex items-start gap-3 transition cursor-pointer ${
+                  activeSubTab === "receipts"
+                    ? "bg-blue-50 border-[#0b63e5] text-[#0b63e5]"
+                    : "bg-slate-50 hover:bg-slate-100 border-slate-200/80 text-slate-700"
+                }`}
+              >
+                <Printer size={18} className="mt-0.5 shrink-0 text-[#0b63e5]" />
+                <div className="min-w-0">
+                  <div className="text-xs font-bold truncate">Fee Receipts</div>
+                  <div className="text-[10px] text-slate-500">Official slips & records</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveSubTab("notifications");
+                  setQuickAccessDrawerOpen(false);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className={`p-3 rounded-2xl border text-left flex items-start gap-3 transition cursor-pointer relative ${
+                  activeSubTab === "notifications"
+                    ? "bg-blue-50 border-[#0b63e5] text-[#0b63e5]"
+                    : "bg-slate-50 hover:bg-slate-100 border-slate-200/80 text-slate-700"
+                }`}
+              >
+                <Bell size={18} className="mt-0.5 shrink-0 text-rose-500" />
+                <div className="min-w-0">
+                  <div className="text-xs font-bold truncate">Circulars & Notices</div>
+                  <div className="text-[10px] text-rose-600 font-bold">2 Official PDFs</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveSubTab("schedule");
+                  setQuickAccessDrawerOpen(false);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className={`p-3 rounded-2xl border text-left flex items-start gap-3 transition cursor-pointer ${
+                  activeSubTab === "schedule"
+                    ? "bg-blue-50 border-[#0b63e5] text-[#0b63e5]"
+                    : "bg-slate-50 hover:bg-slate-100 border-slate-200/80 text-slate-700"
+                }`}
+              >
+                <Clock size={18} className="mt-0.5 shrink-0 text-blue-600" />
+                <div className="min-w-0">
+                  <div className="text-xs font-bold truncate">Class Timetable</div>
+                  <div className="text-[10px] text-slate-500">Batches & room schedule</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveSubTab("idcard");
+                  setQuickAccessDrawerOpen(false);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className={`p-3 rounded-2xl border text-left flex items-start gap-3 transition cursor-pointer ${
+                  activeSubTab === "idcard"
+                    ? "bg-blue-50 border-[#0b63e5] text-[#0b63e5]"
+                    : "bg-slate-50 hover:bg-slate-100 border-slate-200/80 text-slate-700"
+                }`}
+              >
+                <QrCode size={18} className="mt-0.5 shrink-0 text-emerald-600" />
+                <div className="min-w-0">
+                  <div className="text-xs font-bold truncate">Digital Student ID</div>
+                  <div className="text-[10px] text-slate-500">View & download card</div>
+                </div>
+              </button>
+            </div>
+
+            {/* Quick Actions Strip */}
+            <div className="space-y-2 pt-2 border-t border-slate-100">
+              <Link
+                to={`/admissions?prn=${student.prn}`}
+                onClick={() => setQuickAccessDrawerOpen(false)}
+                className="w-full py-2.5 px-4 rounded-2xl bg-[#0b63e5] hover:bg-blue-700 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition"
+              >
+                <Plus size={15} />
+                <span>+ Enroll in Another Course</span>
+              </Link>
+
+              <div className="flex items-center gap-2">
+                <a
+                  href="tel:+919226345875"
+                  className="flex-1 py-2.5 px-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold flex items-center justify-center gap-2 transition"
+                >
+                  <Phone size={14} className="text-[#0b63e5]" />
+                  <span>Helpline: 9226345875</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setQuickAccessDrawerOpen(false);
+                    await logoutStudent();
+                    onLogout();
+                  }}
+                  className="py-2.5 px-4 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                >
+                  <LogOut size={14} />
+                  <span>Log Out</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* PDF Modal Viewer */}
       {previewPdf && (

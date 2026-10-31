@@ -73,7 +73,7 @@ const upcomingCauses: UpcomingCause[] = [
   },
 ];
 
-const ONE_TIME_PRESETS = [250, 500, 1000, 2500, 5000];
+const ONE_TIME_PRESETS = [500, 1000, 2500, 5000];
 const MONTHLY_PRESETS = [500, 1000, 2000, 5000];
 
 interface DonationReceiptData {
@@ -529,9 +529,9 @@ export default function DonationCheckoutPage() {
                         })}
                       </div>
                     ) : (
-                      /* One-Time: 5 Preset Buttons + Custom Amount Input */
+                      /* One-Time: 4 Preset Buttons + Custom Amount Input */
                       <>
-                        <div className="mt-5 grid grid-cols-5 gap-2 sm:gap-2.5">
+                        <div className="mt-5 grid grid-cols-4 gap-2 sm:gap-2.5">
                           {ONE_TIME_PRESETS.map((val) => {
                             const isSelected = !isCustom && amount === val;
                             return (
@@ -774,8 +774,8 @@ export default function DonationCheckoutPage() {
                 <div className="rounded-3xl border border-[#e8e4da] bg-white p-6 sm:p-7 shadow-sm text-center relative overflow-hidden">
                   <div className="flex items-center justify-between gap-2 border-b border-[#f0ece2] pb-3.5 mb-4">
                     <div className="flex items-center gap-2.5 text-left">
-                      <div className="h-9 w-9 rounded-xl bg-[#5f259f]/10 flex items-center justify-center text-[#5f259f] font-bold text-sm shrink-0">
-                        पे
+                      <div className="h-9 w-9 rounded-xl bg-[#5f259f]/10 flex items-center justify-center text-[#5f259f] font-bold text-xs shrink-0">
+                        Pay
                       </div>
                       <div>
                         <h4 className="font-serif font-bold text-sm sm:text-base text-[#1b2b25]">
@@ -792,11 +792,11 @@ export default function DonationCheckoutPage() {
                   </div>
 
                   {/* QR Image Container */}
-                  <div className="mx-auto max-w-[210px] sm:max-w-[230px] p-3 rounded-2xl bg-[#faf9f5] border-2 border-dashed border-[#5f259f]/30 shadow-xs">
+                  <div className="mx-auto w-[210px] sm:w-[230px] p-3 rounded-2xl bg-white border-2 border-dashed border-[#5f259f]/30 shadow-xs">
                     <img
                       src="/img/phonepe-qr.png"
-                      alt="PhonePe Accepted Here QR - Parivattan Mission Foundation"
-                      className="w-full h-auto rounded-xl object-contain mx-auto"
+                      alt="UPI QR Code - Parivattan Mission Foundation"
+                      className="w-full h-auto aspect-square rounded-xl object-contain mx-auto"
                     />
                   </div>
 

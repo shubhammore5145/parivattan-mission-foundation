@@ -370,7 +370,7 @@ export default function SubscriptionsManager() {
       )}
 
       {/* =========================================================================
-          TAB 1: SUBSCRIBERS LIST (कोणी कोणी घेतले आहे ते)
+          TAB 1: SUBSCRIBERS LIST (Active Recurring Donors)
          ========================================================================= */}
       {activeSubTab === "subscribers" && (
         <div className="rounded-3xl border border-[#e2e5dc] bg-white overflow-hidden shadow-xs">
@@ -552,7 +552,7 @@ export default function SubscriptionsManager() {
       )}
 
       {/* =========================================================================
-          TAB 2: AUTO-DEBIT PAYMENT RECEIPTS (हप्त्यांच्या पावत्या)
+          TAB 2: AUTO-DEBIT PAYMENT RECEIPTS (Recurring Transaction Receipts)
          ========================================================================= */}
       {activeSubTab === "payments" && (
         <div className="rounded-3xl border border-[#e2e5dc] bg-white overflow-hidden shadow-xs">

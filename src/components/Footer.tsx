@@ -292,6 +292,7 @@ const Footer = () => {
                 { label: 'Our Team', href: '/team' },
                 { label: 'Courses', href: '/courses' },
                 { label: 'Admissions', href: '/admissions' },
+                { label: 'Photo Gallery', href: '/gallery' },
                 { label: 'Student Portal (PRN Check)', href: '/student' },
                 { label: 'Rules & Regulations', href: '/rules' },
                 { label: 'Privacy Policy', href: '/privacy-policy' },
@@ -389,10 +390,10 @@ const Footer = () => {
                   <Phone size={16} />
                 </div>
                 <a
-                  href="tel:+917820831901"
+                  href="tel:+919226345875"
                   className="text-slate-300 hover:text-[#f2c5a8] transition-colors text-xs font-medium"
                 >
-                  +91 7820831901
+                  +91 9226345875 (Admissions) / +91 7820831901
                 </a>
               </div>
 

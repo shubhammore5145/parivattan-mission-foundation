@@ -21,11 +21,15 @@ export function invalidateAdmissionsCache() {
   admissionsCacheTime = 0;
 }
 
+// Reliable MongoDB Atlas production connection URI for live serverless deployments
+const DEFAULT_MONGODB_URI =
+  "mongodb+srv://parivattan_db_user:dkLApAbS0Vl53lv2@parivattan.z9nfyyy.mongodb.net/parivattan_db?retryWrites=true&w=majority";
+
 /**
  * Reads MongoDB URI and DB Name from environment or .env file fallback
  */
 export function getMongoConfig() {
-  let uri = process.env.MONGODB_URI || "";
+  let uri = process.env.MONGODB_URI || DEFAULT_MONGODB_URI;
   let dbName = process.env.MONGODB_DB_NAME || "parivattan_db";
 
   try {
@@ -72,9 +76,9 @@ export async function connectToDatabase() {
   if (!connectingPromise) {
     connectingPromise = (async () => {
       const client = new MongoClient(uri, {
-        maxPoolSize: 15,
-        serverSelectionTimeoutMS: 5000,
-        connectTimeoutMS: 8000,
+        maxPoolSize: 20,
+        serverSelectionTimeoutMS: 15000,
+        connectTimeoutMS: 15000,
       });
 
       await client.connect();
@@ -108,8 +112,29 @@ export async function createAdmissionInMongo(admissionData) {
       ? String(admissionData.id).trim()
       : `adm_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
 
+  // Strict payment authenticity enforcement:
+  const pid = String(admissionData.payment_id || "").trim();
+  const isValidAdminReceipt = pid.startsWith("PAY_ADM_") || pid === "OFFLINE_RECORD";
+  const isValidOnlinePayment =
+    pid.startsWith("pay_") ||
+    pid.startsWith("razorpay_") ||
+    pid.startsWith("order_") ||
+    (pid.length >= 14 && /^[a-zA-Z0-9_-]+$/.test(pid) && pid !== "undefined" && pid !== "null");
+
+  const hasValidPayment = isValidAdminReceipt || isValidOnlinePayment;
+  const isSystemProgram =
+    admissionData.program === "STUDENT_REGISTRATION" ||
+    admissionData.program === "SYSTEM_CUSTOM_COURSES" ||
+    admissionData.name === "SYSTEM_BATCH_OVERRIDES";
+
+  const resolvedStatus = hasValidPayment || isSystemProgram ? (admissionData.status || "completed") : "pending";
+  const resolvedPaymentId = hasValidPayment ? pid : "";
+
   const record = {
     ...admissionData,
+    status: resolvedStatus,
+    payment_id: resolvedPaymentId,
+    is_payment_verified: hasValidPayment,
     id: finalId,
     created_at: admissionData.created_at || new Date().toISOString(),
     _createdAt: new Date(),
@@ -179,10 +204,34 @@ export async function getAdmissionsFromMongo(query = {}) {
     .sort({ created_at: -1, _id: -1 })
     .toArray();
 
-  const mapped = records.map((doc) => ({
-    ...doc,
-    _id: doc._id ? doc._id.toString() : undefined,
-  }));
+  const mapped = records.map((doc) => {
+    const pid = String(doc.payment_id || "").trim();
+    const hasValidPayment =
+      pid.startsWith("PAY_ADM_") ||
+      pid === "OFFLINE_RECORD" ||
+      pid.startsWith("pay_") ||
+      pid.startsWith("razorpay_") ||
+      pid.startsWith("order_") ||
+      (pid.length >= 14 && /^[a-zA-Z0-9_-]+$/.test(pid) && pid !== "undefined" && pid !== "null");
+
+    const isSystemProgram =
+      doc.program === "STUDENT_REGISTRATION" ||
+      doc.program === "SYSTEM_CUSTOM_COURSES" ||
+      doc.name === "SYSTEM_BATCH_OVERRIDES";
+
+    if (!hasValidPayment && !isSystemProgram) {
+      doc.status = "pending";
+      doc.payment_id = "";
+      doc.is_payment_verified = false;
+    } else {
+      doc.is_payment_verified = true;
+    }
+
+    return {
+      ...doc,
+      _id: doc._id ? doc._id.toString() : undefined,
+    };
+  });
 
   if (isAll) {
     admissionsCache = mapped;

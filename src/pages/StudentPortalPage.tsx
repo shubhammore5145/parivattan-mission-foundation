@@ -124,6 +124,7 @@ export default function StudentPortalPage() {
       setCurrentStudentState(storedStudent);
       const apps = getStudentApplications(storedStudent.id);
       setStudentApplications(apps);
+      refreshStudentApps(storedStudent);
       setActiveTab("dashboard");
     } else {
       // Check if user just redirected back from Google sign-in
@@ -131,6 +132,7 @@ export default function StudentPortalPage() {
         if (redirectedStudent) {
           setCurrentStudentState(redirectedStudent);
           setStudentApplications(getStudentApplications(redirectedStudent.id));
+          refreshStudentApps(redirectedStudent);
           setActiveTab("dashboard");
           toast.success(`Welcome, ${redirectedStudent.name}! Signed in with Google.`);
         } else {
