@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
   Bell,
@@ -16,6 +16,8 @@ import {
   Tag,
   Share2,
   Eye,
+  Play,
+  Pause,
 } from "lucide-react";
 import {
   AnnouncementItem,
@@ -76,6 +78,68 @@ export default function NewsAndAnnouncementsSection() {
     if (selectedCategory === "All") return announcements;
     return announcements.filter((a) => a.category === selectedCategory);
   }, [announcements, selectedCategory]);
+
+  // Notice Board & Circulars Auto-Scrolling Engine
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [isAutoScrollActive, setIsAutoScrollActive] = useState<boolean>(true);
+  const [isHovered, setIsHovered] = useState<boolean>(false);
+  const touchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || !isAutoScrollActive) return;
+
+    let animationFrameId: number;
+    let isResetting = false;
+    let scrollPos = container.scrollTop;
+
+    const step = () => {
+      if (!isHovered && container && !isResetting) {
+        const maxScroll = container.scrollHeight - container.clientHeight;
+
+        if (maxScroll > 10) {
+          // Synchronize with any manual wheel/scroll adjustment
+          if (Math.abs(container.scrollTop - scrollPos) > 6) {
+            scrollPos = container.scrollTop;
+          }
+
+          if (container.scrollTop >= maxScroll - 2) {
+            // Reached bottom: pause for 2.2s so user can read last item, then smoothly reset to top
+            isResetting = true;
+            setTimeout(() => {
+              if (container) {
+                container.scrollTo({ top: 0, behavior: "smooth" });
+                scrollPos = 0;
+                setTimeout(() => {
+                  isResetting = false;
+                }, 1000);
+              } else {
+                isResetting = false;
+              }
+            }, 2200);
+          } else {
+            scrollPos += 0.65;
+            container.scrollTop = scrollPos;
+          }
+        }
+      }
+      animationFrameId = requestAnimationFrame(step);
+    };
+
+    animationFrameId = requestAnimationFrame(step);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      if (touchTimeoutRef.current) clearTimeout(touchTimeoutRef.current);
+    };
+  }, [isAutoScrollActive, isHovered, filteredAnnouncements]);
+
+  const handleCategorySelect = (cat: string) => {
+    setSelectedCategory(cat);
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
 
   // Continuous stream items for seamless horizontal running marquee on any monitor width
   const marqueeItems = useMemo(() => {
@@ -267,9 +331,37 @@ export default function NewsAndAnnouncementsSection() {
                   </div>
                 </div>
 
-                <span className="rounded-full bg-[#fbfaf7] border border-[#e2e5dc] px-3 py-1 text-xs font-bold text-[#24312d]">
-                  {announcements.length} Notices
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAutoScrollActive((prev) => !prev)}
+                    className="rounded-full bg-[#fbfaf7] hover:bg-[#eae6db] border border-[#e2e5dc] px-2.5 py-1 text-[11px] font-semibold text-[#24312d] inline-flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+                    title={isAutoScrollActive ? "Click to Pause Auto-Scroll" : "Click to Resume Auto-Scroll"}
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-full transition-colors ${
+                        isAutoScrollActive && !isHovered
+                          ? "bg-emerald-500 animate-pulse"
+                          : "bg-amber-400"
+                      }`}
+                    />
+                    <span className="hidden sm:inline">
+                      {isAutoScrollActive
+                        ? isHovered
+                          ? "Paused (Hover)"
+                          : "Auto-Scrolling"
+                        : "Scroll Paused"}
+                    </span>
+                    {isAutoScrollActive && !isHovered ? (
+                      <Pause size={11} className="text-[#24312d]" />
+                    ) : (
+                      <Play size={11} className="text-[#24312d]" />
+                    )}
+                  </button>
+                  <span className="rounded-full bg-[#fbfaf7] border border-[#e2e5dc] px-3 py-1 text-xs font-bold text-[#24312d]">
+                    {announcements.length} Notices
+                  </span>
+                </div>
               </div>
 
               {/* Category Filter Pills */}
@@ -277,7 +369,7 @@ export default function NewsAndAnnouncementsSection() {
                 {categories.map((cat) => (
                   <button
                     key={cat}
-                    onClick={() => setSelectedCategory(cat)}
+                    onClick={() => handleCategorySelect(cat)}
                     className={`rounded-xl px-3 py-1 text-xs font-semibold transition-all ${
                       selectedCategory === cat
                         ? "bg-[#24312d] text-white shadow-xs"
@@ -289,8 +381,23 @@ export default function NewsAndAnnouncementsSection() {
                 ))}
               </div>
 
-              {/* Announcements Feed */}
-              <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1">
+              {/* Announcements Feed with Automatic Smooth Scrolling & Hover Pause */}
+              <div className="relative">
+                {/* Subtle top & bottom edge fades */}
+                <div className="pointer-events-none absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-white via-white/80 to-transparent z-10" />
+                <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-5 bg-gradient-to-t from-white via-white/80 to-transparent z-10" />
+
+                <div
+                  ref={scrollContainerRef}
+                  onMouseEnter={() => setIsHovered(true)}
+                  onMouseLeave={() => setIsHovered(false)}
+                  onTouchStart={() => setIsHovered(true)}
+                  onTouchEnd={() => {
+                    if (touchTimeoutRef.current) clearTimeout(touchTimeoutRef.current);
+                    touchTimeoutRef.current = setTimeout(() => setIsHovered(false), 2200);
+                  }}
+                  className="space-y-3 max-h-[460px] overflow-y-auto pr-1 scroll-smooth"
+                >
                 {filteredAnnouncements.length === 0 ? (
                   <div className="py-12 text-center text-xs text-stone-500">
                     No announcements available in this category.
@@ -366,6 +473,7 @@ export default function NewsAndAnnouncementsSection() {
                 )}
               </div>
             </div>
+          </div>
 
             {/* Bottom Strip */}
             <div className="mt-6 pt-4 border-t border-[#f0ece2] flex items-center justify-between text-xs text-[#65706a]">
