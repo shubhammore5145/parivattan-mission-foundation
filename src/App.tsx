@@ -21,6 +21,7 @@ import StudentPortalPage from "./pages/StudentPortalPage";
 import SchedulePage from "./pages/SchedulePage";
 import GalleryPage from "./pages/GalleryPage";
 import ScrollToTop from "@/components/common/ScrollToTop";
+import { FloatingWhatsAppButton } from "@/components/common/FloatingWhatsAppButton";
 
 const App = () => (
   <TooltipProvider>
@@ -89,6 +90,7 @@ const App = () => (
     
           <Route path="*" element={<NotFound />} />
         </Routes>
+        <FloatingWhatsAppButton />
       </BrowserRouter>
     </LiveVisitorsProvider>
   </TooltipProvider>

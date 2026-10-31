@@ -8,6 +8,7 @@ import {
   ArrowRight,
   ExternalLink,
   ChevronRight,
+  ChevronLeft,
   X,
   FileText,
   Clock,
@@ -16,8 +17,6 @@ import {
   Tag,
   Share2,
   Eye,
-  Play,
-  Pause,
 } from "lucide-react";
 import {
   AnnouncementItem,
@@ -79,65 +78,38 @@ export default function NewsAndAnnouncementsSection() {
     return announcements.filter((a) => a.category === selectedCategory);
   }, [announcements, selectedCategory]);
 
-  // Notice Board & Circulars Auto-Scrolling Engine
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [isAutoScrollActive, setIsAutoScrollActive] = useState<boolean>(true);
-  const [isHovered, setIsHovered] = useState<boolean>(false);
-  const touchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container || !isAutoScrollActive) return;
-
-    let animationFrameId: number;
-    let isResetting = false;
-    let scrollPos = container.scrollTop;
-
-    const step = () => {
-      if (!isHovered && container && !isResetting) {
-        const maxScroll = container.scrollHeight - container.clientHeight;
-
-        if (maxScroll > 10) {
-          // Synchronize with any manual wheel/scroll adjustment
-          if (Math.abs(container.scrollTop - scrollPos) > 6) {
-            scrollPos = container.scrollTop;
-          }
-
-          if (container.scrollTop >= maxScroll - 2) {
-            // Reached bottom: pause for 2.2s so user can read last item, then smoothly reset to top
-            isResetting = true;
-            setTimeout(() => {
-              if (container) {
-                container.scrollTo({ top: 0, behavior: "smooth" });
-                scrollPos = 0;
-                setTimeout(() => {
-                  isResetting = false;
-                }, 1000);
-              } else {
-                isResetting = false;
-              }
-            }, 2200);
-          } else {
-            scrollPos += 0.65;
-            container.scrollTop = scrollPos;
-          }
-        }
-      }
-      animationFrameId = requestAnimationFrame(step);
-    };
-
-    animationFrameId = requestAnimationFrame(step);
-
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-      if (touchTimeoutRef.current) clearTimeout(touchTimeoutRef.current);
-    };
-  }, [isAutoScrollActive, isHovered, filteredAnnouncements]);
-
-  const handleCategorySelect = (cat: string) => {
-    setSelectedCategory(cat);
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTo({ top: 0, behavior: "smooth" });
+  const getHashtags = (item: AnnouncementItem) => {
+    switch (item.category) {
+      case "Examination":
+        return [
+          { label: "#Exam", color: "bg-rose-600 text-white" },
+          { label: "#Time Table", color: "bg-blue-600 text-white" },
+          { label: "#PMF", color: "bg-sky-600 text-white" },
+        ];
+      case "Admissions":
+        return [
+          { label: "#Admissions", color: "bg-emerald-600 text-white" },
+          { label: "#Winter2026", color: "bg-blue-600 text-white" },
+          { label: "#Languages", color: "bg-indigo-600 text-white" },
+        ];
+      case "Academic":
+        return [
+          { label: "#Academic", color: "bg-blue-600 text-white" },
+          { label: "#Syllabus", color: "bg-indigo-600 text-white" },
+          { label: "#PFLS", color: "bg-purple-600 text-white" },
+        ];
+      case "Urgent":
+        return [
+          { label: "#Urgent", color: "bg-rose-600 text-white" },
+          { label: "#Notice", color: "bg-amber-600 text-white" },
+          { label: "#Official", color: "bg-slate-700 text-white" },
+        ];
+      default:
+        return [
+          { label: "#Notice", color: "bg-blue-600 text-white" },
+          { label: "#Campus", color: "bg-emerald-600 text-white" },
+          { label: "#PMF", color: "bg-slate-700 text-white" },
+        ];
     }
   };
 
@@ -284,216 +256,222 @@ export default function NewsAndAnnouncementsSection() {
           </div>
         )}
 
-        {/* ================= 2. SECTION TITLE & HEADER ================= */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10 pb-4 border-b border-[#e2e5dc]">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-[#b5623b]/10 px-3.5 py-1 text-xs font-bold uppercase tracking-widest text-[#b5623b]">
-              <Sparkles size={13} />
-              <span>Notices & Happenings</span>
+        {/* ================= 2. ANNOUNCEMENTS CAROUSEL (Matching User Mobile Screenshot) ================= */}
+        <div className="mb-14 sm:mb-16">
+          {/* Header with Vertical Orange Line */}
+          <div className="flex items-center justify-between mb-4 sm:mb-5">
+            <div className="flex items-center">
+              <div className="w-1.5 h-7 sm:h-8 bg-[#b5623b] rounded-full mr-3 shrink-0" />
+              <h2 className="text-2xl sm:text-3xl font-sans font-extrabold text-slate-900 tracking-tight">
+                Announcements
+              </h2>
             </div>
-            <h2 className="mt-2 text-2xl sm:text-3xl md:text-4xl font-sans font-extrabold text-[#24312d] tracking-tight">
-              Announcements & Latest News
-            </h2>
-            <p className="mt-1 text-xs sm:text-sm text-[#65706a] max-w-2xl leading-relaxed">
-              Official circulars, academic notices, upcoming events, and stories from Parivattan Mission Foundation.
-            </p>
+
+            <div className="flex items-center gap-2">
+              <Link
+                to="/student"
+                className="text-xs sm:text-sm font-bold text-[#b5623b] hover:text-[#8f4726] transition flex items-center gap-1.5 bg-[#b5623b]/10 hover:bg-[#b5623b]/20 px-3.5 py-1.5 rounded-full"
+              >
+                <span>View All Notices</span>
+                <ArrowRight size={14} />
+              </Link>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Link
-              to="/student-portal"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#b5623b] hover:text-[#8f4726] transition group"
-            >
-              <span>Student Portal Circulars</span>
-              <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
-            </Link>
+          {/* Continuous Infinite Looping Cards Marquee ("loop made chalt rahile pahije") */}
+          <div className="relative overflow-hidden -mx-4 sm:mx-0 select-none">
+            {/* Scoped CSS for 100% reliable 60fps infinite marquee loop */}
+            <style>{`
+              @keyframes pmfAnnouncementsInfiniteLoop {
+                0% {
+                  transform: translateX(0%);
+                }
+                100% {
+                  transform: translateX(-100%);
+                }
+              }
+              .pmf-cards-loop-container {
+                display: flex;
+                overflow: hidden;
+                width: 100%;
+                position: relative;
+              }
+              .pmf-cards-loop-track {
+                display: flex;
+                width: max-content;
+              }
+              .pmf-cards-loop-content {
+                display: flex;
+                gap: 1.25rem;
+                flex-shrink: 0;
+                padding-right: 1.25rem;
+                animation: pmfAnnouncementsInfiniteLoop 36s linear infinite;
+                will-change: transform;
+              }
+              @media (max-width: 640px) {
+                .pmf-cards-loop-content {
+                  animation: pmfAnnouncementsInfiniteLoop 30s linear infinite;
+                  gap: 1rem;
+                  padding-right: 1rem;
+                }
+              }
+              .pmf-cards-loop-container:hover .pmf-cards-loop-content,
+              .pmf-cards-loop-container:active .pmf-cards-loop-content {
+                animation-play-state: paused;
+              }
+            `}</style>
+
+            {/* Left and Right subtle gradient edge fades */}
+            <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-6 sm:w-10 bg-gradient-to-r from-[#fbfaf7] to-transparent z-10" />
+            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 sm:w-10 bg-gradient-to-l from-[#fbfaf7] to-transparent z-10" />
+
+            <div className="pmf-cards-loop-container py-2">
+              <div className="pmf-cards-loop-track flex">
+                {/* Track 1: Original stream */}
+                <div className="pmf-cards-loop-content">
+                  {announcements.map((item) => (
+                    <div
+                      key={`loop1-${item.id}`}
+                      onClick={() => setSelectedAnnouncement(item)}
+                      role="button"
+                      tabIndex={0}
+                      className="w-[280px] sm:w-[330px] shrink-0 bg-white rounded-2xl border border-slate-200/90 shadow-[0_4px_16px_rgba(0,0,0,0.06)] p-5 sm:p-5 flex flex-col justify-between hover:shadow-xl hover:border-[#b5623b]/50 hover:-translate-y-0.5 transition-all duration-300 cursor-pointer group"
+                    >
+                      <div className="space-y-3">
+                        {/* Hashtags */}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {getHashtags(item).map((tag, idx) => (
+                            <span
+                              key={idx}
+                              className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-md tracking-tight shadow-2xs ${tag.color}`}
+                            >
+                              {tag.label}
+                            </span>
+                          ))}
+                          {item.isNew && (
+                            <span className="bg-rose-600 text-white text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider animate-pulse shadow-2xs">
+                              NEW
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Title with maximum contrast and clear readability */}
+                        <h4 className="text-sm sm:text-base font-bold text-slate-900 group-hover:text-[#b5623b] transition-colors leading-snug line-clamp-3">
+                          {item.title}
+                        </h4>
+                      </div>
+
+                      {/* Card Footer */}
+                      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar size={13} className="text-slate-400" />
+                          <span>{item.dateFormatted || item.date}</span>
+                        </div>
+                        {item.attachmentName ? (
+                          <span className="rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold px-2 py-0.5 inline-flex items-center gap-1">
+                            <FileText size={10} />
+                            <span>PDF Notice</span>
+                          </span>
+                        ) : (
+                          <span className="text-[#b5623b] font-bold text-[11px] group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-0.5">
+                            <span>Details</span>
+                            <ChevronRight size={13} />
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Track 2: Cloned stream for seamless infinite glitchless loop */}
+                <div className="pmf-cards-loop-content" aria-hidden="true">
+                  {announcements.map((item) => (
+                    <div
+                      key={`loop2-${item.id}`}
+                      onClick={() => setSelectedAnnouncement(item)}
+                      role="button"
+                      tabIndex={0}
+                      className="w-[280px] sm:w-[330px] shrink-0 bg-white rounded-2xl border border-slate-200/90 shadow-[0_4px_16px_rgba(0,0,0,0.06)] p-5 sm:p-5 flex flex-col justify-between hover:shadow-xl hover:border-[#b5623b]/50 hover:-translate-y-0.5 transition-all duration-300 cursor-pointer group"
+                    >
+                      <div className="space-y-3">
+                        {/* Hashtags */}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {getHashtags(item).map((tag, idx) => (
+                            <span
+                              key={idx}
+                              className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-md tracking-tight shadow-2xs ${tag.color}`}
+                            >
+                              {tag.label}
+                            </span>
+                          ))}
+                          {item.isNew && (
+                            <span className="bg-rose-600 text-white text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider animate-pulse shadow-2xs">
+                              NEW
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Title with maximum contrast and clear readability */}
+                        <h4 className="text-sm sm:text-base font-bold text-slate-900 group-hover:text-[#b5623b] transition-colors leading-snug line-clamp-3">
+                          {item.title}
+                        </h4>
+                      </div>
+
+                      {/* Card Footer */}
+                      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar size={13} className="text-slate-400" />
+                          <span>{item.dateFormatted || item.date}</span>
+                        </div>
+                        {item.attachmentName ? (
+                          <span className="rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold px-2 py-0.5 inline-flex items-center gap-1">
+                            <FileText size={10} />
+                            <span>PDF Notice</span>
+                          </span>
+                        ) : (
+                          <span className="text-[#b5623b] font-bold text-[11px] group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-0.5">
+                            <span>Details</span>
+                            <ChevronRight size={13} />
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* ================= 3. DUAL-COLUMN GRID: ANNOUNCEMENTS & NEWS ================= */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* ================= LEFT COLUMN: ANNOUNCEMENTS BOARD (7 COLS) ================= */}
-          <div className="lg:col-span-6 xl:col-span-7 bg-white rounded-3xl border border-[#e2e5dc] shadow-sm p-6 sm:p-7 flex flex-col justify-between">
+        {/* ================= 3. LATEST NEWS & UPCOMING EVENTS ================= */}
+        <div className="space-y-6">
+          {/* Header with Orange Bar and Subtitle matching Screenshot */}
+          <div className="flex items-start mb-6 sm:mb-8">
+            <div className="w-1.5 h-16 sm:h-20 bg-[#b5623b] rounded-full mr-3 shrink-0 mt-1" />
             <div>
-              {/* Header inside Card */}
-              <div className="flex items-center justify-between pb-4 border-b border-[#f0ece2] mb-5">
-                <div className="flex items-center gap-2.5">
-                  <div className="h-9 w-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
-                    <Bell size={18} />
-                  </div>
-                  <div>
-                    <h3 className="text-lg sm:text-xl font-sans font-bold text-[#24312d]">
-                      Notice Board & Circulars
-                    </h3>
-                    <p className="text-[11px] text-[#65706a]">
-                      Important academic notices and circulars
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsAutoScrollActive((prev) => !prev)}
-                    className="rounded-full bg-[#fbfaf7] hover:bg-[#eae6db] border border-[#e2e5dc] px-2.5 py-1 text-[11px] font-semibold text-[#24312d] inline-flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
-                    title={isAutoScrollActive ? "Click to Pause Auto-Scroll" : "Click to Resume Auto-Scroll"}
-                  >
-                    <span
-                      className={`w-2 h-2 rounded-full transition-colors ${
-                        isAutoScrollActive && !isHovered
-                          ? "bg-emerald-500 animate-pulse"
-                          : "bg-amber-400"
-                      }`}
-                    />
-                    <span className="hidden sm:inline">
-                      {isAutoScrollActive
-                        ? isHovered
-                          ? "Paused (Hover)"
-                          : "Auto-Scrolling"
-                        : "Scroll Paused"}
-                    </span>
-                    {isAutoScrollActive && !isHovered ? (
-                      <Pause size={11} className="text-[#24312d]" />
-                    ) : (
-                      <Play size={11} className="text-[#24312d]" />
-                    )}
-                  </button>
-                  <span className="rounded-full bg-[#fbfaf7] border border-[#e2e5dc] px-3 py-1 text-xs font-bold text-[#24312d]">
-                    {announcements.length} Notices
-                  </span>
-                </div>
-              </div>
-
-              {/* Category Filter Pills */}
-              <div className="flex flex-wrap gap-1.5 mb-5">
-                {categories.map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => handleCategorySelect(cat)}
-                    className={`rounded-xl px-3 py-1 text-xs font-semibold transition-all ${
-                      selectedCategory === cat
-                        ? "bg-[#24312d] text-white shadow-xs"
-                        : "bg-[#f4f2ea] text-[#65706a] hover:bg-[#eae6db] hover:text-[#24312d]"
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-
-              {/* Announcements Feed with Automatic Smooth Scrolling & Hover Pause */}
-              <div className="relative">
-                {/* Subtle top & bottom edge fades */}
-                <div className="pointer-events-none absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-white via-white/80 to-transparent z-10" />
-                <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-5 bg-gradient-to-t from-white via-white/80 to-transparent z-10" />
-
-                <div
-                  ref={scrollContainerRef}
-                  onMouseEnter={() => setIsHovered(true)}
-                  onMouseLeave={() => setIsHovered(false)}
-                  onTouchStart={() => setIsHovered(true)}
-                  onTouchEnd={() => {
-                    if (touchTimeoutRef.current) clearTimeout(touchTimeoutRef.current);
-                    touchTimeoutRef.current = setTimeout(() => setIsHovered(false), 2200);
-                  }}
-                  className="space-y-3 max-h-[460px] overflow-y-auto pr-1 scroll-smooth"
-                >
-                {filteredAnnouncements.length === 0 ? (
-                  <div className="py-12 text-center text-xs text-stone-500">
-                    No announcements available in this category.
-                  </div>
-                ) : (
-                  filteredAnnouncements.map((item) => {
-                    const parsedDate = new Date(item.date);
-                    const month = parsedDate.toLocaleDateString("en-US", { month: "short" });
-                    const day = parsedDate.getDate() || "16";
-
-                    return (
-                      <div
-                        key={item.id}
-                        onClick={() => setSelectedAnnouncement(item)}
-                        role="button"
-                        tabIndex={0}
-                        className="group relative flex items-start gap-4 p-3.5 sm:p-4 rounded-2xl border border-[#ece8de] bg-[#fbfaf7] hover:bg-white hover:border-[#b5623b]/50 hover:shadow-md transition-all duration-200 cursor-pointer"
-                      >
-                        {/* Date Box */}
-                        <div className="shrink-0 flex flex-col items-center justify-center h-12 w-12 rounded-xl bg-[#24312d] text-white shadow-xs group-hover:bg-[#b5623b] transition-colors">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-200 group-hover:text-white leading-none">
-                            {month}
-                          </span>
-                          <span className="text-base font-bold font-serif leading-none mt-1">
-                            {day}
-                          </span>
-                        </div>
-
-                        {/* Title & Badge */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-[10px] font-bold border ${getCategoryBadgeClass(
-                                item.category
-                              )}`}
-                            >
-                              {item.category}
-                            </span>
-                            {item.isNew && (
-                              <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[9px] font-extrabold text-white uppercase tracking-wider animate-pulse">
-                                NEW ⚡
-                              </span>
-                            )}
-                            {item.isPinned && (
-                              <span className="rounded-full bg-amber-500/20 text-amber-800 px-2 py-0.5 text-[9px] font-bold uppercase border border-amber-300">
-                                Pinned 📌
-                              </span>
-                            )}
-                            {item.attachmentName && (
-                              <span className="rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[9px] font-bold border border-emerald-200 inline-flex items-center gap-1">
-                                <FileText size={10} />
-                                <span>PDF {item.fileSize ? `· ${item.fileSize}` : ""}</span>
-                              </span>
-                            )}
-                          </div>
-
-                          <h4 className="text-xs sm:text-sm font-semibold text-[#24312d] group-hover:text-[#b5623b] transition-colors line-clamp-2 leading-snug">
-                            {item.title}
-                          </h4>
-
-                          <p className="mt-1 text-[11px] text-[#65706a] line-clamp-1">
-                            {item.description}
-                          </p>
-                        </div>
-
-                        <ChevronRight
-                          size={16}
-                          className="shrink-0 text-stone-400 group-hover:text-[#b5623b] group-hover:translate-x-1 transition-all mt-3"
-                        />
-                      </div>
-                    );
-                  })
-                )}
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-sans font-extrabold text-slate-900 leading-[1.15] tracking-tight">
+                Latest News &<br />Upcoming Events
+              </h2>
+              <div className="border-l-2 border-[#b5623b] pl-3 mt-3">
+                <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed">
+                  Your go-to source for the most important news stories of the day.
+                </p>
               </div>
             </div>
           </div>
 
-            {/* Bottom Strip */}
-            <div className="mt-6 pt-4 border-t border-[#f0ece2] flex items-center justify-between text-xs text-[#65706a]">
-              <span>Official circulars issued by Foundation Secretariat</span>
-              <span className="font-bold text-[#24312d]">Verified Portal</span>
-            </div>
-          </div>
-
-          {/* ================= RIGHT COLUMN: LATEST NEWS & PRESS (5 COLS) ================= */}
-          <div className="lg:col-span-6 xl:col-span-5 space-y-5">
-            {/* Featured Story Card */}
+          {/* News Grid: Featured News & Secondary News */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
+            {/* Featured Story (Left 7 Cols) */}
             {featuredNews && (
               <div
                 onClick={() => setSelectedNews(featuredNews)}
                 role="button"
                 tabIndex={0}
-                className="group rounded-3xl border border-[#e2e5dc] bg-white overflow-hidden shadow-sm hover:shadow-lg hover:border-[#b5623b]/50 transition-all duration-300 cursor-pointer flex flex-col"
+                className="lg:col-span-7 group rounded-3xl border border-slate-200/90 bg-white overflow-hidden shadow-sm hover:shadow-xl hover:border-[#b5623b]/50 transition-all duration-300 cursor-pointer flex flex-col"
               >
                 {/* Image */}
-                <div className="relative h-48 sm:h-56 w-full overflow-hidden bg-stone-100">
+                <div className="relative h-56 sm:h-72 w-full overflow-hidden bg-slate-100">
                   <img
                     src={featuredNews.image}
                     alt={featuredNews.title}
@@ -502,92 +480,94 @@ export default function NewsAndAnnouncementsSection() {
                       (e.target as HTMLImageElement).src = "/img/japanese.jpeg";
                     }}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
 
                   {/* Badges on Image */}
-                  <div className="absolute top-3.5 left-3.5 flex items-center gap-2">
-                    <span className="rounded-full bg-[#b5623b] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-md">
-                      Featured News
+                  <div className="absolute top-4 left-4 flex items-center gap-2">
+                    <span className="rounded-full bg-[#b5623b] px-3.5 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-md">
+                      Featured Story
                     </span>
-                    <span className="rounded-full bg-white/90 backdrop-blur-xs px-2.5 py-1 text-[10px] font-bold text-[#24312d]">
+                    <span className="rounded-full bg-white/95 backdrop-blur-xs px-3 py-1 text-[11px] font-bold text-slate-900 shadow-xs">
                       {featuredNews.category}
                     </span>
                   </div>
 
-                  <div className="absolute bottom-3 left-3.5 right-3.5 flex items-center justify-between text-xs text-white/90">
-                    <div className="flex items-center gap-1.5 font-medium">
-                      <Calendar size={13} />
+                  <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-xs font-semibold text-white/95">
+                    <div className="flex items-center gap-1.5">
+                      <Calendar size={14} />
                       <span>{featuredNews.dateFormatted || featuredNews.date}</span>
                     </div>
                     {featuredNews.readTime && (
-                      <div className="flex items-center gap-1 font-medium">
-                        <Clock size={13} />
+                      <div className="flex items-center gap-1">
+                        <Clock size={14} />
                         <span>{featuredNews.readTime}</span>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Content */}
-                <div className="p-5 sm:p-6 flex-1 flex flex-col justify-between">
-                  <div>
-                    <h3 className="text-base sm:text-lg font-serif font-bold text-[#24312d] group-hover:text-[#b5623b] transition-colors leading-snug">
+                {/* Content with high contrast readability */}
+                <div className="p-6 sm:p-7 flex-1 flex flex-col justify-between space-y-4">
+                  <div className="space-y-2.5">
+                    <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 group-hover:text-[#b5623b] transition-colors leading-snug">
                       {featuredNews.title}
                     </h3>
-                    <p className="mt-2 text-xs sm:text-sm text-[#65706a] leading-relaxed line-clamp-2">
+                    <p className="text-sm sm:text-base text-slate-600 leading-relaxed line-clamp-3 font-normal">
                       {featuredNews.summary}
                     </p>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-[#f0ece2] flex items-center justify-between text-xs font-bold text-[#b5623b]">
+                  <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs sm:text-sm font-bold text-[#b5623b]">
                     <span>Read Full Story</span>
-                    <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                    <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Secondary News Items */}
-            <div className="bg-white rounded-3xl border border-[#e2e5dc] p-5 shadow-xs space-y-3.5">
-              <div className="flex items-center justify-between pb-3 border-b border-[#f0ece2]">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-[#24312d] flex items-center gap-1.5">
-                  <Newspaper size={14} className="text-[#b5623b]" />
+            {/* Secondary News Items (Right 5 Cols) */}
+            <div className="lg:col-span-5 bg-white rounded-3xl border border-slate-200/90 p-5 sm:p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
+                <h4 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                  <Newspaper size={16} className="text-[#b5623b]" />
                   <span>More Campus Updates</span>
                 </h4>
-                <span className="text-[11px] text-[#65706a]">
-                  Recent Press & Media
+                <span className="text-xs font-medium text-slate-500">
+                  Recent Stories
                 </span>
               </div>
 
-              {secondaryNews.map((news) => (
-                <div
-                  key={news.id}
-                  onClick={() => setSelectedNews(news)}
-                  role="button"
-                  tabIndex={0}
-                  className="group flex items-center gap-3.5 p-2 rounded-2xl hover:bg-[#fbfaf7] transition cursor-pointer"
-                >
-                  <img
-                    src={news.image}
-                    alt={news.title}
-                    className="h-16 w-16 rounded-xl object-cover shrink-0 bg-stone-100 group-hover:scale-105 transition-transform"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = "/img/purpose.jpg";
-                    }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 text-[10px] text-[#65706a]">
-                      <span className="font-bold text-[#b5623b]">{news.category}</span>
-                      <span>•</span>
-                      <span>{news.dateFormatted || news.date}</span>
+              <div className="space-y-3">
+                {secondaryNews.map((news) => (
+                  <div
+                    key={news.id}
+                    onClick={() => setSelectedNews(news)}
+                    role="button"
+                    tabIndex={0}
+                    className="group flex items-start gap-4 p-3 rounded-2xl hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all cursor-pointer"
+                  >
+                    <img
+                      src={news.image}
+                      alt={news.title}
+                      className="h-18 w-18 sm:h-20 sm:w-20 rounded-xl object-cover shrink-0 bg-slate-100 group-hover:scale-105 transition-transform"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "/img/purpose.jpg";
+                      }}
+                    />
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center gap-2 text-[11px] text-slate-500 font-medium">
+                        <span className="font-bold text-[#b5623b]">{news.category}</span>
+                        <span>•</span>
+                        <span>{news.dateFormatted || news.date}</span>
+                      </div>
+                      <h5 className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-[#b5623b] transition-colors line-clamp-2 leading-snug">
+                        {news.title}
+                      </h5>
                     </div>
-                    <h5 className="mt-0.5 text-xs font-semibold text-[#24312d] group-hover:text-[#b5623b] transition-colors line-clamp-2 leading-tight">
-                      {news.title}
-                    </h5>
+                    <ChevronRight size={16} className="text-slate-400 group-hover:text-[#b5623b] group-hover:translate-x-0.5 transition-all shrink-0 mt-3" />
                   </div>
-                  <ChevronRight size={15} className="text-stone-400 group-hover:text-[#b5623b] shrink-0" />
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </div>
