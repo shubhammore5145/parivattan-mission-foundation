@@ -73,7 +73,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
   onLogout,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<
-    "home" | "courses" | "idcard" | "receipts" | "schedule" | "notifications" | "materials" | "quizzes"
+    "home" | "courses" | "idcard" | "receipts" | "schedule" | "notifications"
   >("home");
   const [copiedPrn, setCopiedPrn] = useState(false);
   const [expandedSyllabusId, setExpandedSyllabusId] = useState<string | null>(null);
@@ -273,48 +273,6 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
             <button
               type="button"
               onClick={() => {
-                setActiveSubTab("materials");
-                setSidebarOpen(false);
-              }}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer focus:outline-none ${
-                activeSubTab === "materials"
-                  ? "bg-white text-[#0b63e5] font-bold shadow-md shadow-blue-950/25"
-                  : "text-white/85 hover:text-white hover:bg-white/10"
-              }`}
-            >
-              <div className="flex items-center gap-3.5">
-                <BookOpen size={18} className={activeSubTab === "materials" ? "text-[#0b63e5]" : "text-white/85"} />
-                <span>Study Materials</span>
-              </div>
-              <span className="text-[10px] bg-amber-400 text-slate-950 font-extrabold px-1.5 py-0.5 rounded-md">
-                Soon
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveSubTab("quizzes");
-                setSidebarOpen(false);
-              }}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-semibold transition-all cursor-pointer focus:outline-none ${
-                activeSubTab === "quizzes"
-                  ? "bg-white text-[#0b63e5] font-bold shadow-md shadow-blue-950/25"
-                  : "text-white/85 hover:text-white hover:bg-white/10"
-              }`}
-            >
-              <div className="flex items-center gap-3.5">
-                <BrainCircuit size={18} className={activeSubTab === "quizzes" ? "text-[#0b63e5]" : "text-white/85"} />
-                <span>Practice Quizzes</span>
-              </div>
-              <span className="text-[10px] bg-amber-400 text-slate-950 font-extrabold px-1.5 py-0.5 rounded-md">
-                Soon
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
                 setActiveSubTab("idcard");
                 setSidebarOpen(false);
               }}
@@ -503,14 +461,12 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
           </div>
         </div>
 
-        {/* SUB-TABS NAVIGATION PILLS (Top Quick Access Bar - Horizontal Swipe on Mobile, Wrap on Desktop) */}
-        <div className="flex items-center gap-2 pb-2 border-b border-slate-200 overflow-x-auto no-scrollbar scroll-smooth flex-nowrap md:flex-wrap -mx-1 px-1 sm:mx-0 sm:px-0">
+        {/* SUB-TABS NAVIGATION PILLS (Visible on Tablet/Desktop; on Mobile, Clean Bottom App Dock is used instead) */}
+        <div className="hidden md:flex items-center gap-2 pb-2 border-b border-slate-200 overflow-x-auto no-scrollbar scroll-smooth flex-nowrap md:flex-wrap -mx-1 px-1 sm:mx-0 sm:px-0">
           {[
             { id: "home", label: "Dashboard Overview", icon: Home },
             { id: "courses", label: "My Courses & Syllabus", icon: BookOpen, count: applications.length },
-            { id: "materials", label: "Study Materials", icon: FileText, badge: "Coming Soon" },
             { id: "schedule", label: "Class Timetable", icon: Clock },
-            { id: "quizzes", label: "Practice Quizzes", icon: BrainCircuit, badge: "Coming Soon" },
             { id: "idcard", label: "Digital Student ID Card", icon: QrCode },
             { id: "receipts", label: "Fee Receipts & Slips", icon: Printer },
             { id: "notifications", label: "Official Circulars", icon: Bell, badge: "2 New" },
@@ -775,64 +731,6 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
 
                   <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-white border border-white/30 shadow-xs shrink-0 group-hover:scale-105 transition-transform z-10">
                     <Printer size={32} />
-                  </div>
-                  <div className="absolute -right-6 -bottom-6 w-32 h-32 rounded-full bg-white/10 pointer-events-none" />
-                </div>
-
-                {/* Indigo Card (Study Materials & Notes Hub) */}
-                <div
-                  onClick={() => setActiveSubTab("materials")}
-                  className="rounded-3xl bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white shadow-sm hover:shadow-md transition cursor-pointer flex items-center justify-between group overflow-hidden relative"
-                >
-                  <div className="space-y-1 z-10">
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 text-[10px] font-bold uppercase tracking-wider text-amber-300">
-                      <span>Under Curation</span>
-                    </div>
-                    <h4 className="text-xl font-black tracking-tight text-white group-hover:translate-x-1 transition-transform font-sans">
-                      Study Materials
-                    </h4>
-                    <p className="text-xs font-medium text-blue-100 font-sans">
-                      JLPT Notes, German Cheatsheets & Solved Papers
-                    </p>
-                    <div className="pt-2">
-                      <span className="inline-flex items-center gap-1 text-xs font-extrabold bg-white text-indigo-800 px-3.5 py-1.5 rounded-full shadow-xs">
-                        <BookOpen size={13} />
-                        <span>Preview Module →</span>
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-white border border-white/30 shadow-xs shrink-0 group-hover:scale-105 transition-transform z-10">
-                    <BookOpen size={32} />
-                  </div>
-                  <div className="absolute -right-6 -bottom-6 w-32 h-32 rounded-full bg-white/10 pointer-events-none" />
-                </div>
-
-                {/* Purple / Violet Card (Interactive Practice Quizzes) */}
-                <div
-                  onClick={() => setActiveSubTab("quizzes")}
-                  className="rounded-3xl bg-gradient-to-r from-violet-600 to-purple-700 p-6 text-white shadow-sm hover:shadow-md transition cursor-pointer flex items-center justify-between group overflow-hidden relative"
-                >
-                  <div className="space-y-1 z-10">
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 text-[10px] font-bold uppercase tracking-wider text-amber-300">
-                      <span>Under Active Engineering</span>
-                    </div>
-                    <h4 className="text-xl font-black tracking-tight text-white group-hover:translate-x-1 transition-transform font-sans">
-                      Practice Quizzes
-                    </h4>
-                    <p className="text-xs font-medium text-violet-100 font-sans">
-                      Japanese Kanji, German Drills & Python Quizzes
-                    </p>
-                    <div className="pt-2">
-                      <span className="inline-flex items-center gap-1 text-xs font-extrabold bg-white text-violet-800 px-3.5 py-1.5 rounded-full shadow-xs">
-                        <BrainCircuit size={13} />
-                        <span>Explore Quizzes →</span>
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-white border border-white/30 shadow-xs shrink-0 group-hover:scale-105 transition-transform z-10">
-                    <BrainCircuit size={32} />
                   </div>
                   <div className="absolute -right-6 -bottom-6 w-32 h-32 rounded-full bg-white/10 pointer-events-none" />
                 </div>
@@ -1584,108 +1482,6 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
           </div>
         </div>
       )}
-
-      {/* ================= TAB 6: STUDY MATERIALS & NOTES ================= */}
-      {activeSubTab === "materials" && (
-        <div className="space-y-6">
-          <UnderConstructionView
-            pageTitle="Study Materials & Notes Hub"
-            moduleBadge="Under Active Curation • Academic Module 1"
-            headline="Study Materials & Question Paper Hub"
-            description="We are actively compiling official handouts, JLPT/Goethe study guides, coding lab sheets, and verified mock exam papers for all Parivattan students."
-            progressPercent={78}
-            expectedDate="Upcoming Term (2026)"
-            features={[
-              {
-                title: "Japanese (JLPT N5, N4 & N3) Kanji & Grammar Notes",
-                description:
-                  "Comprehensive Kanji stroke orders, vocabulary lists, particle charts, and reading passages designed for JLPT success.",
-                icon: Globe2,
-                tag: "JLPT Prep",
-              },
-              {
-                title: "German (Goethe-Zertifikat A1 & A2) Grammar & Audio Drills",
-                description:
-                  "Case tables (Nominativ, Akkusativ, Dativ), modal verbs, sentence construction formulas, and listening dialog scripts.",
-                icon: BookOpen,
-                tag: "German Fluency",
-              },
-              {
-                title: "Python & Full-Stack Web Development Cheat Sheets",
-                description:
-                  "Clean, visual syntax guides for Python, JavaScript, HTML/CSS, React, SQL, and practical problem-solving assignments.",
-                icon: Code2,
-                tag: "Tech School",
-              },
-              {
-                title: "Previous Years' Model Exam Papers & Answer Keys",
-                description:
-                  "Solved question banks and mock question sets for foreign languages, civil services, and technical aptitude tests.",
-                icon: FileText,
-                tag: "Question Banks",
-              },
-            ]}
-            embeddedInDashboard={true}
-            primaryAction={{
-              label: "Back to Overview",
-              to: "#",
-              onClick: () => setActiveSubTab("home"),
-            }}
-            secondaryAction={{ label: "Open Fullscreen Page", to: "/study-materials" }}
-          />
-        </div>
-      )}
-
-      {/* ================= TAB 7: PRACTICE QUIZZES & MOCKS ================= */}
-      {activeSubTab === "quizzes" && (
-        <div className="space-y-6">
-          <UnderConstructionView
-            pageTitle="Interactive Practice Quizzes"
-            moduleBadge="Under Active Engineering • Interactive Assessment"
-            headline="Interactive Practice Quizzes & Mock Tests"
-            description="Self-paced assessment drills for Japanese (JLPT), German (Goethe), and Python programming with instant scoring and detailed answers."
-            progressPercent={65}
-            expectedDate="Upcoming Term (2026)"
-            features={[
-              {
-                title: "JLPT N5 & N4 Daily Kanji & Vocabulary Drills",
-                description:
-                  "Fast-paced 10-question flash drills testing Hiragana, Katakana, Kanji readings, and contextual vocabulary with immediate feedback.",
-                icon: Globe2,
-                tag: "JLPT Japanese",
-              },
-              {
-                title: "Goethe-Zertifikat German A1 & A2 Grammar Quizzes",
-                description:
-                  "Interactive fill-in-the-blanks, case endings (der/die/das), verb conjugations, and prepositions practice tests.",
-                icon: BrainCircuit,
-                tag: "German Drills",
-              },
-              {
-                title: "Python Programming Output & Debugging Challenges",
-                description:
-                  "Test your code reading and logical debugging skills with real code snippets, loop challenges, and data structure questions.",
-                icon: Code2,
-                tag: "Python & Coding",
-              },
-              {
-                title: "Instant Scorecards, Explanations & Leaderboards",
-                description:
-                  "Detailed step-by-step solutions for every question, time spent analytics, and motivational milestone badges.",
-                icon: Trophy,
-                tag: "Analytics & Badges",
-              },
-            ]}
-            embeddedInDashboard={true}
-            primaryAction={{
-              label: "Back to Overview",
-              to: "#",
-              onClick: () => setActiveSubTab("home"),
-            }}
-            secondaryAction={{ label: "Open Fullscreen Page", to: "/quizzes" }}
-          />
-        </div>
-      )}
       </main>
 
       {/* 3. RIGHT PANEL (White #ffffff, calendar + tasks + support) */}
@@ -1970,7 +1766,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
           onClick={() => setQuickAccessDrawerOpen(true)}
           className={`flex-1 relative flex flex-col items-center justify-center py-1 px-1 rounded-2xl transition cursor-pointer ${
             quickAccessDrawerOpen ||
-            ["receipts", "notifications", "materials", "quizzes"].includes(activeSubTab)
+            ["receipts", "notifications"].includes(activeSubTab)
               ? "text-[#0b63e5] font-bold"
               : "text-slate-500 hover:text-slate-800 font-medium"
           }`}
@@ -1978,7 +1774,7 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
           <div
             className={`w-9 h-7 rounded-xl flex items-center justify-center transition ${
               quickAccessDrawerOpen ||
-              ["receipts", "notifications", "materials", "quizzes"].includes(activeSubTab)
+              ["receipts", "notifications"].includes(activeSubTab)
                 ? "bg-blue-50 text-[#0b63e5]"
                 : ""
             }`}
@@ -2066,40 +1862,40 @@ export const StudentDashboardView: React.FC<StudentDashboardViewProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  setActiveSubTab("materials");
+                  setActiveSubTab("schedule");
                   setQuickAccessDrawerOpen(false);
                   window.scrollTo({ top: 0, behavior: "smooth" });
                 }}
                 className={`p-3 rounded-2xl border text-left flex items-start gap-3 transition cursor-pointer ${
-                  activeSubTab === "materials"
+                  activeSubTab === "schedule"
                     ? "bg-blue-50 border-[#0b63e5] text-[#0b63e5]"
                     : "bg-slate-50 hover:bg-slate-100 border-slate-200/80 text-slate-700"
                 }`}
               >
-                <FileText size={18} className="mt-0.5 shrink-0 text-amber-500" />
+                <Clock size={18} className="mt-0.5 shrink-0 text-blue-600" />
                 <div className="min-w-0">
-                  <div className="text-xs font-bold truncate">Study Materials</div>
-                  <div className="text-[10px] text-amber-600 font-semibold">Coming Soon</div>
+                  <div className="text-xs font-bold truncate">Class Timetable</div>
+                  <div className="text-[10px] text-slate-500">Batches & room schedule</div>
                 </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => {
-                  setActiveSubTab("quizzes");
+                  setActiveSubTab("idcard");
                   setQuickAccessDrawerOpen(false);
                   window.scrollTo({ top: 0, behavior: "smooth" });
                 }}
                 className={`p-3 rounded-2xl border text-left flex items-start gap-3 transition cursor-pointer ${
-                  activeSubTab === "quizzes"
+                  activeSubTab === "idcard"
                     ? "bg-blue-50 border-[#0b63e5] text-[#0b63e5]"
                     : "bg-slate-50 hover:bg-slate-100 border-slate-200/80 text-slate-700"
                 }`}
               >
-                <BrainCircuit size={18} className="mt-0.5 shrink-0 text-purple-500" />
+                <QrCode size={18} className="mt-0.5 shrink-0 text-emerald-600" />
                 <div className="min-w-0">
-                  <div className="text-xs font-bold truncate">Practice Quizzes</div>
-                  <div className="text-[10px] text-purple-600 font-semibold">Mock Tests</div>
+                  <div className="text-xs font-bold truncate">Digital Student ID</div>
+                  <div className="text-[10px] text-slate-500">View & download card</div>
                 </div>
               </button>
             </div>

@@ -292,6 +292,7 @@ const Footer = () => {
                 { label: 'Our Team', href: '/team' },
                 { label: 'Courses', href: '/courses' },
                 { label: 'Admissions', href: '/admissions' },
+                { label: 'Photo Gallery', href: '/gallery' },
                 { label: 'Student Portal (PRN Check)', href: '/student' },
                 { label: 'Rules & Regulations', href: '/rules' },
                 { label: 'Privacy Policy', href: '/privacy-policy' },

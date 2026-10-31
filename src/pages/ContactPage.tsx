@@ -34,7 +34,7 @@ interface CommunitySlide {
 const COMMUNITY_SLIDES: CommunitySlide[] = [
   {
     id: 1,
-    image: "/img/slides/slide1.jpg",
+    image: "/img/slides/slide-live-1.jpeg",
     tagline: "Nourishing Every Household with Care & Dignity",
   },
   {
@@ -54,7 +54,7 @@ const COMMUNITY_SLIDES: CommunitySlide[] = [
   },
   {
     id: 5,
-    image: "/img/slides/slide5.jpg",
+    image: "/img/slides/slide-live-5.jpeg",
     tagline: "Transforming Hardship into Opportunity Through Practical Education",
   },
 ];

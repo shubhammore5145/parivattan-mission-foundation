@@ -18,9 +18,8 @@ import RulesPage from "./pages/RulesPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import ContactPage from "./pages/ContactPage";
 import StudentPortalPage from "./pages/StudentPortalPage";
-import StudyMaterialsPage from "./pages/StudyMaterialsPage";
 import SchedulePage from "./pages/SchedulePage";
-import PracticeQuizzesPage from "./pages/PracticeQuizzesPage";
+import GalleryPage from "./pages/GalleryPage";
 import ScrollToTop from "@/components/common/ScrollToTop";
 
 const App = () => (
@@ -46,22 +45,22 @@ const App = () => (
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
           
           {/* Student Dedicated Features & Modules */}
-          <Route path="/study-materials" element={<StudyMaterialsPage />} />
-          <Route path="/materials" element={<StudyMaterialsPage />} />
-          <Route path="/notes" element={<StudyMaterialsPage />} />
-          <Route path="/student/study-materials" element={<StudyMaterialsPage />} />
-          <Route path="/student/materials" element={<StudyMaterialsPage />} />
+          <Route path="/study-materials" element={<Navigate to="/student" replace />} />
+          <Route path="/materials" element={<Navigate to="/student" replace />} />
+          <Route path="/notes" element={<Navigate to="/student" replace />} />
+          <Route path="/student/study-materials" element={<Navigate to="/student" replace />} />
+          <Route path="/student/materials" element={<Navigate to="/student" replace />} />
 
           <Route path="/schedule" element={<SchedulePage />} />
           <Route path="/timetable" element={<SchedulePage />} />
           <Route path="/student/schedule" element={<SchedulePage />} />
           <Route path="/student/timetable" element={<SchedulePage />} />
 
-          <Route path="/quizzes" element={<PracticeQuizzesPage />} />
-          <Route path="/quiz" element={<PracticeQuizzesPage />} />
-          <Route path="/practice-quizzes" element={<PracticeQuizzesPage />} />
-          <Route path="/student/quizzes" element={<PracticeQuizzesPage />} />
-          <Route path="/student/practice-quizzes" element={<PracticeQuizzesPage />} />
+          <Route path="/quizzes" element={<Navigate to="/student" replace />} />
+          <Route path="/quiz" element={<Navigate to="/student" replace />} />
+          <Route path="/practice-quizzes" element={<Navigate to="/student" replace />} />
+          <Route path="/student/quizzes" element={<Navigate to="/student" replace />} />
+          <Route path="/student/practice-quizzes" element={<Navigate to="/student" replace />} />
 
           <Route path="/login" element={<StudentPortalPage />} />
           <Route path="/student/login" element={<StudentPortalPage />} />
@@ -76,7 +75,9 @@ const App = () => (
           <Route path="/initiatives" element={<ContentPage />} />
           <Route path="/campaigns" element={<ContentPage />} />
           <Route path="/story" element={<ContentPage />} />
-          <Route path="/gallery" element={<ContentPage />} />
+          <Route path="/gallery" element={<GalleryPage />} />
+          <Route path="/photo-gallery" element={<GalleryPage />} />
+          <Route path="/photos" element={<GalleryPage />} />
           <Route path="/blogs" element={<ContentPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/contact-us" element={<ContactPage />} />
