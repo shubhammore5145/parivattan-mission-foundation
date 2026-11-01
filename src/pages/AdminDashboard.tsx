@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, Navigate } from "react-router-dom";
 import {
   LogOut,
   Search,
@@ -46,6 +46,7 @@ import {
   Globe,
   Sparkles,
   ChevronRight,
+  ChevronLeft,
   User,
   Calendar,
   BookOpen,
@@ -157,7 +158,7 @@ export default function AdminDashboard() {
   );
 
   // Core Data States
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [copiedPrn, setCopiedPrn] = useState<string | null>(null);
 
   // Donations State
@@ -211,16 +212,33 @@ export default function AdminDashboard() {
   const [isSavingStudent, setIsSavingStudent] = useState(false);
   const [deletingStudentId, setDeletingStudentId] = useState<string | null>(null);
 
-  // Admissions State (optimistic instant load from local storage)
+  // Admissions State (optimistic instant load from all local storage sources)
   const [admissions, setAdmissions] = useState<Admission[]>(() => {
     try {
-      const stored = localStorage.getItem("parivattan_admissions");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          return parsed.filter(isRealCourseAdmission);
-        }
+      const map = new Map<string, Admission>();
+      const keys = [
+        "parivattan_admissions",
+        "parivattan_admissions_records",
+        "parivattan_student_admissions",
+        "parivattan_course_registrations",
+      ];
+      for (const k of keys) {
+        try {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            const arr = JSON.parse(raw);
+            if (Array.isArray(arr)) {
+              for (const it of arr) {
+                const norm = normalizeAdmission(it);
+                if (norm && norm.id && !isSystemConfigRow(norm)) {
+                  map.set(String(norm.id), norm);
+                }
+              }
+            }
+          }
+        } catch {}
       }
+      if (map.size > 0) return Array.from(map.values());
     } catch {}
     return [];
   });
@@ -236,6 +254,11 @@ export default function AdminDashboard() {
   const [admissionBatchFilter, setAdmissionBatchFilter] = useState<string>("all");
   const [admissionStatusFilter, setAdmissionStatusFilter] = useState<string>("all");
   const [studentAdmissionFilter, setStudentAdmissionFilter] = useState<"all" | "enrolled" | "registered_only">("all");
+  // Pagination in slots with Next / Prev (0 = Show All records continuously)
+  const [admissionsPage, setAdmissionsPage] = useState<number>(1);
+  const [admissionsPerPage, setAdmissionsPerPage] = useState<number>(0);
+  const [studentsPage, setStudentsPage] = useState<number>(1);
+  const [studentsPerPage, setStudentsPerPage] = useState<number>(0);
   const [selectedAdmission, setSelectedAdmission] = useState<Admission | null>(null);
   const [editingAdmission, setEditingAdmission] = useState<Admission | null>(null);
   const [admissionFormData, setAdmissionFormData] = useState<Partial<Admission>>({});
@@ -326,25 +349,25 @@ export default function AdminDashboard() {
   // ==================== AUTH CHECK ====================
   useEffect(() => {
     if (!getAdminAuth()) {
-      navigate("/", { replace: true });
+      navigate("/admin", { replace: true });
       return;
     }
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible" && !getAdminAuth()) {
-        navigate("/", { replace: true });
+        navigate("/admin", { replace: true });
       }
     };
 
     const handlePopState = () => {
       if (!getAdminAuth()) {
-        navigate("/", { replace: true });
+        navigate("/admin", { replace: true });
       }
     };
 
     const authCheckInterval = setInterval(() => {
       if (!getAdminAuth()) {
-        navigate("/", { replace: true });
+        navigate("/admin", { replace: true });
       }
     }, 30000);
 
@@ -383,9 +406,26 @@ export default function AdminDashboard() {
   }, []);
 
   const loadAllDashboardData = async () => {
-    setLoading(true);
+    // 1. Immediately render cached data for instant 0ms visual feedback
+    const localAdms = localStorage.getItem("parivattan_admissions");
+    if (localAdms) {
+      try {
+        const parsed = JSON.parse(localAdms);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setAdmissions(parsed.filter(isRealCourseAdmission));
+        }
+      } catch {}
+    }
+    const localStudents = getAllRegisteredStudents();
+    if (localStudents.length > 0) {
+      setStudents(localStudents);
+    }
+
     setDeletedAdmissions(getDeletedAdmissions());
     setDeletedStudents(getDeletedStudents());
+
+    // Do NOT keep main loading = true while all background calls complete!
+    setLoading(false);
 
     fetchCloudDeletedAdmissions()
       .then((cloudAdm) => {
@@ -393,7 +433,7 @@ export default function AdminDashboard() {
       })
       .catch(() => {});
 
-    await Promise.all([
+    Promise.all([
       loadDonationData(),
       loadVisitorData(),
       loadAdmissions(),
@@ -402,9 +442,10 @@ export default function AdminDashboard() {
       getSubscriptionsData()
         .then((s) => setSubscriptionsCount(s.stats.totalSubscribers))
         .catch(() => {}),
-    ]);
-    loadBatchSeats();
-    setLoading(false);
+    ]).finally(() => {
+      loadBatchSeats();
+      setLoading(false);
+    });
   };
 
   const loadBatchSeats = () => {
@@ -448,54 +489,141 @@ export default function AdminDashboard() {
 
   const loadAdmissions = async (showToast = false) => {
     try {
-      setAdmissionsLoading(true);
+      const stored = localStorage.getItem("parivattan_admissions");
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setAdmissions(parsed);
+            setAdmissionsLoading(false);
+          }
+        } catch {}
+      } else if (admissions.length === 0) {
+        setAdmissionsLoading(true);
+      }
       checkMongoStatus().then(setMongoStatus).catch(() => {});
 
-      let data: any[] = [];
+      const mergedMap = new Map<string, Admission>();
 
-      // 1. Direct MongoDB fetch (always freshest & fastest from Atlas)
-      try {
-        const directRes = await fetch("/api/admissions");
-        if (directRes.ok) {
-          const json = await directRes.json();
-          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-            data = json.data;
-          }
-        }
-      } catch (directErr) {
-        console.warn("[AdminDashboard] Direct /api/admissions fetch notice:", directErr);
-      }
-
-      // 2. Fallback to getAllAdmissions if direct fetch was empty
-      if (data.length === 0) {
-        data = await getAllAdmissions(true);
-      }
-
-      // Strict requirement: ONLY genuine course admissions (students who enrolled in a course).
-      // Any student who only registered an account without course enrollment is strictly excluded!
-      const realAdmissions = data.filter(isRealCourseAdmission);
-      if (realAdmissions.length > 0) {
-        setAdmissions(realAdmissions);
+      // 1. Gather all local storage admission stores
+      const localKeys = [
+        "parivattan_admissions",
+        "parivattan_admissions_records",
+        "parivattan_student_admissions",
+        "parivattan_course_registrations",
+      ];
+      for (const k of localKeys) {
         try {
-          localStorage.setItem("parivattan_admissions", JSON.stringify(realAdmissions));
-        } catch {}
-        loadBatchSeats();
-        if (showToast) {
-          toast.success(`Loaded ${realAdmissions.length} verified course admissions from database`);
-        }
-      } else {
-        // Fallback to local storage if network momentarily failed
-        try {
-          const stored = localStorage.getItem("parivattan_admissions");
-          if (stored) {
-            const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              setAdmissions(parsed.filter(isRealCourseAdmission));
-              loadBatchSeats();
-              return;
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            const arr = JSON.parse(raw);
+            if (Array.isArray(arr)) {
+              for (const item of arr) {
+                const norm = normalizeAdmission(item);
+                if (norm && norm.id) mergedMap.set(String(norm.id), norm);
+              }
             }
           }
         } catch {}
+      }
+
+      // If we already have local data, paint it immediately so user NEVER waits
+      if (mergedMap.size > 0) {
+        const localList = Array.from(mergedMap.values()).filter((a) => !isSystemConfigRow(a));
+        if (localList.length > 0) {
+          setAdmissions(localList);
+          setAdmissionsLoading(false);
+        }
+      }
+
+      // 2. Fetch live from MongoDB Atlas AND Supabase in parallel
+      const fetchDirectMongo = async () => {
+        try {
+          const directRes = await fetch("/api/admissions?fresh=true");
+          if (directRes && directRes.ok) {
+            const json = await directRes.json();
+            if (json.success && Array.isArray(json.data)) {
+              return json.data.map(normalizeAdmission);
+            }
+          }
+        } catch (directErr) {
+          console.warn("[AdminDashboard] Direct /api/admissions fetch notice:", directErr);
+        }
+        return [];
+      };
+
+      const [directMongoRecords, allCloudRecords] = await Promise.allSettled([
+        fetchDirectMongo(),
+        getAllAdmissions(true),
+      ]);
+
+      if (directMongoRecords.status === "fulfilled" && Array.isArray(directMongoRecords.value)) {
+        for (const item of directMongoRecords.value) {
+          if (item && item.id) mergedMap.set(String(item.id), item);
+        }
+      }
+
+      if (allCloudRecords.status === "fulfilled" && Array.isArray(allCloudRecords.value)) {
+        for (const item of allCloudRecords.value) {
+          if (item && item.id) mergedMap.set(String(item.id), item);
+        }
+      }
+
+      // 3. Synthesize any registered student who enrolled in a course or submitted an application
+      try {
+        const stdList = getAllRegisteredStudents();
+        for (const s of stdList) {
+          if (s && (s.courseTitle || s.program || s.language || (Array.isArray(s.enrolledCourses) && s.enrolledCourses.length > 0))) {
+            const sAdmId = `adm_std_${s.id || s.prn || s.email}`;
+            const exists = Array.from(mergedMap.values()).some(
+              (ex) =>
+                (ex.id && (ex.id === sAdmId || ex.id === s.id)) ||
+                (ex.email && s.email && ex.email.toLowerCase() === s.email.toLowerCase())
+            );
+            if (!exists) {
+              const synthesized: Admission = {
+                id: sAdmId,
+                name: s.name || "Student Applicant",
+                email: s.email || "",
+                phone: s.phone || "",
+                program: s.courseTitle || s.program || (Array.isArray(s.enrolledCourses) && s.enrolledCourses[0]?.courseTitle) || "Enrolled Course",
+                amount: Number(s.amount || (Array.isArray(s.enrolledCourses) && s.enrolledCourses[0]?.amount) || 0),
+                payment_id: s.payment_id || s.paymentId || "OFFLINE_RECORD",
+                status: s.status || "completed",
+                created_at: s.registeredAt || s.created_at || new Date().toISOString(),
+                photo: s.photo || s.photoUrl || s.avatar,
+                identity_proof: s.identity_proof || s.identityProofUrl,
+                identity_proof_name: s.identity_proof_name,
+                education_proof: s.education_proof || s.marksheetUrl,
+                education_proof_name: s.education_proof_name,
+                caste_certificate: s.caste_certificate || s.casteCertUrl,
+                caste_certificate_name: s.caste_certificate_name,
+                education: s.education,
+                college_name: s.college_name || s.collegeName,
+                address: s.address || s.city || "",
+                gender: s.gender,
+                dob: s.dob || s.date_of_birth,
+                message: `PRN: ${s.prn || ""} | Student Portal Account`,
+              };
+              mergedMap.set(sAdmId, synthesized);
+            }
+          }
+        }
+      } catch {}
+
+      const allMerged = Array.from(mergedMap.values());
+      // Exclude only system batch capacity configuration rows
+      const validAdmissions = allMerged.filter((a) => !isSystemConfigRow(a));
+
+      if (validAdmissions.length > 0) {
+        setAdmissions(validAdmissions);
+        try {
+          localStorage.setItem("parivattan_admissions", JSON.stringify(validAdmissions));
+        } catch {}
+        loadBatchSeats();
+        if (showToast) {
+          toast.success(`Loaded ${validAdmissions.length} admission applications up to today`);
+        }
       }
     } catch (err) {
       console.error("Error loading admissions:", err);
@@ -506,11 +634,15 @@ export default function AdminDashboard() {
 
   const loadStudents = async () => {
     try {
-      if (students.length === 0) setStudentsLoading(true);
       const localList = getAllRegisteredStudents();
-      if (localList.length > 0) setStudents(localList);
+      if (localList.length > 0) {
+        setStudents(localList);
+        setStudentsLoading(false);
+      } else if (students.length === 0) {
+        setStudentsLoading(true);
+      }
 
-      const cloudList = await fetchRegisteredStudentsFromCloud();
+      const cloudList = await fetchRegisteredStudentsFromCloud(true);
       if (cloudList && cloudList.length > 0) {
         setStudents(cloudList);
       }
@@ -611,43 +743,78 @@ export default function AdminDashboard() {
     return Object.values(map);
   }, [batchSeatsList]);
 
-  const filteredAdmissions = admissions.filter((a) => {
-    // Strictly course admissions only
-    if (!isRealCourseAdmission(a)) return false;
+  const filteredAdmissions = useMemo(() => {
+    const list = admissions.filter((a) => {
+      // Exclude only system config rows
+      if (isSystemConfigRow(a)) return false;
 
-    // Search query filter
-    const matchesSearch =
-      !admissionsSearch.trim() ||
-      a.name?.toLowerCase().includes(admissionsSearch.toLowerCase()) ||
-      a.education?.toLowerCase().includes(admissionsSearch.toLowerCase()) ||
-      a.college_name?.toLowerCase().includes(admissionsSearch.toLowerCase()) ||
-      a.address?.toLowerCase().includes(admissionsSearch.toLowerCase()) ||
-      a.id?.toLowerCase().includes(admissionsSearch.toLowerCase()) ||
-      a.email?.toLowerCase().includes(admissionsSearch.toLowerCase()) ||
-      a.phone?.toLowerCase().includes(admissionsSearch.toLowerCase()) ||
-      Boolean(a.message && a.message.toLowerCase().includes(admissionsSearch.toLowerCase()));
+      // Search query filter
+      const matchesSearch =
+        !admissionsSearch.trim() ||
+        a.name?.toLowerCase().includes(admissionsSearch.toLowerCase()) ||
+        a.education?.toLowerCase().includes(admissionsSearch.toLowerCase()) ||
+        a.college_name?.toLowerCase().includes(admissionsSearch.toLowerCase()) ||
+        a.address?.toLowerCase().includes(admissionsSearch.toLowerCase()) ||
+        a.id?.toLowerCase().includes(admissionsSearch.toLowerCase()) ||
+        a.email?.toLowerCase().includes(admissionsSearch.toLowerCase()) ||
+        a.phone?.toLowerCase().includes(admissionsSearch.toLowerCase()) ||
+        Boolean(a.message && a.message.toLowerCase().includes(admissionsSearch.toLowerCase()));
 
-    const bDetails = getAdmissionBatchDetails(a);
+      const bDetails = getAdmissionBatchDetails(a);
 
-    // Course filter
-    const matchesCourse =
-      admissionCourseFilter === "all" ||
-      (bDetails.courseId || "").toLowerCase() === admissionCourseFilter.toLowerCase() ||
-      Boolean(
-        a.program &&
-          a.program.toLowerCase().includes(admissionCourseFilter.toLowerCase())
-      );
+      // Course filter
+      const matchesCourse =
+        admissionCourseFilter === "all" ||
+        (bDetails.courseId || "").toLowerCase() === admissionCourseFilter.toLowerCase() ||
+        Boolean(
+          a.program &&
+            a.program.toLowerCase().includes(admissionCourseFilter.toLowerCase())
+        );
 
-    // Batch filter
-    const matchesBatch =
-      admissionBatchFilter === "all" || bDetails.batchId === admissionBatchFilter;
+      // Batch filter
+      const matchesBatch =
+        admissionBatchFilter === "all" || bDetails.batchId === admissionBatchFilter;
 
-    // Status filter
-    const matchesStatus =
-      admissionStatusFilter === "all" || a.status === admissionStatusFilter;
+      // Status filter
+      const matchesStatus =
+        admissionStatusFilter === "all" || a.status === admissionStatusFilter;
 
-    return matchesSearch && matchesCourse && matchesBatch && matchesStatus;
-  });
+      return matchesSearch && matchesCourse && matchesBatch && matchesStatus;
+    });
+
+    // Deduplicate strictly by unique ID
+    const deduped: Admission[] = [];
+    const seenIds = new Set<string>();
+
+    for (const a of list) {
+      if (a.id && seenIds.has(a.id)) continue;
+      if (a.id) seenIds.add(a.id);
+      deduped.push(a);
+    }
+
+    // Sort in consistent order: newest submission date first
+    return deduped.sort((a, b) => {
+      const timeB = new Date(b.created_at || (b as any).registeredAt || (b as any).createdAt || (b as any)._createdAt || 0).getTime();
+      const timeA = new Date(a.created_at || (a as any).registeredAt || (a as any).createdAt || (a as any)._createdAt || 0).getTime();
+      return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
+    });
+  }, [admissions, admissionsSearch, admissionCourseFilter, admissionBatchFilter, admissionStatusFilter]);
+
+  // Admissions pagination in 10-item slots with Next / Prev
+  useEffect(() => {
+    setAdmissionsPage(1);
+  }, [admissionsSearch, admissionCourseFilter, admissionBatchFilter, admissionStatusFilter, admissionsPerPage]);
+
+  const totalAdmissionsPages = useMemo(() => {
+    if (admissionsPerPage <= 0) return 1;
+    return Math.max(1, Math.ceil(filteredAdmissions.length / admissionsPerPage));
+  }, [filteredAdmissions.length, admissionsPerPage]);
+
+  const paginatedAdmissions = useMemo(() => {
+    if (admissionsPerPage <= 0) return filteredAdmissions;
+    const startIndex = (admissionsPage - 1) * admissionsPerPage;
+    return filteredAdmissions.slice(startIndex, startIndex + admissionsPerPage);
+  }, [filteredAdmissions, admissionsPage, admissionsPerPage]);
 
   // Fast memoized student-to-admissions lookup map (avoids slow nested loops)
   const studentToAdmissionsMap = useMemo(() => {
@@ -689,7 +856,7 @@ export default function AdminDashboard() {
   }, [students, studentToAdmissionsMap]);
 
   const filteredStudents = useMemo(() => {
-    return students.filter((s) => {
+    const list = students.filter((s) => {
       const userAdmissions = studentToAdmissionsMap.get(s.id) || [];
 
       if (studentAdmissionFilter === "enrolled" && userAdmissions.length === 0) {
@@ -712,7 +879,54 @@ export default function AdminDashboard() {
         (s.city || "").toLowerCase().includes(q)
       );
     });
+
+    // Deduplicate strictly by PRN, Email, and Phone so duplicate rows never appear
+    const deduped: StudentUser[] = [];
+    const seenPrns = new Set<string>();
+    const seenEmails = new Set<string>();
+    const seenPhones = new Set<string>();
+
+    for (const s of list) {
+      const prn = (s.prn || "").trim().toLowerCase();
+      const email = (s.email || "").trim().toLowerCase();
+      const phoneDigits = (s.phone || "").replace(/\D/g, "");
+      const isOrgEmail = email.includes("parivattan@") || email.includes("shubhamvmore");
+      const isGenericPhone = !phoneDigits || /^0+$/.test(phoneDigits) || phoneDigits === "9226345875" || phoneDigits === "1234567890";
+
+      if (prn && seenPrns.has(prn)) continue;
+      if (!isOrgEmail && email && seenEmails.has(email)) continue;
+      if (!isGenericPhone && phoneDigits.length >= 10 && seenPhones.has(phoneDigits)) continue;
+
+      if (prn) seenPrns.add(prn);
+      if (email && !isOrgEmail) seenEmails.add(email);
+      if (!isGenericPhone && phoneDigits.length >= 10) seenPhones.add(phoneDigits);
+
+      deduped.push(s);
+    }
+
+    // Sort in consistent order: newest registration date first
+    return deduped.sort(
+      (a, b) =>
+        new Date(b.registeredAt || (b as any).createdAt || 0).getTime() -
+        new Date(a.registeredAt || (a as any).createdAt || 0).getTime()
+    );
   }, [students, studentToAdmissionsMap, studentAdmissionFilter, studentsSearch]);
+
+  // Students pagination in 10-item slots with Next / Prev
+  useEffect(() => {
+    setStudentsPage(1);
+  }, [studentsSearch, studentAdmissionFilter, studentsPerPage]);
+
+  const totalStudentsPages = useMemo(() => {
+    if (studentsPerPage <= 0) return 1;
+    return Math.max(1, Math.ceil(filteredStudents.length / studentsPerPage));
+  }, [filteredStudents.length, studentsPerPage]);
+
+  const paginatedStudents = useMemo(() => {
+    if (studentsPerPage <= 0) return filteredStudents;
+    const startIndex = (studentsPage - 1) * studentsPerPage;
+    return filteredStudents.slice(startIndex, startIndex + studentsPerPage);
+  }, [filteredStudents, studentsPage, studentsPerPage]);
 
   const filteredContacts = contacts.filter((c) => {
     if (!contactsSearch.trim()) return true;
@@ -952,6 +1166,33 @@ export default function AdminDashboard() {
       toast.error(`Failed to update student: ${err?.message || "Unknown error"}`);
     } finally {
       setIsSavingStudent(false);
+    }
+  };
+
+  const handleViewAdmission = async (admission: Admission) => {
+    setSelectedAdmission(admission);
+    // If attached documents are not yet loaded in list memory, fetch single complete record
+    if (
+      !admission.photo &&
+      !admission.identity_proof &&
+      !admission.education_proof &&
+      !admission.caste_certificate &&
+      admission.id
+    ) {
+      try {
+        const res = await fetch(`/api/admissions?id=${encodeURIComponent(admission.id)}&full=true`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            const fullNorm = normalizeAdmission(json.data);
+            setSelectedAdmission((prev) =>
+              prev && prev.id === admission.id ? { ...prev, ...fullNorm } : prev
+            );
+          }
+        }
+      } catch (err) {
+        console.warn("[AdminDashboard] Error fetching full documents:", err);
+      }
     }
   };
 
@@ -1753,14 +1994,7 @@ export default function AdminDashboard() {
   };
 
   if (!getAdminAuth()) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#b5623b] mx-auto mb-4"></div>
-          <p className="text-stone-500 font-medium">Redirecting to login...</p>
-        </div>
-      </div>
-    );
+    return <Navigate to="/admin" replace />;
   }
 
   const unreadContactsCount = contacts.filter((c) => c.status === "new").length;
@@ -3210,8 +3444,75 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
+                {/* Top View Bar / Slot Selector */}
+                {filteredAdmissions.length > 0 && !admissionsLoading && (
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-stone-50 border border-stone-200 rounded-xl px-4 py-2.5 mb-3 text-xs shadow-2xs">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-stone-700">
+                        {admissionsPerPage <= 0 ? (
+                          <>
+                            Showing all <span className="font-bold text-[#b5623b]">{filteredAdmissions.length}</span> verified applications
+                          </>
+                        ) : (
+                          <>
+                            Showing <span className="font-bold text-stone-900">{Math.min((admissionsPage - 1) * admissionsPerPage + 1, filteredAdmissions.length)}</span> to <span className="font-bold text-stone-900">{Math.min(admissionsPage * admissionsPerPage, filteredAdmissions.length)}</span> of <span className="font-bold text-[#b5623b]">{filteredAdmissions.length}</span> verified applications
+                          </>
+                        )}
+                      </span>
+                      {admissions.length !== filteredAdmissions.length && (
+                        <span className="text-stone-400 text-[11px]">
+                          (filtered from {admissions.length} total)
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                      <div className="flex items-center gap-1.5 text-xs text-stone-600">
+                        <span className="font-medium">View Slots:</span>
+                        <select
+                          value={admissionsPerPage}
+                          onChange={(e) => {
+                            setAdmissionsPerPage(Number(e.target.value));
+                            setAdmissionsPage(1);
+                          }}
+                          className="rounded-lg border border-stone-300 bg-white px-2.5 py-1 text-xs font-bold text-stone-800 shadow-2xs outline-none cursor-pointer focus:border-[#b5623b]"
+                        >
+                          <option value={0}>Show All Applications ({filteredAdmissions.length})</option>
+                          <option value={10}>10 per page</option>
+                          <option value={20}>20 per page</option>
+                          <option value={50}>50 per page</option>
+                        </select>
+                      </div>
+
+                      {admissionsPerPage > 0 && totalAdmissionsPages > 1 && (
+                        <div className="flex items-center gap-1 ml-2">
+                          <button
+                            onClick={() => setAdmissionsPage((p) => Math.max(1, p - 1))}
+                            disabled={admissionsPage <= 1}
+                            className="p-1 rounded-lg border border-stone-200 bg-white hover:bg-stone-100 disabled:opacity-40 cursor-pointer text-stone-700"
+                            title="Previous page"
+                          >
+                            <ChevronLeft size={14} />
+                          </button>
+                          <span className="text-[11px] font-bold text-stone-700 px-1">
+                            {admissionsPage} / {totalAdmissionsPages}
+                          </span>
+                          <button
+                            onClick={() => setAdmissionsPage((p) => Math.min(totalAdmissionsPages, p + 1))}
+                            disabled={admissionsPage >= totalAdmissionsPages}
+                            className="p-1 rounded-lg border border-stone-200 bg-white hover:bg-stone-100 disabled:opacity-40 cursor-pointer text-stone-700"
+                            title="Next page"
+                          >
+                            <ChevronRight size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Table Content */}
-                {admissionsLoading ? (
+                {admissionsLoading && filteredAdmissions.length === 0 ? (
                   <div className="flex items-center justify-center py-16">
                     <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#b5623b]" />
                   </div>
@@ -3222,14 +3523,40 @@ export default function AdminDashboard() {
                       No admission applications found.
                     </p>
                     <p className="text-xs text-stone-400 mt-1">
-                      Try resetting your search query or filters.
+                      {admissionsSearch || admissionCourseFilter !== "all" || admissionBatchFilter !== "all" || admissionStatusFilter !== "all"
+                        ? "Active filters are hiding applications. Click below to reset filters."
+                        : "No admissions currently in view. Click below to load live records."}
                     </p>
+                    <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                      {(admissionsSearch || admissionCourseFilter !== "all" || admissionBatchFilter !== "all" || admissionStatusFilter !== "all") && (
+                        <button
+                          onClick={() => {
+                            setAdmissionsSearch("");
+                            setAdmissionCourseFilter("all");
+                            setAdmissionBatchFilter("all");
+                            setAdmissionStatusFilter("all");
+                            loadAdmissions(true);
+                          }}
+                          className="px-4 py-2 rounded-xl bg-[#b5623b] hover:bg-[#9c5230] text-white text-xs font-bold transition shadow-xs cursor-pointer"
+                        >
+                          Reset Filters & Show All
+                        </button>
+                      )}
+                      <button
+                        onClick={() => loadAdmissions(true)}
+                        className="px-4 py-2 rounded-xl bg-[#1b2b25] hover:bg-[#253a32] text-white text-xs font-bold transition shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+                      >
+                        <RotateCcw size={13} className={admissionsLoading ? "animate-spin text-[#fedb41]" : "text-[#fedb41]"} />
+                        <span>Reload All Admissions</span>
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="overflow-x-auto rounded-2xl border border-stone-200">
                     <table className="w-full text-left text-xs">
                       <thead className="bg-stone-50 border-b border-stone-200 text-stone-600 font-bold uppercase tracking-wider text-[11px]">
                         <tr>
+                          <th className="px-3 py-3.5 text-center w-12 text-stone-400">#</th>
                           <th className="px-4 py-3.5">Applicant Profile</th>
                           <th className="px-4 py-3.5">Course / Batch</th>
                           <th className="px-4 py-3.5">Education & College</th>
@@ -3242,7 +3569,7 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-stone-100">
-                        {filteredAdmissions.map((adm) => {
+                        {paginatedAdmissions.map((adm, index) => {
                           const prnMatch = adm.message?.match(/PRN:\s*([A-Za-z0-9-]+)/i);
                           let studentPrn = prnMatch && prnMatch[1] ? prnMatch[1] : (adm.message?.match(/PMF2026-\d+/) ? adm.message.match(/PMF2026-\d+/)![0] : "");
                           if (!studentPrn && adm.message && adm.message.trim().startsWith("{")) {
@@ -3261,27 +3588,42 @@ export default function AdminDashboard() {
 
                           return (
                           <tr key={adm.id} className="hover:bg-stone-50/80 transition">
+                            {/* Sequence Number */}
+                            <td className="px-3 py-3.5 text-center font-mono font-bold text-stone-400 text-[11px] whitespace-nowrap">
+                              #{(admissionsPerPage > 0 ? (admissionsPage - 1) * admissionsPerPage : 0) + index + 1}
+                            </td>
                             {/* Applicant Profile */}
                             <td className="px-4 py-3.5">
                               <div className="flex items-center gap-3">
-                                {adm.photo ? (
-                                  <img
-                                    src={adm.photo}
-                                    alt={adm.name}
-                                    onClick={() =>
-                                      setViewingDoc({
-                                        title: `${adm.name} - Photo`,
-                                        url: adm.photo!,
-                                        isImage: true,
-                                      })
-                                    }
-                                    className="h-10 w-10 rounded-full object-cover border border-stone-200 shadow-xs cursor-pointer hover:scale-105 transition shrink-0"
-                                  />
-                                ) : (
-                                  <div className="h-10 w-10 rounded-full bg-stone-100 text-stone-600 font-bold flex items-center justify-center shrink-0 border border-stone-200">
-                                    {(adm.name || "?").charAt(0).toUpperCase()}
-                                  </div>
-                                )}
+                                {(() => {
+                                  let msgPhoto = "";
+                                  if (adm.message && typeof adm.message === "string" && adm.message.trim().startsWith("{")) {
+                                    try {
+                                      const p = JSON.parse(adm.message);
+                                      msgPhoto = p.photo || p.photoUrl || p.avatar || "";
+                                    } catch {}
+                                  }
+                                  const applicantPhoto = adm.photo || (adm as any).photoUrl || (adm as any).avatar || matchStd?.photo || matchStd?.avatar || msgPhoto;
+
+                                  return applicantPhoto ? (
+                                    <img
+                                      src={applicantPhoto}
+                                      alt={adm.name}
+                                      onClick={() =>
+                                        setViewingDoc({
+                                          title: `${adm.name} - Photo`,
+                                          url: applicantPhoto,
+                                          isImage: true,
+                                        })
+                                      }
+                                      className="h-10 w-10 rounded-full object-cover border border-stone-200 shadow-xs cursor-pointer hover:scale-105 transition shrink-0"
+                                    />
+                                  ) : (
+                                    <div className="h-10 w-10 rounded-full bg-stone-100 text-stone-600 font-bold flex items-center justify-center shrink-0 border border-stone-200">
+                                      {(adm.name || "?").charAt(0).toUpperCase()}
+                                    </div>
+                                  );
+                                })()}
                                 <div className="min-w-0">
                                   <div className="font-bold text-[#1b2b25] text-sm truncate">
                                     {adm.name}
@@ -3431,9 +3773,20 @@ export default function AdminDashboard() {
                                     (s.phone && adm.phone && s.phone.replace(/\D/g, "") === adm.phone.replace(/\D/g, "")) ||
                                     (adm.message && s.prn && adm.message.includes(s.prn))
                                 );
-                                const eduDoc = adm.education_proof || adm.marksheetUrl || matchStd?.education_proof || (matchStd as any)?.marksheetUrl;
-                                const idDoc = adm.identity_proof || (adm as any).identityProofUrl || matchStd?.identity_proof;
-                                const casteDoc = adm.caste_certificate || (adm as any).casteCertUrl || matchStd?.caste_certificate;
+                                let msgEduDoc = "";
+                                let msgIdDoc = "";
+                                let msgCasteDoc = "";
+                                if (adm.message && typeof adm.message === "string" && adm.message.trim().startsWith("{")) {
+                                  try {
+                                    const meta = JSON.parse(adm.message);
+                                    msgEduDoc = meta.education_proof || meta.marksheetUrl || meta.marksheet || "";
+                                    msgIdDoc = meta.identity_proof || meta.identityProofUrl || "";
+                                    msgCasteDoc = meta.caste_certificate || meta.casteCertUrl || "";
+                                  } catch {}
+                                }
+                                const eduDoc = adm.education_proof || adm.marksheetUrl || matchStd?.education_proof || (matchStd as any)?.marksheetUrl || msgEduDoc;
+                                const idDoc = adm.identity_proof || (adm as any).identityProofUrl || matchStd?.identity_proof || msgIdDoc;
+                                const casteDoc = adm.caste_certificate || (adm as any).casteCertUrl || matchStd?.caste_certificate || msgCasteDoc;
 
                                 return (
                                   <div className="flex flex-col gap-1 text-[11px]">
@@ -3513,16 +3866,19 @@ export default function AdminDashboard() {
 
                             {/* Date */}
                             <td className="px-4 py-3.5 text-stone-500 whitespace-nowrap text-[11px]">
-                              {adm.created_at
-                                ? new Date(adm.created_at).toLocaleDateString("en-IN")
-                                : "-"}
+                              {(() => {
+                                const dStr = adm.created_at || (adm as any).registeredAt || (adm as any).createdAt || (adm as any)._createdAt;
+                                return dStr && !Number.isNaN(new Date(dStr).getTime())
+                                  ? new Date(dStr).toLocaleDateString("en-IN")
+                                  : "-";
+                              })()}
                             </td>
 
                             {/* Actions */}
                             <td className="px-4 py-3.5 text-center">
                               <div className="flex items-center justify-center gap-1.5">
                                 <button
-                                  onClick={() => setSelectedAdmission(adm)}
+                                  onClick={() => handleViewAdmission(adm)}
                                   className="p-1.5 rounded-lg text-blue-700 hover:bg-blue-50 transition cursor-pointer"
                                   title="View Full Application Details"
                                 >
@@ -3553,10 +3909,111 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
-                {/* Footer Count */}
-                <div className="mt-4 text-center text-xs text-stone-500">
-                  Showing {filteredAdmissions.length} of {admissions.length} admission applications
-                </div>
+                {/* Pagination Controls in 10-item slots */}
+                {filteredAdmissions.length > 0 && (
+                  <div className="mt-5 flex flex-col md:flex-row items-center justify-between gap-3 pt-3 border-t border-stone-200">
+                    <div className="text-xs text-stone-600 font-medium">
+                      Showing{" "}
+                      <span className="font-bold text-stone-900">
+                        {admissionsPerPage <= 0 ? 1 : Math.min((admissionsPage - 1) * admissionsPerPage + 1, filteredAdmissions.length)}
+                      </span>{" "}
+                      to{" "}
+                      <span className="font-bold text-stone-900">
+                        {admissionsPerPage <= 0 ? filteredAdmissions.length : Math.min(admissionsPage * admissionsPerPage, filteredAdmissions.length)}
+                      </span>{" "}
+                      of <span className="font-bold text-[#b5623b]">{filteredAdmissions.length}</span> verified applications
+                      {admissions.length !== filteredAdmissions.length && (
+                        <span className="text-stone-400 text-[11px] ml-1">
+                          (filtered from {admissions.length} total)
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* Slot size selector */}
+                      <div className="flex items-center gap-1.5 text-xs text-stone-500 mr-2">
+                        <span>Slots:</span>
+                        <select
+                          value={admissionsPerPage}
+                          onChange={(e) => {
+                            setAdmissionsPerPage(Number(e.target.value));
+                            setAdmissionsPage(1);
+                          }}
+                          className="rounded-lg border border-stone-200 bg-white px-2 py-1 text-xs font-bold text-stone-800 outline-none cursor-pointer"
+                        >
+                          <option value={0}>Show All Applications ({filteredAdmissions.length})</option>
+                          <option value={10}>10 / page</option>
+                          <option value={20}>20 / page</option>
+                          <option value={50}>50 / page</option>
+                        </select>
+                      </div>
+
+                      {/* Previous Page Button */}
+                      <button
+                        onClick={() => {
+                          setAdmissionsPage((p) => Math.max(1, p - 1));
+                          window.scrollTo({ top: 300, behavior: "smooth" });
+                        }}
+                        disabled={admissionsPage <= 1 || admissionsPerPage <= 0}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
+                      >
+                        <ChevronLeft size={14} />
+                        <span>Prev</span>
+                      </button>
+
+                      {/* Page Numbers */}
+                      {admissionsPerPage > 0 && totalAdmissionsPages > 1 && (
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: totalAdmissionsPages }, (_, i) => i + 1)
+                            .filter((p) => {
+                              if (totalAdmissionsPages <= 7) return true;
+                              return (
+                                p === 1 ||
+                                p === totalAdmissionsPages ||
+                                Math.abs(p - admissionsPage) <= 1
+                              );
+                            })
+                            .map((p, idx, arr) => {
+                              const prev = arr[idx - 1];
+                              return (
+                                <React.Fragment key={p}>
+                                  {prev && p - prev > 1 && (
+                                    <span className="px-1 text-xs text-stone-400">...</span>
+                                  )}
+                                  <button
+                                    onClick={() => {
+                                      setAdmissionsPage(p);
+                                      window.scrollTo({ top: 300, behavior: "smooth" });
+                                    }}
+                                    className={`h-8 min-w-[32px] px-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                                      admissionsPage === p
+                                        ? "bg-[#1b2b25] text-white shadow-xs"
+                                        : "bg-white border border-stone-200 text-stone-700 hover:bg-stone-50"
+                                    }`}
+                                  >
+                                    {p}
+                                  </button>
+                                </React.Fragment>
+                              );
+                            })}
+                        </div>
+                      )}
+
+                      {/* Next Page Button */}
+                      <button
+                        onClick={() => {
+                          setAdmissionsPage((p) => Math.min(totalAdmissionsPages, p + 1));
+                          window.scrollTo({ top: 300, behavior: "smooth" });
+                        }}
+                        disabled={admissionsPage >= totalAdmissionsPages || admissionsPerPage <= 0}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
+                      >
+                        <span>Next</span>
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -3649,8 +4106,75 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
+                {/* Top View Bar / Slot Selector for Students */}
+                {filteredStudents.length > 0 && !studentsLoading && (
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-stone-50 border border-stone-200 rounded-xl px-4 py-2.5 mb-3 text-xs shadow-2xs">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-stone-700">
+                        {studentsPerPage <= 0 ? (
+                          <>
+                            Showing all <span className="font-bold text-emerald-800">{filteredStudents.length}</span> registered students
+                          </>
+                        ) : (
+                          <>
+                            Showing <span className="font-bold text-stone-900">{Math.min((studentsPage - 1) * studentsPerPage + 1, filteredStudents.length)}</span> to <span className="font-bold text-stone-900">{Math.min(studentsPage * studentsPerPage, filteredStudents.length)}</span> of <span className="font-bold text-emerald-800">{filteredStudents.length}</span> registered students
+                          </>
+                        )}
+                      </span>
+                      {students.length !== filteredStudents.length && (
+                        <span className="text-stone-400 text-[11px]">
+                          (filtered from {students.length} total)
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                      <div className="flex items-center gap-1.5 text-xs text-stone-600">
+                        <span className="font-medium">View Slots:</span>
+                        <select
+                          value={studentsPerPage}
+                          onChange={(e) => {
+                            setStudentsPerPage(Number(e.target.value));
+                            setStudentsPage(1);
+                          }}
+                          className="rounded-lg border border-stone-300 bg-white px-2.5 py-1 text-xs font-bold text-stone-800 shadow-2xs outline-none cursor-pointer focus:border-emerald-600"
+                        >
+                          <option value={0}>Show All Students ({filteredStudents.length})</option>
+                          <option value={10}>10 / page</option>
+                          <option value={20}>20 / page</option>
+                          <option value={50}>50 / page</option>
+                        </select>
+                      </div>
+
+                      {studentsPerPage > 0 && totalStudentsPages > 1 && (
+                        <div className="flex items-center gap-1 ml-2">
+                          <button
+                            onClick={() => setStudentsPage((p) => Math.max(1, p - 1))}
+                            disabled={studentsPage <= 1}
+                            className="p-1 rounded-lg border border-stone-200 bg-white hover:bg-stone-100 disabled:opacity-40 cursor-pointer text-stone-700"
+                            title="Previous page"
+                          >
+                            <ChevronLeft size={14} />
+                          </button>
+                          <span className="text-[11px] font-bold text-stone-700 px-1">
+                            {studentsPage} / {totalStudentsPages}
+                          </span>
+                          <button
+                            onClick={() => setStudentsPage((p) => Math.min(totalStudentsPages, p + 1))}
+                            disabled={studentsPage >= totalStudentsPages}
+                            className="p-1 rounded-lg border border-stone-200 bg-white hover:bg-stone-100 disabled:opacity-40 cursor-pointer text-stone-700"
+                            title="Next page"
+                          >
+                            <ChevronRight size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Students Table */}
-                {studentsLoading ? (
+                {studentsLoading && filteredStudents.length === 0 ? (
                   <div className="flex items-center justify-center py-16">
                     <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-600" />
                   </div>
@@ -3666,6 +4190,7 @@ export default function AdminDashboard() {
                     <table className="w-full text-left text-xs">
                       <thead className="bg-stone-50 border-b border-stone-200 text-stone-600 font-bold uppercase tracking-wider text-[11px]">
                         <tr>
+                          <th className="px-3 py-3.5 text-center w-12 text-stone-400">#</th>
                           <th className="px-4 py-3.5">Student PRN</th>
                           <th className="px-4 py-3.5">Student Name</th>
                           <th className="px-4 py-3.5">Contact Details</th>
@@ -3677,11 +4202,15 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-stone-100">
-                        {filteredStudents.map((s) => {
+                        {paginatedStudents.map((s, index) => {
                           const userAdmissions = studentToAdmissionsMap.get(s.id) || [];
 
                           return (
                             <tr key={s.id} className="hover:bg-stone-50/80 transition">
+                              {/* Sequence Number */}
+                              <td className="px-3 py-3.5 text-center font-mono font-bold text-stone-400 text-[11px] whitespace-nowrap">
+                                #{(studentsPerPage > 0 ? (studentsPage - 1) * studentsPerPage : 0) + index + 1}
+                              </td>
                               {/* PRN Badge with Copy button */}
                               <td className="px-4 py-3.5">
                                 <div className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-1 rounded-lg font-mono font-bold text-xs">
@@ -3914,10 +4443,111 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
-                {/* Footer Count */}
-                <div className="mt-4 text-center text-xs text-stone-500">
-                  Showing {filteredStudents.length} of {students.length} registered students
-                </div>
+                {/* Pagination Controls in 10-item slots for Students */}
+                {filteredStudents.length > 0 && (
+                  <div className="mt-5 flex flex-col md:flex-row items-center justify-between gap-3 pt-3 border-t border-stone-200">
+                    <div className="text-xs text-stone-600 font-medium">
+                      Showing{" "}
+                      <span className="font-bold text-stone-900">
+                        {studentsPerPage <= 0 ? 1 : Math.min((studentsPage - 1) * studentsPerPage + 1, filteredStudents.length)}
+                      </span>{" "}
+                      to{" "}
+                      <span className="font-bold text-stone-900">
+                        {studentsPerPage <= 0 ? filteredStudents.length : Math.min(studentsPage * studentsPerPage, filteredStudents.length)}
+                      </span>{" "}
+                      of <span className="font-bold text-emerald-800">{filteredStudents.length}</span> registered students
+                      {students.length !== filteredStudents.length && (
+                        <span className="text-stone-400 text-[11px] ml-1">
+                          (filtered from {students.length} total)
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* Slot size selector */}
+                      <div className="flex items-center gap-1.5 text-xs text-stone-500 mr-2">
+                        <span>Slots:</span>
+                        <select
+                          value={studentsPerPage}
+                          onChange={(e) => {
+                            setStudentsPerPage(Number(e.target.value));
+                            setStudentsPage(1);
+                          }}
+                          className="rounded-lg border border-stone-200 bg-white px-2 py-1 text-xs font-bold text-stone-800 outline-none cursor-pointer"
+                        >
+                          <option value={0}>Show All Students ({filteredStudents.length})</option>
+                          <option value={10}>10 / page</option>
+                          <option value={20}>20 / page</option>
+                          <option value={50}>50 / page</option>
+                        </select>
+                      </div>
+
+                      {/* Previous Page Button */}
+                      <button
+                        onClick={() => {
+                          setStudentsPage((p) => Math.max(1, p - 1));
+                          window.scrollTo({ top: 300, behavior: "smooth" });
+                        }}
+                        disabled={studentsPage <= 1 || studentsPerPage <= 0}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
+                      >
+                        <ChevronLeft size={14} />
+                        <span>Prev</span>
+                      </button>
+
+                      {/* Page Numbers */}
+                      {studentsPerPage > 0 && totalStudentsPages > 1 && (
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: totalStudentsPages }, (_, i) => i + 1)
+                            .filter((p) => {
+                              if (totalStudentsPages <= 7) return true;
+                              return (
+                                p === 1 ||
+                                p === totalStudentsPages ||
+                                Math.abs(p - studentsPage) <= 1
+                              );
+                            })
+                            .map((p, idx, arr) => {
+                              const prev = arr[idx - 1];
+                              return (
+                                <React.Fragment key={p}>
+                                  {prev && p - prev > 1 && (
+                                    <span className="px-1 text-xs text-stone-400">...</span>
+                                  )}
+                                  <button
+                                    onClick={() => {
+                                      setStudentsPage(p);
+                                      window.scrollTo({ top: 300, behavior: "smooth" });
+                                    }}
+                                    className={`h-8 min-w-[32px] px-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                                      studentsPage === p
+                                        ? "bg-emerald-800 text-white shadow-xs"
+                                        : "bg-white border border-stone-200 text-stone-700 hover:bg-stone-50"
+                                    }`}
+                                  >
+                                    {p}
+                                  </button>
+                                </React.Fragment>
+                              );
+                            })}
+                        </div>
+                      )}
+
+                      {/* Next Page Button */}
+                      <button
+                        onClick={() => {
+                          setStudentsPage((p) => Math.min(totalStudentsPages, p + 1));
+                          window.scrollTo({ top: 300, behavior: "smooth" });
+                        }}
+                        disabled={studentsPage >= totalStudentsPages || studentsPerPage <= 0}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-700 text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs cursor-pointer"
+                      >
+                        <span>Next</span>
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -4559,10 +5189,30 @@ export default function AdminDashboard() {
                       (selectedAdmission.message && s.prn && selectedAdmission.message.includes(s.prn))
                   );
 
-                  const photoDoc = selectedAdmission.photo || (selectedAdmission as any).photoUrl || matchStudent?.photo || matchStudent?.avatar;
-                  const idDoc = selectedAdmission.identity_proof || (selectedAdmission as any).identityProofUrl || matchStudent?.identity_proof;
-                  const eduDoc = selectedAdmission.education_proof || selectedAdmission.marksheetUrl || matchStudent?.education_proof || (matchStudent as any)?.marksheetUrl;
-                  const casteDoc = selectedAdmission.caste_certificate || (selectedAdmission as any).casteCertUrl || matchStudent?.caste_certificate;
+                  let msgPhoto = "";
+                  let msgIdDoc = "";
+                  let msgEduDoc = "";
+                  let msgCasteDoc = "";
+                  if (selectedAdmission.message && typeof selectedAdmission.message === "string" && selectedAdmission.message.trim().startsWith("{")) {
+                    try {
+                      const meta = JSON.parse(selectedAdmission.message);
+                      msgPhoto = meta.photo || meta.photoUrl || meta.avatar || "";
+                      msgIdDoc = meta.identity_proof || meta.identityProofUrl || "";
+                      msgEduDoc = meta.education_proof || meta.marksheetUrl || meta.marksheet || "";
+                      msgCasteDoc = meta.caste_certificate || meta.casteCertUrl || "";
+                    } catch {}
+                  }
+
+                  const photoDoc =
+                    selectedAdmission.photo ||
+                    (selectedAdmission as any).photoUrl ||
+                    (selectedAdmission as any).photoDataUrl ||
+                    matchStudent?.photo ||
+                    matchStudent?.avatar ||
+                    msgPhoto;
+                  const idDoc = selectedAdmission.identity_proof || (selectedAdmission as any).identityProofUrl || matchStudent?.identity_proof || msgIdDoc;
+                  const eduDoc = selectedAdmission.education_proof || selectedAdmission.marksheetUrl || matchStudent?.education_proof || (matchStudent as any)?.marksheetUrl || msgEduDoc;
+                  const casteDoc = selectedAdmission.caste_certificate || (selectedAdmission as any).casteCertUrl || matchStudent?.caste_certificate || msgCasteDoc;
 
                   return (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">

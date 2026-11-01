@@ -91,14 +91,8 @@ export const initBatchSeatsRealtimeSync = (): (() => void) => {
     console.warn("Could not attach realtime batch seats subscription:", e);
   }
 
-  // 3. Periodic fallback poll every 45s in case websocket drops
-  const intervalId = setInterval(() => {
-    syncBatchSeatsFromCloud();
-  }, 45000);
-
   // Return teardown function
   return () => {
-    clearInterval(intervalId);
     if (channel) {
       try {
         channel.unsubscribe();

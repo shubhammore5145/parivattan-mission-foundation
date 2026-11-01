@@ -197,23 +197,9 @@ export const createAdmission = async (
       ? admissionData.id
       : generateUUID();
 
-  // Strict payment authenticity enforcement:
   const pid = String(admissionData.payment_id || "").trim();
-  const isValidAdminReceipt = pid.startsWith("PAY_ADM_") || pid === "OFFLINE_RECORD";
-  const isValidOnlinePayment =
-    pid.startsWith("pay_") ||
-    pid.startsWith("razorpay_") ||
-    pid.startsWith("order_") ||
-    (pid.length >= 14 && /^[a-zA-Z0-9_-]+$/.test(pid) && pid !== "undefined" && pid !== "null");
-
-  const isSystemProgram =
-    admissionData.program === "STUDENT_REGISTRATION" ||
-    admissionData.program === "SYSTEM_CUSTOM_COURSES" ||
-    admissionData.name === "SYSTEM_BATCH_OVERRIDES";
-
-  const hasValidPayment = isValidAdminReceipt || isValidOnlinePayment;
-  const resolvedStatus = hasValidPayment || isSystemProgram ? (admissionData.status || "completed") : "pending";
-  const resolvedPaymentId = hasValidPayment ? pid : "";
+  const resolvedStatus = admissionData.status || (pid ? "completed" : "pending");
+  const resolvedPaymentId = pid;
 
   const newAdmission: Admission = {
     ...admissionData,
@@ -312,48 +298,92 @@ export const isSystemConfigRow = (row: any): boolean => {
 };
 
 export const isRealCourseAdmission = (row: any): boolean => {
+  if (!row) return false;
   if (isSystemConfigRow(row)) return false;
-  const prog = (row.program || "").trim().toUpperCase();
-  if (
-    prog === "STUDENT_REGISTRATION" ||
-    prog === "REGISTERED_ACCOUNT" ||
-    prog === "ACCOUNT_SIGNUP" ||
-    prog === "USER_REGISTRATION"
-  ) {
-    return false;
-  }
-
-  // If the record has an actual course program (Japanese, German, French, English, etc.) OR an amount paid > 0,
-  // it is definitively a real course admission!
-  if (
-    (row.amount && Number(row.amount) > 0) ||
-    prog.includes("JAPANESE") ||
-    prog.includes("GERMAN") ||
-    prog.includes("FRENCH") ||
-    prog.includes("ENGLISH") ||
-    prog.includes("LANGUAGE") ||
-    prog.includes("BATCH")
-  ) {
-    return true;
-  }
-
-  if (
-    row.education === "Registered Student User" &&
-    row.college_name === "Parivattan Student Portal" &&
-    !row.batchId &&
-    !row.batch_id
-  ) {
-    return false;
-  }
-  if (row.message && typeof row.message === "string" && row.message.trim().startsWith("{")) {
-    try {
-      const parsed = JSON.parse(row.message);
-      if (parsed.type === "registered_student" && !parsed.courseId && !parsed.program && !parsed.batchId) {
-        return false;
-      }
-    } catch {}
-  }
   return true;
+};
+
+export const normalizeAdmission = (raw: any): Admission => {
+  if (!raw) return raw;
+  const name = raw.name || raw.fullName || raw.studentName || "Applicant";
+  const email = (raw.email || raw.emailAddress || raw.studentEmail || "").trim();
+  const phone = (raw.phone || raw.mobileNumber || raw.studentPhone || "").trim();
+
+  let program = raw.program;
+  if (
+    !program ||
+    program === "STUDENT_REGISTRATION" ||
+    program === "USER_REGISTRATION" ||
+    program === "ACCOUNT_SIGNUP" ||
+    program === "REGISTERED_ACCOUNT"
+  ) {
+    if (raw.courseTitle) {
+      program = raw.batchPreference ? `${raw.courseTitle} - ${raw.batchPreference}` : raw.courseTitle;
+    } else if (raw.language) {
+      program = `${raw.language} (${raw.level || "Standard"}) - ${raw.batch || "Batch"}`;
+    } else if (raw.message && typeof raw.message === "string" && raw.message.trim().startsWith("{")) {
+      try {
+        const meta = JSON.parse(raw.message);
+        if (meta.courseTitle || meta.program || meta.course) {
+          program = meta.batchPreference
+            ? `${meta.courseTitle || meta.program || meta.course} - ${meta.batchPreference}`
+            : meta.courseTitle || meta.program || meta.course;
+        }
+      } catch {}
+    }
+    if (
+      !program ||
+      program === "STUDENT_REGISTRATION" ||
+      program === "USER_REGISTRATION" ||
+      program === "ACCOUNT_SIGNUP" ||
+      program === "REGISTERED_ACCOUNT"
+    ) {
+      program = "Student Portal Registration";
+    }
+  }
+
+  const payment_id = String(raw.payment_id || raw.paymentId || "").trim();
+  const amount = raw.amount !== undefined ? Number(raw.amount) : (raw.totalAmount !== undefined ? Number(raw.totalAmount) : 0);
+
+  const rawDate = raw.created_at || raw.registeredAt || raw.createdAt || raw._createdAt || raw.paymentDate;
+  const validDate = rawDate && !Number.isNaN(new Date(rawDate).getTime())
+    ? new Date(rawDate).toISOString()
+    : new Date().toISOString();
+
+  const photo = raw.photo || raw.photoUrl || raw.photoDataUrl || raw.avatar;
+  const education_proof = raw.education_proof || raw.marksheetUrl || raw.educationProof || raw.marksheet;
+  const education_proof_name = raw.education_proof_name || raw.educationProofName || raw.marksheet_name || (education_proof ? "Marksheet Attached" : undefined);
+  const identity_proof = raw.identity_proof || raw.identityProofUrl || raw.identityProof;
+  const identity_proof_name = raw.identity_proof_name || raw.identityProofName || (identity_proof ? "ID Proof Attached" : undefined);
+  const caste_certificate = raw.caste_certificate || raw.casteCertUrl || raw.casteCertificate;
+  const caste_certificate_name = raw.caste_certificate_name || raw.casteCertificateName || raw.category;
+
+  const id = raw.id || raw._id || `adm_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
+
+  return {
+    ...raw,
+    id: String(id),
+    name,
+    email,
+    phone,
+    program,
+    payment_id,
+    amount,
+    status: raw.status || (payment_id ? "completed" : "pending"),
+    created_at: validDate,
+    photo,
+    education_proof,
+    education_proof_name,
+    identity_proof,
+    identity_proof_name,
+    caste_certificate,
+    caste_certificate_name,
+    education: raw.education || raw.qualification,
+    college_name: raw.college_name || raw.collegeName,
+    address: raw.address || raw.currentAddress || raw.permanentAddress || "",
+    gender: raw.gender,
+    dob: raw.dob || raw.date_of_birth,
+  };
 };
 
 let activeAdmissionsPromise: Promise<Admission[]> | null = null;
@@ -363,12 +393,31 @@ let cachedAdmissionsData: Admission[] = [];
 let isSupabaseQuotaRestricted = false;
 
 export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]> => {
+  if (forceFresh) {
+    cachedAdmissionsData = [];
+    lastAdmissionsFetchTime = 0;
+  }
   const now = Date.now();
-  if (!forceFresh && cachedAdmissionsData.length > 0 && now - lastAdmissionsFetchTime < 3000) {
+  if (!forceFresh && cachedAdmissionsData.length > 0 && now - lastAdmissionsFetchTime < 60000) {
     return cachedAdmissionsData;
   }
 
-  if (activeAdmissionsPromise) {
+  // Pre-seed with local storage cache immediately for 0ms response
+  if (cachedAdmissionsData.length === 0) {
+    try {
+      const local = JSON.parse(localStorage.getItem("parivattan_admissions") || "[]");
+      if (Array.isArray(local) && local.length > 0) {
+        cachedAdmissionsData = local.filter(isRealCourseAdmission);
+        if (!forceFresh) {
+          // Trigger background update without blocking the caller
+          setTimeout(() => getAllAdmissions(true).catch(() => {}), 10);
+          return cachedAdmissionsData;
+        }
+      }
+    } catch {}
+  }
+
+  if (!forceFresh && activeAdmissionsPromise) {
     return activeAdmissionsPromise;
   }
 
@@ -376,17 +425,18 @@ export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]>
     let mongoAdmissions: Admission[] = [];
     let supabaseAdmissions: Admission[] = [];
 
-    // Parallel fetch from both MongoDB and Supabase for maximum speed
+    // Parallel fetch from both MongoDB and Supabase with generous 20s timeout
     const fetchMongo = async () => {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 12000);
-        const res = await fetch("/api/admissions", { signal: controller.signal });
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
+        const endpoint = forceFresh ? "/api/admissions?fresh=true" : "/api/admissions";
+        const res = await fetch(endpoint, { signal: controller.signal });
         clearTimeout(timeoutId);
         if (res.ok) {
           const result = await res.json();
           if (result.success && Array.isArray(result.data)) {
-            return result.data.filter(isRealCourseAdmission);
+            return result.data.map(normalizeAdmission).filter(isRealCourseAdmission);
           }
         }
       } catch (mongoErr) {
@@ -404,6 +454,7 @@ export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]>
           .order("created_at", { ascending: false });
 
         if (error) {
+          console.warn("[Supabase] Admissions fetch notice:", error.message || error);
           if (
             error.code === "402" ||
             error.message?.includes("quota") ||
@@ -438,7 +489,7 @@ export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]>
               }
             } catch {}
           }
-          return data.filter(isRealCourseAdmission);
+          return data.map(normalizeAdmission).filter(isRealCourseAdmission);
         }
       } catch (e) {
         console.warn("Supabase admissions fetch notice:", e);
@@ -458,14 +509,32 @@ export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]>
       supabaseAdmissions = supabaseResult.value;
     }
 
-    // 3. Seed with local storage cache
+    // 3. Seed with all local storage admission stores
     let localAdmissions: Admission[] = [];
-    try {
-      const local: any[] = JSON.parse(localStorage.getItem("parivattan_admissions") || "[]");
-      localAdmissions = local.filter(isRealCourseAdmission);
-    } catch {}
+    const localKeys = [
+      "parivattan_admissions",
+      "parivattan_admissions_records",
+      "parivattan_student_admissions",
+      "parivattan_course_registrations",
+    ];
+    for (const key of localKeys) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            for (const item of parsed) {
+              const norm = normalizeAdmission(item);
+              if (norm && isRealCourseAdmission(norm)) {
+                localAdmissions.push(norm);
+              }
+            }
+          }
+        }
+      } catch {}
+    }
 
-    // 4. Merge and deduplicate records: MongoDB (highest priority) -> Supabase -> Local
+    // 4. Merge records: MongoDB (highest priority) -> Supabase -> Local
     const admissionsMap = new Map<string, Admission>();
 
     for (const adm of localAdmissions) {
@@ -478,9 +547,11 @@ export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]>
       if (adm.id) admissionsMap.set(adm.id, adm);
     }
 
-    const rawMerged = Array.from(admissionsMap.values()).sort(
-      (a, b) => new Date(b.created_at || "").getTime() - new Date(a.created_at || "").getTime()
-    );
+    const rawMerged = Array.from(admissionsMap.values()).sort((a, b) => {
+      const timeB = new Date(b.created_at || (b as any).registeredAt || (b as any).createdAt || 0).getTime();
+      const timeA = new Date(a.created_at || (a as any).registeredAt || (a as any).createdAt || 0).getTime();
+      return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
+    });
 
   // Secondary deduplication: prevent double entries from rapid multiple clicks, dual-sync, or duplicate saves
   const deduplicatedAdmissions: Admission[] = [];
@@ -505,7 +576,38 @@ export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]>
       adm.photo = (adm as any).photoUrl;
     }
 
-    // Strict payment validation on loaded records:
+    // Also extract attached documents from adm.message if stored in JSON metadata
+    if (adm.message && typeof adm.message === "string" && adm.message.trim().startsWith("{")) {
+      try {
+        const meta = JSON.parse(adm.message);
+        if (!adm.photo && (meta.photo || meta.photoUrl || meta.avatar)) {
+          adm.photo = meta.photo || meta.photoUrl || meta.avatar;
+        }
+        if (!adm.photo_name && meta.photo_name) {
+          adm.photo_name = meta.photo_name;
+        }
+        if (!adm.education_proof && (meta.education_proof || meta.marksheetUrl || meta.marksheet)) {
+          adm.education_proof = meta.education_proof || meta.marksheetUrl || meta.marksheet;
+        }
+        if (!adm.education_proof_name && (meta.education_proof_name || meta.marksheet_name)) {
+          adm.education_proof_name = meta.education_proof_name || meta.marksheet_name;
+        }
+        if (!adm.identity_proof && (meta.identity_proof || meta.identityProofUrl)) {
+          adm.identity_proof = meta.identity_proof || meta.identityProofUrl;
+        }
+        if (!adm.identity_proof_name && meta.identity_proof_name) {
+          adm.identity_proof_name = meta.identity_proof_name;
+        }
+        if (!adm.caste_certificate && (meta.caste_certificate || meta.casteCertUrl)) {
+          adm.caste_certificate = meta.caste_certificate || meta.casteCertUrl;
+        }
+        if (!adm.caste_certificate_name && meta.caste_certificate_name) {
+          adm.caste_certificate_name = meta.caste_certificate_name;
+        }
+      } catch {}
+    }
+
+    // Payment validation check (preserves status and payment_id)
     const paymentStr = String(adm.payment_id || "").trim();
     const hasLegitimatePayment =
       paymentStr.startsWith("PAY_ADM_") ||
@@ -515,14 +617,18 @@ export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]>
       paymentStr.startsWith("order_") ||
       (paymentStr.length >= 14 && /^[a-zA-Z0-9_-]+$/.test(paymentStr) && paymentStr !== "undefined" && paymentStr !== "null");
 
-    if (!hasLegitimatePayment && isRealCourseAdmission(adm)) {
-      adm.status = "pending";
-      adm.payment_id = "";
+    if (hasLegitimatePayment) {
+      adm.status = adm.status || "completed";
     }
 
     // 1. Payment ID deduplication (Razorpay or Online payment reference)
     const pid = adm.payment_id?.trim();
-    if (pid && pid !== "OFFLINE_RECORD" && !pid.startsWith("PAY_ADM_")) {
+    if (
+      pid &&
+      pid !== "OFFLINE_RECORD" &&
+      !pid.startsWith("PAY_ADM_") &&
+      (pid.startsWith("pay_") || pid.startsWith("razorpay_") || pid.startsWith("order_"))
+    ) {
       const normalizedPid = pid.toLowerCase();
       if (seenPaymentIds.has(normalizedPid)) {
         continue; // Skip duplicate record with identical payment reference
@@ -530,17 +636,13 @@ export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]>
       seenPaymentIds.add(normalizedPid);
     }
 
-    // 2. Strict Student + Course deduplication:
-    // Only deduplicate if identical student (same name AND contact) submitted the exact same program
-    const nameKey = (adm.name || "").trim().toLowerCase();
-    const contactKey = (adm.email || adm.phone || "").trim().toLowerCase();
-    const programKey = (adm.program || "").trim().toLowerCase();
-    if ((nameKey || contactKey) && programKey) {
-      const studentCourseKey = `${nameKey}::${contactKey}::${programKey}`;
-      if (seenStudentCourses.has(studentCourseKey)) {
-        continue; // Skip duplicate entry for this course
-      }
-      seenStudentCourses.add(studentCourseKey);
+    // 2. Strict ID Deduplication
+    const idKey = String(adm.id || "").trim();
+    if (idKey && seenStudentCourses.has(idKey)) {
+      continue;
+    }
+    if (idKey) {
+      seenStudentCourses.add(idKey);
     }
 
     deduplicatedAdmissions.push(adm);
@@ -577,21 +679,39 @@ export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]>
   return activeAdmissionsPromise;
 };
 
-export const deleteAdmission = async (id: string): Promise<void> => {
+export const deleteAdmission = async (
+  id: string,
+  options?: { email?: string; payment_id?: string; program?: string }
+): Promise<void> => {
   // Bust in-memory cache immediately
-  cachedAdmissionsData = cachedAdmissionsData.filter((item) => item.id !== id);
+  cachedAdmissionsData = cachedAdmissionsData.filter(
+    (item) => item.id !== id && (!options?.payment_id || item.payment_id !== options.payment_id)
+  );
   lastAdmissionsFetchTime = 0;
 
-  // 1. Delete from MongoDB
+  // 1. Delete from MongoDB Atlas with full identifiers
   try {
-    await fetch(`/api/admissions?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    const params = new URLSearchParams({ id });
+    if (options?.email) params.set("email", options.email);
+    if (options?.payment_id) params.set("payment_id", options.payment_id);
+    await fetch(`/api/admissions?${params.toString()}`, { method: "DELETE" });
   } catch (mongoErr) {
     console.warn("MongoDB admissions delete notice:", mongoErr);
   }
 
-  // 2. Delete from Supabase
+  // 2. Delete from Supabase (by ID, payment_id, and email)
   try {
     await supabase.from("admissions").delete().eq("id", id);
+    if (options?.payment_id && options.payment_id !== "OFFLINE_RECORD" && !options.payment_id.startsWith("PAY_ADM_")) {
+      await supabase.from("admissions").delete().eq("payment_id", options.payment_id);
+    }
+    if (options?.email) {
+      if (options.program) {
+        await supabase.from("admissions").delete().match({ email: options.email, program: options.program });
+      } else {
+        await supabase.from("admissions").delete().eq("email", options.email);
+      }
+    }
   } catch (e) {
     console.warn("Supabase admissions delete notice:", e);
   }
@@ -599,7 +719,9 @@ export const deleteAdmission = async (id: string): Promise<void> => {
   // 3. Delete from localStorage
   try {
     const list: Admission[] = JSON.parse(localStorage.getItem("parivattan_admissions") || "[]");
-    const updated = list.filter((item) => item.id !== id);
+    const updated = list.filter(
+      (item) => item.id !== id && (!options?.payment_id || item.payment_id !== options.payment_id)
+    );
     localStorage.setItem("parivattan_admissions", JSON.stringify(updated));
     recalculateBatchSeatsFromAdmissions(updated);
   } catch (e) {
@@ -1094,12 +1216,20 @@ export const logVisitor = async (payload: {
   } catch {}
 };
 
+let cachedVisitorStats: VisitorStats | null = null;
+let lastVisitorStatsFetch = 0;
+
 // Aggregate visitor statistics exclusively via MongoDB Atlas (fast, resilient, quota-free)
 export const getVisitorStats = async (): Promise<VisitorStats> => {
+  const now = Date.now();
+  if (cachedVisitorStats && now - lastVisitorStatsFetch < 45000) {
+    return cachedVisitorStats;
+  }
+
   // 1. Direct high-speed MongoDB Atlas /api/visitors query
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
     const res = await fetch("/api/visitors", { signal: controller.signal });
     clearTimeout(timeoutId);
 
@@ -1107,6 +1237,8 @@ export const getVisitorStats = async (): Promise<VisitorStats> => {
       const json = await res.json().catch(() => null);
       if (json && json.success && json.data && typeof json.data.total === "number" && json.data.total > 0) {
         localStorage.setItem(VISITOR_CACHE_KEY, JSON.stringify(json.data));
+        cachedVisitorStats = json.data;
+        lastVisitorStatsFetch = now;
         return json.data;
       }
     }
@@ -1120,6 +1252,7 @@ export const getVisitorStats = async (): Promise<VisitorStats> => {
     if (cached) {
       const parsed = JSON.parse(cached);
       if (parsed && typeof parsed.total === "number" && parsed.total > 0) {
+        cachedVisitorStats = parsed;
         return parsed;
       }
     }

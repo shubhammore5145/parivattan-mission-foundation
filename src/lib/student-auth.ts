@@ -105,6 +105,20 @@ export const saveStudentToCloud = async (student: StudentUser): Promise<void> =>
     } catch (mongoErr) {
       console.warn("[CloudSave] Notice saving student to MongoDB Atlas:", mongoErr);
     }
+
+    // 3. If a stale deleted item exists in trash with this student's email, purge it so fresh login is never blocked
+    try {
+      if (student.email) {
+        const rawTrash = localStorage.getItem("parivattan_deleted_students");
+        if (rawTrash) {
+          const list = JSON.parse(rawTrash);
+          if (Array.isArray(list)) {
+            const purged = list.filter((item: any) => item.student?.email?.toLowerCase() !== student.email.toLowerCase());
+            localStorage.setItem("parivattan_deleted_students", JSON.stringify(purged));
+          }
+        }
+      }
+    } catch {}
   } catch (err) {
     console.warn("[CloudSave] Could not sync student to cloud databases:", err);
   }
@@ -120,8 +134,21 @@ let cachedStudentsList: StudentUser[] = [];
  */
 export const fetchRegisteredStudentsFromCloud = async (forceFresh = false): Promise<StudentUser[]> => {
   const now = Date.now();
-  if (!forceFresh && cachedStudentsList.length > 0 && now - lastStudentsFetchTime < 3000) {
+  if (!forceFresh && cachedStudentsList.length > 0 && now - lastStudentsFetchTime < 60000) {
     return cachedStudentsList;
+  }
+
+  // Pre-seed with local storage students immediately for 0ms render
+  if (cachedStudentsList.length === 0) {
+    const local = getAllRegisteredStudents();
+    if (local.length > 0) {
+      cachedStudentsList = local;
+      if (!forceFresh) {
+        // Trigger background revalidation without blocking caller
+        setTimeout(() => fetchRegisteredStudentsFromCloud(true).catch(() => {}), 10);
+        return cachedStudentsList;
+      }
+    }
   }
 
   if (inFlightStudentsPromise) {
@@ -234,17 +261,26 @@ export const fetchRegisteredStudentsFromCloud = async (forceFresh = false): Prom
       if (s.prn) studentsMap.set(s.prn.toLowerCase(), s);
     }
 
-    // 2. Fetch from MongoDB Atlas & Supabase in parallel
+    // 2. Fetch from MongoDB Atlas & Supabase in parallel with 12s timeout
     const fetchMongo = async () => {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 12000);
-        const res = await fetch("/api/admissions", { signal: controller.signal });
+        const [admissionsRes, studentsRes] = await Promise.all([
+          fetch("/api/admissions", { signal: controller.signal }),
+          fetch("/api/admissions?students=true", { signal: controller.signal }),
+        ]);
         clearTimeout(timeoutId);
-        if (res.ok) {
-          const resJson = await res.json();
-          if (Array.isArray(resJson?.data)) {
-            parseRows(resJson.data);
+        if (studentsRes.ok) {
+          const sJson = await studentsRes.json();
+          if (Array.isArray(sJson?.data)) {
+            parseRows(sJson.data);
+          }
+        }
+        if (admissionsRes.ok) {
+          const aJson = await admissionsRes.json();
+          if (Array.isArray(aJson?.data)) {
+            parseRows(aJson.data);
           }
         }
       } catch (mErr) {
@@ -261,32 +297,85 @@ export const fetchRegisteredStudentsFromCloud = async (forceFresh = false): Prom
 
         if (!error && Array.isArray(data)) {
           parseRows(data);
+        } else if (error) {
+          console.warn("[CloudFetch] Supabase student fetch notice:", error.message || error);
         }
-      } catch {}
+      } catch (err) {
+        console.warn("[CloudFetch] Supabase student fetch exception:", err);
+      }
     };
 
     await Promise.allSettled([fetchMongo(), fetchSupabase()]);
 
-    // Deduplicate strictly by both PRN and Email to guarantee no double entries
+    // Query cloud trash to exclude specifically deleted student IDs from showing
+    const deletedIdSet = new Set<string>();
+    const deletedEmailMap = new Map<string, string>(); // email -> deletedAt
+    try {
+      const trashRes = await fetch("/api/admissions?trash=true");
+      if (trashRes.ok) {
+        const trashJson = await trashRes.json();
+        if (Array.isArray(trashJson?.data)) {
+          trashJson.data.forEach((d: any) => {
+            if (d.id) deletedIdSet.add(String(d.id));
+            if (d.student?.id) deletedIdSet.add(String(d.student.id));
+            if (d.email) {
+              deletedEmailMap.set(d.email.toLowerCase().trim(), d.deletedAt || d.created_at || "");
+            }
+          });
+        }
+      }
+    } catch {}
+
+    // Deduplicate strictly by PRN, Email, and Phone to guarantee no double entries
     const uniqueList: StudentUser[] = [];
     const seenPrns = new Set<string>();
     const seenEmails = new Set<string>();
+    const seenPhones = new Set<string>();
 
     for (const s of studentsMap.values()) {
       if (s.id === "std_demo_101" || s.prn === "PMF2026-8842") continue;
       const cleanPrn = (s.prn || "").toLowerCase().trim();
       const cleanEmail = (s.email || "").toLowerCase().trim();
+      const cleanPhone = (s.phone || "").replace(/\D/g, "");
       const isOrgEmail = cleanEmail.includes("parivattan@") || cleanEmail.includes("shubhamvmore");
+
+      // Skip ONLY if the exact student record ID was deleted in trash
+      if (s.id && deletedIdSet.has(String(s.id))) {
+        continue;
+      }
+
+      // If an old deleted record with this email exists in trash, check if this is a newly created account.
+      // If the student's registration date is newer than the deletion date (or if student was freshly created), do NOT skip!
+      if (!isOrgEmail && cleanEmail && deletedEmailMap.has(cleanEmail)) {
+        const deletedAt = deletedEmailMap.get(cleanEmail);
+        const registeredAt = s.registeredAt || (s as any).createdAt || "";
+        if (deletedAt && registeredAt && new Date(registeredAt).getTime() <= new Date(deletedAt).getTime()) {
+          continue;
+        }
+      }
+
       if (cleanPrn && seenPrns.has(cleanPrn)) {
         continue; // Skip duplicate student entry by PRN
       }
       if (!isOrgEmail && cleanEmail && seenEmails.has(cleanEmail)) {
         continue; // Skip duplicate student entry by personal Email
       }
+      if (cleanPhone.length >= 10 && seenPhones.has(cleanPhone)) {
+        continue; // Skip duplicate student entry by Phone number
+      }
+
       if (cleanPrn) seenPrns.add(cleanPrn);
       if (cleanEmail && !isOrgEmail) seenEmails.add(cleanEmail);
+      if (cleanPhone.length >= 10) seenPhones.add(cleanPhone);
       uniqueList.push(s);
     }
+
+    // Sort strictly in descending order (latest registered student first)
+    uniqueList.sort(
+      (a, b) =>
+        new Date(b.registeredAt || (b as any).createdAt || 0).getTime() -
+        new Date(a.registeredAt || (a as any).createdAt || 0).getTime()
+    );
 
     // Update local storage cache
     try {
@@ -308,24 +397,28 @@ export const fetchRegisteredStudentsFromCloud = async (forceFresh = false): Prom
 /**
  * Deletes student record from both Supabase and MongoDB Atlas databases
  */
-export const deleteStudentFromCloud = async (id: string): Promise<void> => {
+export const deleteStudentFromCloud = async (id: string, email?: string, prn?: string): Promise<void> => {
   try {
-    // Delete from MongoDB Atlas
+    // 1. Delete from MongoDB Atlas (cleans both 'students' and 'admissions' collections by ID, email, and PRN)
     try {
-      await fetch(`/api/admissions?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      const params = new URLSearchParams({ id, student: "true" });
+      if (email) params.set("email", email);
+      if (prn) params.set("prn", prn);
+      await fetch(`/api/admissions?${params.toString()}`, { method: "DELETE" });
     } catch (mErr) {
       console.warn("[CloudDelete] MongoDB delete notice:", mErr);
     }
 
-    // Delete from Supabase
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
-      await supabase.from("admissions").delete().eq("id", id);
-    } else {
-      const all = getAllRegisteredStudents();
-      const s = all.find((item) => item.id === id);
-      if (s?.email) {
-        await supabase.from("admissions").delete().eq("email", s.email);
+    // 2. Delete from Supabase (by ID and by email)
+    try {
+      if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+        await supabase.from("admissions").delete().eq("id", id);
       }
+      if (email) {
+        await supabase.from("admissions").delete().eq("email", email);
+      }
+    } catch (err) {
+      console.warn("[CloudDelete] Supabase delete notice:", err);
     }
   } catch (err) {
     console.warn("[CloudDelete] Error deleting student from cloud:", err);
@@ -745,6 +838,7 @@ export const loginStudent = async (
 
   const cleanId = identifier.trim().toLowerCase();
   const cleanDigits = cleanId.replace(/\D/g, "");
+  const enteredPass = password.trim();
   const allStudents = getAllRegisteredStudents();
 
   // Find corresponding student in registered students
@@ -756,17 +850,20 @@ export const loginStudent = async (
       s.prn.toLowerCase().replace(/[^a-z0-9]/g, "") === cleanId.replace(/[^a-z0-9]/g, "")
   );
 
-  // If not found locally, fetch latest registered students from Supabase cloud
-  if (!existingStudent) {
+  // If not found locally or if password doesn't match cached copy, fetch fresh from cloud database
+  if (!existingStudent || (existingStudent.password && existingStudent.password.trim() !== enteredPass)) {
     try {
-      const cloudStudents = await fetchRegisteredStudentsFromCloud();
-      existingStudent = cloudStudents.find(
+      const cloudStudents = await fetchRegisteredStudentsFromCloud(true);
+      const matched = cloudStudents.find(
         s =>
           s.email.toLowerCase() === cleanId ||
           (cleanDigits.length >= 7 && s.phone.replace(/\D/g, "") === cleanDigits) ||
           s.prn.toLowerCase() === cleanId ||
           s.prn.toLowerCase().replace(/[^a-z0-9]/g, "") === cleanId.replace(/[^a-z0-9]/g, "")
       );
+      if (matched) {
+        existingStudent = matched;
+      }
     } catch (err) {
       console.warn("Cloud student lookup notice:", err);
     }
@@ -774,20 +871,43 @@ export const loginStudent = async (
 
   const targetEmail = existingStudent?.email || cleanId;
 
-  // 1. If student exists, verify password
+  // 1. If student exists, verify password with multi-channel authentication
   if (existingStudent) {
     if (existingStudent.isEmailVerified === false) {
       throw new Error(`EMAIL_NOT_VERIFIED:${existingStudent.email}`);
     }
 
-    const expectedPassword = (existingStudent.password && existingStudent.password.trim()) || "student123";
-    if (expectedPassword !== password.trim()) {
+    let isPasswordValid = Boolean(
+      existingStudent.password && existingStudent.password.trim() === enteredPass
+    );
+
+    // If local/cached password does not match, verify with Firebase Auth
+    if (!isPasswordValid) {
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, targetEmail, enteredPass);
+        if (userCredential?.user) {
+          isPasswordValid = true;
+          existingStudent.firebaseUid = userCredential.user.uid;
+          existingStudent.password = enteredPass;
+          updateRegisteredStudent(existingStudent).catch(() => {});
+        }
+      } catch {}
+    }
+
+    // Default student123 fallback only if student has no password set
+    if (!isPasswordValid && !existingStudent.password && enteredPass === "student123") {
+      isPasswordValid = true;
+      existingStudent.password = enteredPass;
+      updateRegisteredStudent(existingStudent).catch(() => {});
+    }
+
+    if (!isPasswordValid) {
       throw new Error("Invalid password. Please check your password and try again.");
     }
 
     // Password matches! Sync session with Firebase Auth in background if applicable
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, targetEmail, password.trim());
+      const userCredential = await signInWithEmailAndPassword(auth, targetEmail, enteredPass);
       if (userCredential?.user) {
         existingStudent.firebaseUid = userCredential.user.uid;
       }
@@ -801,7 +921,7 @@ export const loginStudent = async (
 
   // 2. If not found in database, authenticate with Firebase Auth directly
   try {
-    const userCredential = await signInWithEmailAndPassword(auth, targetEmail, password.trim());
+    const userCredential = await signInWithEmailAndPassword(auth, targetEmail, enteredPass);
     const fbUser = userCredential.user;
 
     if (!fbUser.emailVerified) {
@@ -819,7 +939,7 @@ export const loginStudent = async (
       state: "Maharashtra",
       avatar: fbUser.photoURL || undefined,
       registeredAt: new Date().toISOString(),
-      password: password.trim(),
+      password: enteredPass,
     };
 
     const updated = [student, ...allStudents.filter(s => s.email.toLowerCase() !== student.email.toLowerCase())];
@@ -959,21 +1079,28 @@ export const sendStudentPasswordReset = async (email: string): Promise<void> => 
 
 
 export const deleteRegisteredStudent = async (id: string): Promise<void> => {
+  let targetStudent: StudentUser | undefined;
   try {
     const list = getAllRegisteredStudents();
-    const updated = list.filter((s) => s.id !== id);
+    targetStudent = list.find((s) => s.id === id || s.prn === id || s.email === id);
+    const updated = list.filter(
+      (s) =>
+        s.id !== id &&
+        (!targetStudent?.prn || s.prn !== targetStudent.prn) &&
+        (!targetStudent?.email || s.email.toLowerCase() !== targetStudent.email.toLowerCase())
+    );
     localStorage.setItem(ALL_STUDENTS_KEY, JSON.stringify(updated));
     const current = getCurrentStudent();
-    if (current && current.id === id) {
+    if (current && (current.id === id || (targetStudent?.prn && current.prn === targetStudent.prn))) {
       logoutStudent();
     }
   } catch (e) {
     console.warn("Could not delete student locally:", e);
   }
 
-  // Also delete from Supabase cloud database
+  // Also delete from MongoDB Atlas and Supabase cloud databases
   try {
-    await deleteStudentFromCloud(id);
+    await deleteStudentFromCloud(id, targetStudent?.email, targetStudent?.prn);
   } catch (e) {
     console.warn("Could not delete student from cloud:", e);
   }
@@ -1242,10 +1369,18 @@ export const fetchStudentApplicationsFromCloud = async (
     const cleanPhone = student.phone.replace(/\D/g, "");
     const cleanName = student.name.trim().toLowerCase();
 
-    // 1. Fetch admissions from MongoDB Atlas
+    // 1. Fetch admissions specifically for this student from MongoDB Atlas with 3.5s timeout
     let allAdms: any[] = [];
+    const targetUrl = cleanEmail
+      ? `/api/admissions?email=${encodeURIComponent(cleanEmail)}`
+      : cleanPhone
+      ? `/api/admissions?phone=${encodeURIComponent(cleanPhone)}`
+      : "/api/admissions";
     try {
-      const res = await fetch("/api/admissions");
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const res = await fetch(targetUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {

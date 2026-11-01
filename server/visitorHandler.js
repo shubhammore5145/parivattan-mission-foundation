@@ -9,7 +9,7 @@ const BASELINE_TODAY = 38;
 
 let cachedStats = null;
 let cachedStatsTime = 0;
-const STATS_CACHE_TTL = 10000; // 10s memory cache
+const STATS_CACHE_TTL = 60000; // 60s memory cache to prevent repeated count queries
 
 /**
  * Log a visitor session in MongoDB Atlas
@@ -37,8 +37,6 @@ export async function logVisitorInMongo(payload) {
       { upsert: true }
     );
 
-    // Invalidate stats cache
-    cachedStats = null;
     return { success: true };
   } catch (err) {
     console.warn("[VisitorHandler] Log visitor warning:", err.message);

@@ -160,7 +160,11 @@ export const softDeleteAdmission = async (
   }
 
   // Remove from active admissions (which will archive in Mongo and delete in Supabase/local)
-  await deleteAdmission(admission.id);
+  await deleteAdmission(admission.id, {
+    email: admission.email,
+    payment_id: admission.payment_id,
+    program: admission.program,
+  });
 
   notifyTrashUpdated();
   return deletedItem;

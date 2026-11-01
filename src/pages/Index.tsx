@@ -15,26 +15,9 @@ import HomeFaq from "../components/home/HomeFaq";
 import Donate from "../components/Donate";
 import Contact from "../components/Contact";
 import Footer from "../components/Footer";
-import { logVisitor } from "@/lib/supabase-admin";
-import { SiteEntranceLoader } from "@/components/common/SiteEntranceLoader";
 
 const Index = () => {
   useEffect(() => {
-    // Log a visitor once per session
-    const sessionKey = "parivattan_visitor_session";
-    const existingSession = sessionStorage.getItem(sessionKey);
-    const sessionId = existingSession || crypto.randomUUID();
-
-    if (!existingSession) {
-      sessionStorage.setItem(sessionKey, sessionId);
-      logVisitor({
-        session_id: sessionId,
-        path: window.location.pathname,
-        referrer: document.referrer || null,
-        user_agent: navigator.userAgent,
-      }).catch((err) => console.error("Failed to log visitor", err));
-    }
-
     const observerOptions = {
       root: null,
       threshold: 0.1,
@@ -59,7 +42,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen overflow-hidden bg-white">
-      <SiteEntranceLoader />
       <Header />
       <Hero />
       <ApplicationOpenSection />

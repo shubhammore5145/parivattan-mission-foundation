@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { logVisitor } from "@/lib/supabase-admin";
-import { initBatchSeatsRealtimeSync } from "@/lib/batch-seats-sync";
 
 interface LiveVisitorsContextValue {
   count: number;
@@ -14,25 +13,15 @@ export const LiveVisitorsProvider: React.FC<{ children: React.ReactNode }> = ({
   // Start with a natural concurrent presence baseline (e.g. 5-7 active visitors)
   const [count, setCount] = useState(() => Math.floor(Math.random() * 3) + 5);
 
-  // Initialize global real-time batch seats synchronization
-  useEffect(() => {
-    const cleanupSeatsSync = initBatchSeatsRealtimeSync();
-    return () => {
-      cleanupSeatsSync();
-    };
-  }, []);
-
-  // Global visitor session tracking (fires once per browser session across any route to MongoDB Atlas)
+  // Global visitor session tracking (fires once per browser session)
   useEffect(() => {
     try {
       const sessionKey = "parivattan_visitor_session";
       const existingSession = sessionStorage.getItem(sessionKey);
-      const sessionId =
-        existingSession || `pmf_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      if (existingSession) return; // Prevent duplicate API hits on page reloads/routes
 
-      if (!existingSession) {
-        sessionStorage.setItem(sessionKey, sessionId);
-      }
+      const sessionId = `pmf_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      sessionStorage.setItem(sessionKey, sessionId);
 
       logVisitor({
         session_id: sessionId,
@@ -43,7 +32,7 @@ export const LiveVisitorsProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch {}
   }, []);
 
-  // Live active visitors tracker via MongoDB Atlas
+  // Live active visitors tracker (loads once on mount; updates smoothly via client-side counter)
   useEffect(() => {
     let isMounted = true;
 
@@ -61,7 +50,7 @@ export const LiveVisitorsProvider: React.FC<{ children: React.ReactNode }> = ({
 
     fetchLivePresence();
 
-    // Natural subtle fluctuation interval (keeps 4 - 9 active)
+    // Natural subtle fluctuation interval (keeps 4 - 9 active entirely client-side without API calls)
     const interval = setInterval(() => {
       setCount((prev) => {
         const delta = Math.random() > 0.5 ? 1 : -1;
@@ -72,13 +61,9 @@ export const LiveVisitorsProvider: React.FC<{ children: React.ReactNode }> = ({
       });
     }, 20000);
 
-    // Periodic refresh from MongoDB Atlas every 45s
-    const syncInterval = setInterval(fetchLivePresence, 45000);
-
     return () => {
       isMounted = false;
       clearInterval(interval);
-      clearInterval(syncInterval);
     };
   }, []);
 
