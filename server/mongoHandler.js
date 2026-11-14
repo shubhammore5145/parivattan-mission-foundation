@@ -276,7 +276,8 @@ export async function getAdmissionsFromMongo(query = {}, options = {}) {
  * Retrieves a single admission or student record from MongoDB with full attachments/base64 files
  */
 export async function getAdmissionByIdFromMongo(id, extraQuery = {}) {
-  if (!id && (!extraQuery || Object.keys(extraQuery).length === 0)) return null;
+  const cleanId = (id && id !== "undefined" && id !== "null") ? String(id).trim() : null;
+  if (!cleanId && (!extraQuery || Object.keys(extraQuery).length === 0)) return null;
   const { db } = await connectToDatabase();
   const collection = db.collection("admissions");
   const studentsCollection = db.collection("students");
@@ -284,8 +285,7 @@ export async function getAdmissionByIdFromMongo(id, extraQuery = {}) {
   let doc = null;
 
   // 1. If an exact ID is passed, search for this exact record first!
-  if (id) {
-    const cleanId = String(id).trim();
+  if (cleanId) {
     const idOr = [{ id: cleanId }];
     if (cleanId.length === 24 && /^[0-9a-fA-F]{24}$/.test(cleanId)) {
       try { idOr.push({ _id: new ObjectId(cleanId) }); } catch {}
@@ -357,42 +357,70 @@ export async function getAdmissionByIdFromMongo(id, extraQuery = {}) {
     (!doc.education_proof || doc.education_proof.length < 100) ||
     (!doc.photo || doc.photo.length < 500);
 
-  if (needsMoreDocs && (doc.email || doc.phone || doc.prn)) {
+  const lookupEmail = doc.email || extraQuery?.email;
+  const lookupPhone = doc.phone || extraQuery?.phone;
+  const lookupPrn = doc.prn || extraQuery?.prn;
+
+  if (needsMoreDocs && (lookupEmail || lookupPhone || lookupPrn)) {
     try {
       const crossOr = [];
-      if (doc.email) {
-        crossOr.push({ email: doc.email.toLowerCase() });
-        crossOr.push({ email: { $regex: new RegExp(`^${doc.email}$`, "i") } });
+      if (lookupEmail) {
+        const cleanE = String(lookupEmail).trim().toLowerCase();
+        crossOr.push({ email: cleanE });
+        crossOr.push({ email: { $regex: new RegExp(`^${cleanE}$`, "i") } });
       }
-      if (doc.prn) {
-        crossOr.push({ prn: doc.prn });
+      if (lookupPrn) {
+        const cleanP = String(lookupPrn).trim();
+        crossOr.push({ prn: cleanP });
+        crossOr.push({ message: { $regex: cleanP } });
       }
-      if (doc.phone) {
-        const cleanP = String(doc.phone).replace(/\D/g, "");
-        if (cleanP.length >= 7) crossOr.push({ phone: { $regex: cleanP } });
+      if (lookupPhone) {
+        const cleanPh = String(lookupPhone).replace(/\D/g, "");
+        if (cleanPh.length >= 7) crossOr.push({ phone: { $regex: cleanPh } });
       }
       if (crossOr.length > 0) {
-        const companions = await collection.find({ $or: crossOr }).toArray();
-        for (const comp of companions) {
-          if ((!doc.photo || doc.photo.length < 500) && comp.photo && comp.photo.length > 500) {
-            doc.photo = comp.photo;
-            doc.photo_name = comp.photo_name || doc.photo_name;
+        const [admCompanions, stdCompanions] = await Promise.all([
+          collection.find({ $or: crossOr }).toArray().catch(() => []),
+          studentsCollection.find({ $or: crossOr }).toArray().catch(() => []),
+        ]);
+        const allCompanions = [...admCompanions, ...stdCompanions];
+
+        for (const comp of allCompanions) {
+          let compMeta = {};
+          if (comp.message && typeof comp.message === "string" && comp.message.trim().startsWith("{")) {
+            try { compMeta = JSON.parse(comp.message); } catch {}
           }
-          if ((!doc.identity_proof || doc.identity_proof.length < 100) && comp.identity_proof && comp.identity_proof.length > 100) {
-            doc.identity_proof = comp.identity_proof;
-            doc.identity_proof_name = comp.identity_proof_name || doc.identity_proof_name;
+
+          const cPhoto = comp.photo || comp.photoUrl || comp.photoDataUrl || comp.avatar || compMeta.photo || compMeta.photoUrl || compMeta.avatar;
+          const cPhotoName = comp.photo_name || compMeta.photo_name;
+          const cIdProof = comp.identity_proof || comp.identityProofUrl || comp.identityProof || compMeta.identity_proof || compMeta.identityProofUrl;
+          const cIdProofName = comp.identity_proof_name || comp.identityProofName || compMeta.identity_proof_name;
+          const cEduProof = comp.education_proof || comp.marksheetUrl || comp.educationProof || comp.marksheet || compMeta.education_proof || compMeta.marksheetUrl;
+          const cEduProofName = comp.education_proof_name || comp.marksheet_name || compMeta.education_proof_name || compMeta.marksheet_name;
+          const cCaste = comp.caste_certificate || comp.casteCertUrl || compMeta.caste_certificate || compMeta.casteCertUrl;
+          const cCasteName = comp.caste_certificate_name || compMeta.caste_certificate_name;
+
+          if ((!doc.photo || doc.photo.length < 500) && cPhoto && cPhoto.length > 500) {
+            doc.photo = cPhoto;
+            doc.photo_name = cPhotoName || doc.photo_name;
           }
-          if ((!doc.education_proof || doc.education_proof.length < 100) && comp.education_proof && comp.education_proof.length > 100) {
-            doc.education_proof = comp.education_proof;
-            doc.education_proof_name = comp.education_proof_name || doc.education_proof_name;
+          if ((!doc.identity_proof || doc.identity_proof.length < 100) && cIdProof && cIdProof.length > 100) {
+            doc.identity_proof = cIdProof;
+            doc.identity_proof_name = cIdProofName || doc.identity_proof_name;
           }
-          if ((!doc.caste_certificate || doc.caste_certificate.length < 100) && comp.caste_certificate && comp.caste_certificate.length > 100) {
-            doc.caste_certificate = comp.caste_certificate;
-            doc.caste_certificate_name = comp.caste_certificate_name || doc.caste_certificate_name;
+          if ((!doc.education_proof || doc.education_proof.length < 100) && cEduProof && cEduProof.length > 100) {
+            doc.education_proof = cEduProof;
+            doc.education_proof_name = cEduProofName || doc.education_proof_name;
+          }
+          if ((!doc.caste_certificate || doc.caste_certificate.length < 100) && cCaste && cCaste.length > 100) {
+            doc.caste_certificate = cCaste;
+            doc.caste_certificate_name = cCasteName || doc.caste_certificate_name;
           }
         }
       }
-    } catch {}
+    } catch (crossErr) {
+      console.warn("[MongoDB Atlas] Notice in companion recovery:", crossErr);
+    }
   }
 
   return {
@@ -715,6 +743,12 @@ export async function handleAdmissionsRequest(req, res) {
           res.statusCode = 404;
           return res.end(JSON.stringify({ success: false, error: "Admission not found" }));
         }
+      }
+
+      // Safe guard: never dump the entire database with full heavy base64 strings
+      if (isFull) {
+        res.statusCode = 200;
+        return res.end(JSON.stringify({ success: false, data: null, message: "A specific ID or applicant email is required for full document fetch." }));
       }
 
       // Filter by email (e.g. student portal loading their own applications in <20ms)
