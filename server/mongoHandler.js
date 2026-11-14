@@ -623,6 +623,11 @@ export async function handleAdmissionsRequest(req, res) {
 
       // General listing (returns all admissions with complete documents and files)
       const isFresh = parsedUrl.searchParams.get("fresh") === "true";
+      if (!isFresh && !isFull) {
+        res.setHeader("Cache-Control", "public, s-maxage=30, stale-while-revalidate=60");
+      } else {
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+      }
       const admissions = await getAdmissionsFromMongo({}, { full: isFull, fresh: isFresh });
       res.statusCode = 200;
       return res.end(

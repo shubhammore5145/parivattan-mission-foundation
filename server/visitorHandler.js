@@ -1,4 +1,5 @@
 import { connectToDatabase } from "./mongoHandler.js";
+import { generalApiRateLimiter } from "./rateLimiter.js";
 
 // Established authentic community baseline for Parivattan Mission Foundation
 const BASELINE_TOTAL = 3420;
@@ -172,6 +173,10 @@ export async function handleVisitorsRequest(req, res) {
     return res.end();
   }
 
+  // Rate limiting guard
+  const isAllowed = generalApiRateLimiter.apply(req, res);
+  if (!isAllowed) return;
+
   try {
     if (req.method === "POST") {
       let body = req.body;
@@ -188,6 +193,11 @@ export async function handleVisitorsRequest(req, res) {
     }
 
     if (req.method === "GET" || req.method === "HEAD") {
+      // Allow Vercel Edge CDN to cache visitor summary for 2 minutes to protect serverless quotas
+      try {
+        res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=300");
+      } catch {}
+
       const url = new URL(req.url, "http://localhost");
       const dateParam = url.searchParams.get("date");
 

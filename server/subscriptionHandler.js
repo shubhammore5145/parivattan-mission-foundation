@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { generalApiRateLimiter } from "./rateLimiter.js";
 
 let cachedData = null;
 let cachedTime = 0;
@@ -224,9 +225,14 @@ export async function handleSubscriptionsRequest(req, res) {
     return res.end();
   }
 
+  // Rate limiting guard
+  const isAllowed = generalApiRateLimiter.apply(req, res);
+  if (!isAllowed) return;
+
   try {
     const data = await fetchLiveSubscriptionsData();
     res.setHeader("Content-Type", "application/json");
+    res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=300");
     res.statusCode = 200;
     return res.end(JSON.stringify(data));
   } catch (err) {
