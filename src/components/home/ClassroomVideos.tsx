@@ -30,6 +30,18 @@ export interface YouTubeShortItem {
 
 export const YOUTUBE_SHORTS: YouTubeShortItem[] = [
   {
+    id: "xEjvPDR2ya8",
+    badge: "Special Feature",
+    category: "Student Stories",
+    title: "Parivattan Mission: Real Voices & Student Journeys",
+    subtitle: "Real Stories of Transformation & Determination",
+    description: "Watch the authentic documentary story of Parivattan Mission Foundation, our grassroots educational movement, and the real lives being transformed through language and opportunity.",
+    duration: "Full Story",
+    views: "5.0K+ Views",
+    tags: ["Our Story", "Grassroots Impact", "Inspiration"],
+    url: "https://youtu.be/xEjvPDR2ya8",
+  },
+  {
     id: "_EEthfJ3nqM",
     badge: "Session 01",
     category: "Live Classroom",
