@@ -303,6 +303,24 @@ export const isSystemConfigRow = (row: any): boolean => {
 export const isRealCourseAdmission = (row: any): boolean => {
   if (!row) return false;
   if (isSystemConfigRow(row)) return false;
+
+  // Pure student user registrations without course application belong in Students tab, not Admissions
+  const prog = String(row.program || "").trim();
+  if (
+    prog === "STUDENT_REGISTRATION" ||
+    prog === "Student Portal Registration" ||
+    prog === "USER_REGISTRATION" ||
+    prog === "ACCOUNT_SIGNUP" ||
+    prog === "REGISTERED_ACCOUNT"
+  ) {
+    const hasPayment = row.payment_id && row.payment_id !== "OFFLINE_RECORD" && Number(row.amount || 0) > 0;
+    const hasCourse =
+      row.courseTitle ||
+      row.language ||
+      (typeof row.message === "string" && (row.message.includes("German") || row.message.includes("French") || row.message.includes("Japanese") || row.message.includes("Spanish") || row.message.includes("English")));
+    return Boolean(hasPayment || hasCourse);
+  }
+
   return true;
 };
 
@@ -648,6 +666,27 @@ export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]>
       seenStudentCourses.add(idKey);
     }
 
+    // 3. Student + Course deduplication: prevent dual-records for the same applicant and course
+    const emailKey = (adm.email || "").trim().toLowerCase();
+    const cleanProg = (adm.program || "").trim().toLowerCase();
+    const studentCourseKey = emailKey && cleanProg ? `${emailKey}::${cleanProg}` : "";
+    if (studentCourseKey && seenStudentCourses.has(studentCourseKey)) {
+      // Merge documents into existing entry if it was missing any
+      const existing = deduplicatedAdmissions.find(
+        (ex) => (ex.email || "").toLowerCase().trim() === emailKey && (ex.program || "").toLowerCase().trim() === cleanProg
+      );
+      if (existing) {
+        if (!existing.photo && adm.photo) existing.photo = adm.photo;
+        if (!existing.identity_proof && adm.identity_proof) existing.identity_proof = adm.identity_proof;
+        if (!existing.education_proof && adm.education_proof) existing.education_proof = adm.education_proof;
+        if (!existing.caste_certificate && adm.caste_certificate) existing.caste_certificate = adm.caste_certificate;
+      }
+      continue;
+    }
+    if (studentCourseKey) {
+      seenStudentCourses.add(studentCourseKey);
+    }
+
     deduplicatedAdmissions.push(adm);
   }
 
@@ -719,16 +758,34 @@ export const deleteAdmission = async (
     console.warn("Supabase admissions delete notice:", e);
   }
 
-  // 3. Delete from localStorage
-  try {
-    const list: Admission[] = JSON.parse(localStorage.getItem("parivattan_admissions") || "[]");
-    const updated = list.filter(
-      (item) => item.id !== id && (!options?.payment_id || item.payment_id !== options.payment_id)
-    );
-    localStorage.setItem("parivattan_admissions", JSON.stringify(updated));
-    recalculateBatchSeatsFromAdmissions(updated);
-  } catch (e) {
-    console.warn("localStorage delete notice:", e);
+  // 3. Delete from all local storage admission keys to prevent resurrection
+  const storageKeys = [
+    "parivattan_admissions",
+    "parivattan_admissions_records",
+    "parivattan_student_admissions",
+    "parivattan_course_registrations",
+  ];
+  for (const key of storageKeys) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const list: Admission[] = JSON.parse(raw);
+        if (Array.isArray(list)) {
+          const updated = list.filter(
+            (item) =>
+              item.id !== id &&
+              (!options?.payment_id || item.payment_id !== options.payment_id) &&
+              (!options?.email || !item.email || item.email.toLowerCase() !== options.email.toLowerCase() || (options.program && item.program !== options.program))
+          );
+          localStorage.setItem(key, JSON.stringify(updated));
+          if (key === "parivattan_admissions") {
+            recalculateBatchSeatsFromAdmissions(updated);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("localStorage delete notice for", key, e);
+    }
   }
 };
 

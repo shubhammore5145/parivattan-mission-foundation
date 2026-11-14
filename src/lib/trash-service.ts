@@ -296,10 +296,10 @@ export const softDeleteStudent = async (
 
   // Remove student locally and in cloud
   try {
-    const all = getAllRegisteredStudents().filter((s) => s.id !== student.id);
+    const all = getAllRegisteredStudents().filter((s) => s.id !== student.id && (!student.prn || s.prn !== student.prn));
     localStorage.setItem("parivattan_all_students", JSON.stringify(all));
     localStorage.setItem("parivattan_registered_students", JSON.stringify(all));
-    await deleteStudentFromCloud(student.id);
+    await deleteStudentFromCloud(student.id, student.email, student.prn);
   } catch (e) {
     console.warn("Error removing student from cloud:", e);
   }

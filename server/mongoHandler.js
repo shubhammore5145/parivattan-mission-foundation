@@ -369,6 +369,68 @@ export async function getAdmissionByIdFromMongo(id, extraQuery = {}) {
 
   if (!doc) return null;
 
+  // 3. Unpack message JSON if present to retrieve any nested documents/metadata
+  if (doc.message && typeof doc.message === "string" && doc.message.trim().startsWith("{")) {
+    try {
+      const meta = JSON.parse(doc.message);
+      if (!doc.photo) doc.photo = meta.photo || meta.photoUrl || meta.avatar;
+      if (!doc.photo_name) doc.photo_name = meta.photo_name;
+      if (!doc.identity_proof) doc.identity_proof = meta.identity_proof || meta.identityProofUrl;
+      if (!doc.identity_proof_name) doc.identity_proof_name = meta.identity_proof_name;
+      if (!doc.education_proof) doc.education_proof = meta.education_proof || meta.marksheetUrl || meta.marksheet;
+      if (!doc.education_proof_name) doc.education_proof_name = meta.education_proof_name || meta.marksheet_name;
+      if (!doc.caste_certificate) doc.caste_certificate = meta.caste_certificate || meta.casteCertUrl;
+      if (!doc.caste_certificate_name) doc.caste_certificate_name = meta.caste_certificate_name;
+    } catch {}
+  }
+
+  // 4. Cross-reference between admissions and students collection to guarantee all uploaded documents are loaded
+  const hasDocuments = doc.photo || doc.identity_proof || doc.education_proof || doc.caste_certificate;
+  if (!hasDocuments && (doc.email || doc.phone || doc.prn)) {
+    try {
+      const crossOr = [];
+      if (doc.email) {
+        crossOr.push({ email: doc.email.toLowerCase() });
+        crossOr.push({ email: { $regex: new RegExp(`^${doc.email}$`, "i") } });
+      }
+      if (doc.prn) {
+        crossOr.push({ prn: doc.prn });
+      }
+      if (doc.phone) {
+        const cleanP = String(doc.phone).replace(/\D/g, "");
+        if (cleanP.length >= 7) crossOr.push({ phone: { $regex: cleanP } });
+      }
+      if (crossOr.length > 0) {
+        const comp = await collection.findOne(
+          {
+            $and: [
+              { $or: crossOr },
+              {
+                $or: [
+                  { photo: { $type: "string", $ne: "" } },
+                  { identity_proof: { $type: "string", $ne: "" } },
+                  { education_proof: { $type: "string", $ne: "" } },
+                  { caste_certificate: { $type: "string", $ne: "" } },
+                ],
+              },
+            ],
+          },
+          { sort: { created_at: -1 } }
+        );
+        if (comp) {
+          if (!doc.photo) doc.photo = comp.photo || comp.photoUrl || comp.avatar;
+          if (!doc.photo_name) doc.photo_name = comp.photo_name;
+          if (!doc.identity_proof) doc.identity_proof = comp.identity_proof || comp.identityProofUrl;
+          if (!doc.identity_proof_name) doc.identity_proof_name = comp.identity_proof_name;
+          if (!doc.education_proof) doc.education_proof = comp.education_proof || comp.marksheetUrl || comp.marksheet;
+          if (!doc.education_proof_name) doc.education_proof_name = comp.education_proof_name;
+          if (!doc.caste_certificate) doc.caste_certificate = comp.caste_certificate || comp.casteCertUrl;
+          if (!doc.caste_certificate_name) doc.caste_certificate_name = comp.caste_certificate_name;
+        }
+      }
+    } catch {}
+  }
+
   return {
     ...doc,
     _id: doc._id ? doc._id.toString() : undefined,
@@ -414,10 +476,15 @@ export async function deleteAdmissionFromMongo(id, options = {}) {
   const cleanEmail = String(options.email || "").trim().toLowerCase();
   const cleanPrn = String(options.prn || "").trim();
   const cleanPaymentId = String(options.payment_id || "").trim();
+  const cleanProgram = String(options.program || "").trim();
 
   const orList = [];
   if (cleanId) {
     orList.push({ id: cleanId });
+    if (cleanId.startsWith("adm_std_")) {
+      const stripped = cleanId.replace("adm_std_", "");
+      orList.push({ id: stripped }, { prn: stripped });
+    }
     if (cleanId.length === 24 && /^[0-9a-fA-F]{24}$/.test(cleanId)) {
       try {
         orList.push({ _id: new ObjectId(cleanId) });
@@ -427,8 +494,17 @@ export async function deleteAdmissionFromMongo(id, options = {}) {
   if (cleanPaymentId && cleanPaymentId !== "OFFLINE_RECORD" && !cleanPaymentId.startsWith("PAY_ADM_")) {
     orList.push({ payment_id: cleanPaymentId });
   }
-  if (options.isStudent && cleanEmail) {
-    orList.push({ email: cleanEmail, program: "STUDENT_REGISTRATION" });
+  if (cleanPrn) {
+    orList.push({ prn: cleanPrn });
+    orList.push({ message: { $regex: cleanPrn } });
+  }
+  if (cleanEmail) {
+    if (cleanProgram) {
+      orList.push({ email: cleanEmail, program: cleanProgram });
+    } else {
+      orList.push({ email: cleanEmail });
+      orList.push({ email: { $regex: new RegExp(`^${cleanEmail}$`, "i") } });
+    }
   }
 
   const query = orList.length > 0 ? { $or: orList } : { id: cleanId };
@@ -668,6 +744,9 @@ export async function handleAdmissionsRequest(req, res) {
         if (singleDoc) {
           res.statusCode = 200;
           return res.end(JSON.stringify({ success: true, data: singleDoc, source: "mongodb" }));
+        } else if (isFull) {
+          res.statusCode = 200;
+          return res.end(JSON.stringify({ success: false, data: null, message: "Documents not found for this record" }));
         } else if (targetId && !targetEmail && !targetPrn && !targetPhone) {
           res.statusCode = 404;
           return res.end(JSON.stringify({ success: false, error: "Admission not found" }));

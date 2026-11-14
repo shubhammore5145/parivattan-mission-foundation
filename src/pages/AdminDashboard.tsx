@@ -505,9 +505,64 @@ export default function AdminDashboard() {
       }
       checkMongoStatus().then(setMongoStatus).catch(() => {});
 
+      // 1. Gather deleted admission IDs and signatures to guarantee deleted records never resurrect
+      const deletedList = getDeletedAdmissions();
+      const deletedIds = new Set<string>();
+      const deletedSigs = new Set<string>();
+      for (const d of deletedList) {
+        if (d.id) deletedIds.add(d.id);
+        if (d.admission?.id) deletedIds.add(d.admission.id);
+        const dEmail = (d.admission?.email || "").toLowerCase().trim();
+        const dProg = (d.admission?.program || "").toLowerCase().trim();
+        if (dEmail && dProg) deletedSigs.add(`${dEmail}::${dProg}`);
+        const dPid = (d.admission?.payment_id || "").trim();
+        if (dPid && dPid !== "OFFLINE_RECORD" && !dPid.startsWith("PAY_ADM_")) deletedIds.add(dPid);
+      }
+
       const mergedMap = new Map<string, Admission>();
 
-      // 1. Gather all local storage admission stores
+      const upsertAdmission = (item: Admission) => {
+        if (!item || !item.id || isSystemConfigRow(item) || !isRealCourseAdmission(item)) return;
+
+        // Skip if deleted in trash
+        if (deletedIds.has(item.id)) return;
+        const eKey = (item.email || "").toLowerCase().trim();
+        const pKey = (item.program || "").toLowerCase().trim();
+        if (eKey && pKey && deletedSigs.has(`${eKey}::${pKey}`)) return;
+        const pid = (item.payment_id || "").trim();
+        if (pid && pid !== "OFFLINE_RECORD" && !pid.startsWith("PAY_ADM_") && deletedIds.has(pid)) return;
+
+        // Compound key for deduplication: payment reference -> email+program -> id
+        const compoundKey =
+          pid && pid !== "OFFLINE_RECORD" && !pid.startsWith("PAY_ADM_")
+            ? `pid_${pid.toLowerCase()}`
+            : eKey && pKey
+            ? `sig_${eKey}::${pKey}`
+            : `id_${item.id}`;
+
+        const existing = mergedMap.get(compoundKey);
+        if (existing) {
+          // Merge documents and preserve valid fields so no documents or data are lost
+          mergedMap.set(compoundKey, {
+            ...item,
+            ...existing,
+            photo: existing.photo || item.photo || (item as any).photoUrl || (existing as any).photoUrl,
+            photo_name: existing.photo_name || item.photo_name,
+            identity_proof: existing.identity_proof || item.identity_proof || (item as any).identityProofUrl || (existing as any).identityProofUrl,
+            identity_proof_name: existing.identity_proof_name || item.identity_proof_name,
+            education_proof: existing.education_proof || item.education_proof || item.marksheetUrl || existing.marksheetUrl,
+            education_proof_name: existing.education_proof_name || item.education_proof_name,
+            caste_certificate: existing.caste_certificate || item.caste_certificate || (item as any).casteCertUrl || (existing as any).casteCertUrl,
+            caste_certificate_name: existing.caste_certificate_name || item.caste_certificate_name,
+            payment_id: existing.payment_id && existing.payment_id !== "OFFLINE_RECORD" ? existing.payment_id : item.payment_id,
+            status: existing.status === "completed" ? "completed" : item.status,
+          });
+        } else {
+          mergedMap.set(compoundKey, item);
+        }
+      };
+
+      // 2. Gather all local storage admission stores
       const localKeys = [
         "parivattan_admissions",
         "parivattan_admissions_records",
@@ -522,7 +577,7 @@ export default function AdminDashboard() {
             if (Array.isArray(arr)) {
               for (const item of arr) {
                 const norm = normalizeAdmission(item);
-                if (norm && norm.id) mergedMap.set(String(norm.id), norm);
+                if (norm) upsertAdmission(norm);
               }
             }
           }
@@ -531,14 +586,12 @@ export default function AdminDashboard() {
 
       // If we already have local data, paint it immediately so user NEVER waits
       if (mergedMap.size > 0) {
-        const localList = Array.from(mergedMap.values()).filter((a) => !isSystemConfigRow(a));
-        if (localList.length > 0) {
-          setAdmissions(localList);
-          setAdmissionsLoading(false);
-        }
+        const localList = Array.from(mergedMap.values());
+        setAdmissions(localList);
+        setAdmissionsLoading(false);
       }
 
-      // 2. Fetch live from MongoDB Atlas AND Supabase in parallel
+      // 3. Fetch live from MongoDB Atlas AND Supabase in parallel
       const fetchDirectMongo = async () => {
         try {
           const directRes = await fetch("/api/admissions?fresh=true");
@@ -561,61 +614,52 @@ export default function AdminDashboard() {
 
       if (directMongoRecords.status === "fulfilled" && Array.isArray(directMongoRecords.value)) {
         for (const item of directMongoRecords.value) {
-          if (item && item.id) mergedMap.set(String(item.id), item);
+          if (item) upsertAdmission(item);
         }
       }
 
       if (allCloudRecords.status === "fulfilled" && Array.isArray(allCloudRecords.value)) {
         for (const item of allCloudRecords.value) {
-          if (item && item.id) mergedMap.set(String(item.id), item);
+          if (item) upsertAdmission(item);
         }
       }
 
-      // 3. Synthesize any registered student who enrolled in a course or submitted an application
+      // 4. Synthesize any registered student who enrolled in a course or submitted an application
       try {
         const stdList = getAllRegisteredStudents();
         for (const s of stdList) {
           if (s && (s.courseTitle || s.program || s.language || (Array.isArray(s.enrolledCourses) && s.enrolledCourses.length > 0))) {
             const sAdmId = `adm_std_${s.id || s.prn || s.email}`;
-            const exists = Array.from(mergedMap.values()).some(
-              (ex) =>
-                (ex.id && (ex.id === sAdmId || ex.id === s.id)) ||
-                (ex.email && s.email && ex.email.toLowerCase() === s.email.toLowerCase())
-            );
-            if (!exists) {
-              const synthesized: Admission = {
-                id: sAdmId,
-                name: s.name || "Student Applicant",
-                email: s.email || "",
-                phone: s.phone || "",
-                program: s.courseTitle || s.program || (Array.isArray(s.enrolledCourses) && s.enrolledCourses[0]?.courseTitle) || "Enrolled Course",
-                amount: Number(s.amount || (Array.isArray(s.enrolledCourses) && s.enrolledCourses[0]?.amount) || 0),
-                payment_id: s.payment_id || s.paymentId || "OFFLINE_RECORD",
-                status: s.status || "completed",
-                created_at: s.registeredAt || s.created_at || new Date().toISOString(),
-                photo: s.photo || s.photoUrl || s.avatar,
-                identity_proof: s.identity_proof || s.identityProofUrl,
-                identity_proof_name: s.identity_proof_name,
-                education_proof: s.education_proof || s.marksheetUrl,
-                education_proof_name: s.education_proof_name,
-                caste_certificate: s.caste_certificate || s.casteCertUrl,
-                caste_certificate_name: s.caste_certificate_name,
-                education: s.education,
-                college_name: s.college_name || s.collegeName,
-                address: s.address || s.city || "",
-                gender: s.gender,
-                dob: s.dob || s.date_of_birth,
-                message: `PRN: ${s.prn || ""} | Student Portal Account`,
-              };
-              mergedMap.set(sAdmId, synthesized);
-            }
+            const synthesized: Admission = {
+              id: sAdmId,
+              name: s.name || "Student Applicant",
+              email: s.email || "",
+              phone: s.phone || "",
+              program: s.courseTitle || s.program || (Array.isArray(s.enrolledCourses) && s.enrolledCourses[0]?.courseTitle) || "Enrolled Course",
+              amount: Number(s.amount || (Array.isArray(s.enrolledCourses) && s.enrolledCourses[0]?.amount) || 0),
+              payment_id: s.payment_id || s.paymentId || "OFFLINE_RECORD",
+              status: s.status || "completed",
+              created_at: s.registeredAt || s.created_at || new Date().toISOString(),
+              photo: s.photo || s.photoUrl || s.avatar,
+              identity_proof: s.identity_proof || s.identityProofUrl,
+              identity_proof_name: s.identity_proof_name,
+              education_proof: s.education_proof || s.marksheetUrl,
+              education_proof_name: s.education_proof_name,
+              caste_certificate: s.caste_certificate || s.casteCertUrl,
+              caste_certificate_name: s.caste_certificate_name,
+              education: s.education,
+              college_name: s.college_name || s.collegeName,
+              address: s.address || s.city || "",
+              gender: s.gender,
+              dob: s.dob || s.date_of_birth,
+              message: `PRN: ${s.prn || ""} | Student Portal Account`,
+            };
+            upsertAdmission(synthesized);
           }
         }
       } catch {}
 
-      const allMerged = Array.from(mergedMap.values());
-      // Exclude only system batch capacity configuration rows
-      const validAdmissions = allMerged.filter((a) => !isSystemConfigRow(a));
+      const validAdmissions = Array.from(mergedMap.values());
 
       if (validAdmissions.length > 0) {
         setAdmissions(validAdmissions);
@@ -636,9 +680,13 @@ export default function AdminDashboard() {
 
   const loadStudents = async () => {
     try {
+      const delStudents = getDeletedStudents();
+      const delIds = new Set(delStudents.map((d) => d.id || d.student?.id).filter(Boolean));
+
       const localList = getAllRegisteredStudents();
-      if (localList.length > 0) {
-        setStudents(localList);
+      const cleanLocal = localList.filter((s) => !delIds.has(s.id));
+      if (cleanLocal.length > 0) {
+        setStudents(cleanLocal);
         setStudentsLoading(false);
       } else if (students.length === 0) {
         setStudentsLoading(true);
@@ -646,7 +694,8 @@ export default function AdminDashboard() {
 
       const cloudList = await fetchRegisteredStudentsFromCloud(true);
       if (cloudList && cloudList.length > 0) {
-        setStudents(cloudList);
+        const cleanCloud = cloudList.filter((s) => !delIds.has(s.id));
+        setStudents(cleanCloud);
       }
     } catch (err) {
       console.error("Error loading students:", err);
@@ -784,13 +833,45 @@ export default function AdminDashboard() {
       return matchesSearch && matchesCourse && matchesBatch && matchesStatus;
     });
 
-    // Deduplicate strictly by unique ID
+    // Deduplicate strictly by compound signature (payment reference -> email+program -> id)
     const deduped: Admission[] = [];
-    const seenIds = new Set<string>();
+    const seenSignatures = new Set<string>();
 
     for (const a of list) {
-      if (a.id && seenIds.has(a.id)) continue;
-      if (a.id) seenIds.add(a.id);
+      const pid = (a.payment_id || "").trim();
+      const hasValidPid = pid && pid !== "OFFLINE_RECORD" && !pid.startsWith("PAY_ADM_");
+      const eKey = (a.email || "").trim().toLowerCase();
+      const pKey = (a.program || "").trim().toLowerCase();
+
+      const key = hasValidPid
+        ? `pid_${pid.toLowerCase()}`
+        : eKey && pKey
+        ? `sig_${eKey}::${pKey}`
+        : `id_${a.id || ""}`;
+
+      if (seenSignatures.has(key)) {
+        // Merge documents into existing entry if it lacked any
+        const existing = deduped.find((ex) => {
+          const exPid = (ex.payment_id || "").trim();
+          const exHasValidPid = exPid && exPid !== "OFFLINE_RECORD" && !exPid.startsWith("PAY_ADM_");
+          const exEKey = (ex.email || "").trim().toLowerCase();
+          const exPKey = (ex.program || "").trim().toLowerCase();
+          const exKey = exHasValidPid
+            ? `pid_${exPid.toLowerCase()}`
+            : exEKey && exPKey
+            ? `sig_${exEKey}::${exPKey}`
+            : `id_${ex.id || ""}`;
+          return exKey === key;
+        });
+        if (existing) {
+          if (!existing.photo && a.photo) existing.photo = a.photo;
+          if (!existing.identity_proof && a.identity_proof) existing.identity_proof = a.identity_proof;
+          if (!existing.education_proof && a.education_proof) existing.education_proof = a.education_proof;
+          if (!existing.caste_certificate && a.caste_certificate) existing.caste_certificate = a.caste_certificate;
+        }
+        continue;
+      }
+      seenSignatures.add(key);
       deduped.push(a);
     }
 
@@ -1192,18 +1273,23 @@ export default function AdminDashboard() {
         const res = await fetch(`/api/admissions?${queryParams.toString()}`);
         if (res.ok) {
           const json = await res.json();
-          if (json.success && json.data) {
-            const docData = json.data;
+          const docData = Array.isArray(json.data) ? json.data[0] : json.data;
+          if (docData) {
+            let meta: any = {};
+            if (docData.message && typeof docData.message === "string" && docData.message.trim().startsWith("{")) {
+              try { meta = JSON.parse(docData.message); } catch {}
+            }
+
             const updatedStudent: StudentUser = {
               ...student,
-              photo: docData.photo || (docData as any).photoUrl || student.photo,
-              photo_name: docData.photo_name || student.photo_name,
-              identity_proof: docData.identity_proof || (docData as any).identityProofUrl || student.identity_proof,
-              identity_proof_name: docData.identity_proof_name || student.identity_proof_name,
-              education_proof: docData.education_proof || docData.marksheetUrl || student.education_proof,
-              education_proof_name: docData.education_proof_name || student.education_proof_name,
-              caste_certificate: docData.caste_certificate || (docData as any).casteCertUrl || student.caste_certificate,
-              caste_certificate_name: docData.caste_certificate_name || student.caste_certificate_name,
+              photo: docData.photo || (docData as any).photoUrl || meta.photo || meta.photoUrl || meta.avatar || student.photo,
+              photo_name: docData.photo_name || meta.photo_name || student.photo_name,
+              identity_proof: docData.identity_proof || (docData as any).identityProofUrl || meta.identity_proof || meta.identityProofUrl || student.identity_proof,
+              identity_proof_name: docData.identity_proof_name || meta.identity_proof_name || student.identity_proof_name,
+              education_proof: docData.education_proof || docData.marksheetUrl || meta.education_proof || meta.marksheetUrl || student.education_proof,
+              education_proof_name: docData.education_proof_name || meta.education_proof_name || student.education_proof_name,
+              caste_certificate: docData.caste_certificate || (docData as any).casteCertUrl || meta.caste_certificate || meta.casteCertUrl || student.caste_certificate,
+              caste_certificate_name: docData.caste_certificate_name || meta.caste_certificate_name || student.caste_certificate_name,
             };
 
             setSelectedStudent(updatedStudent);
@@ -1240,8 +1326,9 @@ export default function AdminDashboard() {
         const res = await fetch(`/api/admissions?${queryParams.toString()}`);
         if (res.ok) {
           const json = await res.json();
-          if (json.success && json.data) {
-            const fullNorm = normalizeAdmission(json.data);
+          const rawDoc = Array.isArray(json.data) ? json.data[0] : json.data;
+          if (rawDoc) {
+            const fullNorm = normalizeAdmission(rawDoc);
             setSelectedAdmission((prev) =>
               prev && (prev.id === admission.id || prev.email === admission.email) ? { ...prev, ...fullNorm } : prev
             );
@@ -1658,7 +1745,14 @@ export default function AdminDashboard() {
     try {
       setDeletingAdmissionId(id);
       await softDeleteAdmission(target, "Admin");
-      setAdmissions((prev) => prev.filter((a) => a.id !== id));
+      setAdmissions((prev) =>
+        prev.filter(
+          (a) =>
+            a.id !== id &&
+            (!target.payment_id || target.payment_id === "OFFLINE_RECORD" || a.payment_id !== target.payment_id) &&
+            (!target.email || !target.program || a.email?.toLowerCase() !== target.email.toLowerCase() || a.program !== target.program)
+        )
+      );
       if (selectedAdmission && selectedAdmission.id === id) {
         setSelectedAdmission(null);
       }
@@ -1721,7 +1815,14 @@ export default function AdminDashboard() {
     try {
       setDeletingStudentId(id);
       await softDeleteStudent(target, "Admin");
-      setStudents((prev) => prev.filter((s) => s.id !== id));
+      setStudents((prev) =>
+        prev.filter(
+          (s) =>
+            s.id !== id &&
+            (!target.prn || s.prn !== target.prn) &&
+            (!target.email || s.email?.toLowerCase() !== target.email.toLowerCase())
+        )
+      );
       if (selectedStudent && selectedStudent.id === id) {
         setSelectedStudent(null);
       }
