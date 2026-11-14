@@ -7,113 +7,75 @@ import {
   ChevronRight,
   ChevronLeft,
   X,
-  CheckCircle2,
-  Video,
   Award,
   Users,
-  Eye,
-  Clock
 } from "lucide-react";
 
 export interface YouTubeShortItem {
   id: string;
-  badge: string;
-  category: "Spoken Practice" | "Live Classroom" | "Global Careers" | "Student Stories";
   title: string;
-  subtitle?: string;
   description: string;
-  duration: string;
-  views: string;
-  tags: string[];
   url: string;
 }
+
+export const FEATURED_STORY_VIDEO = {
+  id: "xEjvPDR2ya8",
+  title: "The Heart of Parivattan: Grassroots Transformation & Student Stories",
+  subtitle: "Authentic Documentary · Inspiring Real Stories from Maharashtra",
+  description:
+    "Witness the inspiring journey of students and mentors building life-changing foreign language and educational pathways across rural and semi-urban Maharashtra. A powerful story of hope, resilience, and global opportunities.",
+  url: "https://youtu.be/xEjvPDR2ya8",
+};
 
 export const YOUTUBE_SHORTS: YouTubeShortItem[] = [
   {
     id: "_EEthfJ3nqM",
-    badge: "Session 01",
-    category: "Live Classroom",
-    title: "Classroom Energy & Language Fundamentals",
-    subtitle: "Real Classroom Energy & Core Language Immersion",
-    description: "Real glimpses from our classroom sessions showing students enthusiastically learning language phonetics, script basics, and spoken confidence.",
-    duration: "0:45",
-    views: "2.4K+ Views",
-    tags: ["Foundation", "Classroom Energy", "Interactive"],
+    title: "Classroom Energy & Fundamentals",
+    description:
+      "Students enthusiastically learning foreign language phonetics, script basics, and spoken confidence at our Chhatrapati Sambhajinagar learning circle.",
     url: "https://youtube.com/shorts/_EEthfJ3nqM",
   },
   {
     id: "aoG4lvsm5Lw",
-    badge: "Session 02",
-    category: "Spoken Practice",
-    title: "Foreign Language Speaking & Confidence Drills",
-    subtitle: "Spoken Fluency Drills & Confidence Building",
-    description: "Students building real-time spoken fluency through interactive dialogue, partner practice, vocabulary games, and everyday situation drills.",
-    duration: "0:52",
-    views: "3.1K+ Views",
-    tags: ["Spoken Fluency", "German & Japanese", "Confidence"],
+    title: "Foreign Language Speaking Drills",
+    description:
+      "Students building spoken fluency through interactive dialogue, vocabulary drills, and real-time situational communication.",
     url: "https://youtube.com/shorts/aoG4lvsm5Lw",
   },
   {
     id: "2qEHNtsCrR4",
-    badge: "Session 03",
-    category: "Live Classroom",
-    title: "Interactive Workshop & Peer Practice Circles",
-    subtitle: "Collaborative Learning & Dynamic Workshops",
-    description: "Dynamic classroom engagement where first-generation learners practice together in an empowering, supportive community circle without hesitation.",
-    duration: "0:48",
-    views: "1.9K+ Views",
-    tags: ["Peer Learning", "Group Drills", "Youth Circle"],
+    title: "Interactive Peer Learning Circles",
+    description:
+      "Collaborative peer learning and supportive community practice helping first-generation learners overcome stage fear.",
     url: "https://youtube.com/shorts/2qEHNtsCrR4",
   },
   {
     id: "L5l16Lq6sYY",
-    badge: "Session 04",
-    category: "Global Careers",
-    title: "Global Careers, JLPT & Overseas Guidance",
-    subtitle: "Global Career Pathways & International Exams",
-    description: "Comprehensive guidance on international scholarships, JLPT (Japanese) & Goethe (German) certifications, and verified career pathways abroad.",
-    duration: "0:59",
-    views: "4.2K+ Views",
-    tags: ["JLPT / Goethe", "Global Careers", "Scholarships"],
+    title: "Global Careers & JLPT Guidance",
+    description:
+      "Expert mentorship on international certifications (JLPT & Goethe), scholarships, and verified career pathways abroad.",
     url: "https://youtube.com/shorts/L5l16Lq6sYY",
   },
   {
     id: "G6pjOW4Njnk",
-    badge: "Session 05",
-    category: "Student Stories",
-    title: "Parivattan Movement & Transformative Journeys",
-    subtitle: "Grassroots Transformation & Inspiring Stories",
-    description: "Inspiring journey of dedicated students from rural and semi-urban Maharashtra transforming their life prospects through affordable world-class education.",
-    duration: "0:50",
-    views: "3.8K+ Views",
-    tags: ["Grassroots Impact", "Inspiration", "Maharashtra"],
+    title: "Student Determination & Journeys",
+    description:
+      "Inspiring glimpses of young learners from rural Maharashtra transforming their prospects through language education.",
     url: "https://youtube.com/shorts/G6pjOW4Njnk",
   },
 ];
-
-const CATEGORIES = [
-  "All Moments",
-  "Spoken Practice",
-  "Live Classroom",
-  "Global Careers",
-  "Student Stories",
-] as const;
 
 interface ClassroomVideosProps {
   idPrefix?: string;
   className?: string;
 }
 
-export default function ClassroomVideos({ idPrefix = "home", className = "" }: ClassroomVideosProps) {
-  const [selectedCategory, setSelectedCategory] = useState<string>("All Moments");
-
-  // Cinema Lightbox Modal
+export default function ClassroomVideos({
+  idPrefix = "home",
+  className = "",
+}: ClassroomVideosProps) {
+  // Cinema Lightbox Modal for shorts
   const [modalVideo, setModalVideo] = useState<YouTubeShortItem | null>(null);
-
-  // Filtered shorts
-  const filteredShorts = selectedCategory === "All Moments"
-    ? YOUTUBE_SHORTS
-    : YOUTUBE_SHORTS.filter((item) => item.category === selectedCategory);
 
   // Handle keyboard navigation for modal
   useEffect(() => {
@@ -154,139 +116,155 @@ export default function ClassroomVideos({ idPrefix = "home", className = "" }: C
 
       <div className="container relative z-10 mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
         {/* ================= 1. SECTION HEADER ================= */}
-        <div className="flex flex-col items-center text-center max-w-3xl mx-auto mb-10 sm:mb-12">
+        <div className="flex flex-col items-center text-center max-w-3xl mx-auto mb-12 sm:mb-14">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-red-600/15 border border-red-500/30 text-red-300 text-xs sm:text-sm font-semibold tracking-wide uppercase mb-4 shadow-sm backdrop-blur-sm">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
             </span>
             <Youtube className="w-4 h-4 text-red-400" />
-            <span className="font-extrabold tracking-wider">Live Classroom Moments · YouTube Shorts</span>
+            <span className="font-extrabold tracking-wider">
+              Parivattan Stories & Classroom Moments
+            </span>
           </div>
 
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold text-white tracking-tight">
-            Watch Our Students In Action
+            Watch Our Journey & Classrooms
           </h2>
           <p className="mt-2 text-sm sm:text-base font-medium text-amber-200/90">
-            Parivattan Mission Foundation — Live Classroom Moments & Student Journeys
+            Parivattan Mission Foundation — Real Impact from Maharashtra
           </p>
 
           <p className="mt-4 text-sm sm:text-base text-stone-300 leading-relaxed font-light max-w-2xl">
-            Real classroom energy, student spoken confidence, foreign language immersion drills, and
-            empowering journeys recorded live at our Chhatrapati Sambhajinagar learning circles.
+            Real stories of transformation, student determination, and foreign language immersion
+            drills recorded live across our learning circles.
           </p>
 
           {/* Quick Metrics Badges */}
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-xs text-stone-300">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm">
               <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              <span>100% Practical Spoken Drills</span>
+              <span>Real Student Stories</span>
             </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm">
               <Award className="w-3.5 h-3.5 text-emerald-400" />
-              <span>JLPT & Goethe Oriented</span>
+              <span>100% Practical Spoken Drills</span>
             </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm">
               <Users className="w-3.5 h-3.5 text-sky-400" />
-              <span>First-Gen Rural Youth Confidence</span>
+              <span>JLPT & Goethe Oriented</span>
             </span>
           </div>
         </div>
 
-        {/* ================= 2. CATEGORY FILTER TABS ================= */}
-        <div className="flex items-center justify-center gap-2 flex-wrap mb-10">
-          {CATEGORIES.map((cat) => {
-            const isSelected = selectedCategory === cat;
-            return (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
-                  isSelected
-                    ? "bg-[#b5623b] text-white shadow-md shadow-[#b5623b]/25 ring-1 ring-white/20 scale-[1.02]"
-                    : "bg-white/5 hover:bg-white/10 text-stone-300 hover:text-white border border-white/10"
-                }`}
-              >
-                <span>{cat}</span>
-                {cat === "All Moments" && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-black/30 text-stone-200">
-                    {YOUTUBE_SHORTS.length}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+        {/* ================= 2. GRAND FEATURED STORY VIDEO (BIG WIDESCREEN SHOWCASE) ================= */}
+        <div className="mb-16 rounded-3xl bg-gradient-to-br from-[#1c2925] via-[#20312b] to-[#17221f] border border-white/15 p-5 sm:p-7 md:p-9 shadow-2xl overflow-hidden relative">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
+            {/* Big Video Player Container (Widescreen 16:9) */}
+            <div className="lg:col-span-8 relative aspect-video rounded-2xl overflow-hidden shadow-2xl bg-black border border-white/10 group">
+              <iframe
+                src={`https://www.youtube.com/embed/${FEATURED_STORY_VIDEO.id}?rel=0&modestbranding=1`}
+                title={FEATURED_STORY_VIDEO.title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                className="w-full h-full border-0"
+              />
+            </div>
+
+            {/* Side Story Details */}
+            <div className="lg:col-span-4 flex flex-col justify-center space-y-4 text-left">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#e5a37f]/20 border border-[#e5a37f]/30 text-[#f2c5a8] text-xs font-bold uppercase tracking-wider w-fit">
+                <Sparkles className="w-3.5 h-3.5 text-[#e5a37f]" />
+                <span>Featured Documentary</span>
+              </div>
+
+              <h3 className="text-2xl sm:text-3xl font-serif font-bold text-white leading-snug">
+                {FEATURED_STORY_VIDEO.title}
+              </h3>
+
+              <p className="text-stone-300 text-xs sm:text-sm leading-relaxed font-light">
+                {FEATURED_STORY_VIDEO.description}
+              </p>
+
+              <div className="pt-2 flex flex-wrap gap-2 text-xs">
+                <span className="px-3 py-1 rounded-full bg-white/10 text-white/90 font-medium">
+                  #OurStory
+                </span>
+                <span className="px-3 py-1 rounded-full bg-white/10 text-white/90 font-medium">
+                  #GrassrootsImpact
+                </span>
+                <span className="px-3 py-1 rounded-full bg-white/10 text-white/90 font-medium">
+                  #Maharashtra
+                </span>
+              </div>
+
+              <div className="pt-3">
+                <a
+                  href={FEATURED_STORY_VIDEO.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-red-600 hover:bg-red-500 text-white font-bold text-xs sm:text-sm transition-all shadow-lg hover:shadow-red-600/30 hover:-translate-y-0.5"
+                >
+                  <Youtube className="w-4 h-4" />
+                  <span>Watch on YouTube</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* ================= 3. MAIN CENTERPIECE: 5 VERTICAL REEL CARDS IN A LINE ================= */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5 items-stretch">
-          {filteredShorts.map((short) => (
+        {/* ================= 3. CLASSROOM SHORTS HEADER ================= */}
+        <div className="text-left mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-white/10 pb-4">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-wider text-[#e5a37f]">
+              Live Classroom Drills
+            </span>
+            <h3 className="text-xl sm:text-2xl font-serif font-bold text-white mt-1">
+              Shorts & Practice Moments
+            </h3>
+          </div>
+          <p className="text-xs text-stone-400">
+            Click any short to watch interactive peer practice
+          </p>
+        </div>
+
+        {/* ================= 4. CLEAN VERTICAL SHORTS CARDS (ZERO DUMMY OVERLAYS) ================= */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-5 items-stretch">
+          {YOUTUBE_SHORTS.map((short) => (
             <div
               key={short.id}
               onClick={() => setModalVideo(short)}
-              className="group relative rounded-3xl overflow-hidden bg-black/60 border border-white/15 hover:border-red-500/60 shadow-xl hover:shadow-2xl hover:shadow-red-950/40 cursor-pointer transition-all duration-300 hover:-translate-y-2 flex flex-col justify-between aspect-[9/16] ring-1 ring-white/10 hover:ring-red-500/40"
+              className="group relative rounded-2xl overflow-hidden bg-black border border-white/15 hover:border-red-500/70 shadow-lg hover:shadow-2xl hover:shadow-red-950/40 cursor-pointer transition-all duration-300 hover:-translate-y-1.5 flex flex-col aspect-[9/16]"
             >
-              {/* Background Thumbnail Image */}
+              {/* Background Thumbnail Image - 100% visible, no dummy text covering it */}
               <img
                 src={`https://img.youtube.com/vi/${short.id}/hqdefault.jpg`}
                 alt={short.title}
-                className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-80 group-hover:opacity-95"
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
               />
 
-              {/* Dark Gradients Top and Bottom for readable text */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-black/75 pointer-events-none" />
+              {/* Gentle gradient overlay only for depth on hover */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/20 group-hover:from-black/90 transition-opacity" />
 
-              {/* TOP HEADER OVERLAY */}
-              <div className="relative z-10 p-3.5 flex items-center justify-between">
-                <span className="px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-md text-[11px] font-bold text-stone-200 border border-white/20 shadow-xs">
-                  {short.badge}
-                </span>
-                <span className="px-2.5 py-1 rounded-lg bg-red-600/90 backdrop-blur-md text-[11px] font-extrabold text-white flex items-center gap-1 shadow-sm">
-                  <Youtube className="w-3 h-3" />
-                  <span>Short</span>
-                </span>
-              </div>
-
-              {/* CENTER FLOATING PLAY BUTTON */}
+              {/* Clean Central Play Button */}
               <div className="relative z-10 flex flex-col items-center justify-center my-auto">
-                <div className="w-14 h-14 rounded-full bg-red-600/90 group-hover:bg-red-500 text-white flex items-center justify-center shadow-2xl transition-all duration-300 group-hover:scale-115 ring-4 ring-white/30 group-hover:ring-red-600/50">
-                  <Play className="w-6 h-6 fill-current ml-0.5" />
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-red-600/95 group-hover:bg-red-500 text-white flex items-center justify-center shadow-2xl transition-all duration-300 group-hover:scale-110 ring-4 ring-white/20">
+                  <Play className="w-5 h-5 sm:w-6 sm:h-6 fill-current ml-0.5" />
                 </div>
-                <span className="mt-2 px-3 py-1 rounded-full bg-black/70 backdrop-blur-md text-[10px] font-semibold text-stone-200 opacity-0 group-hover:opacity-100 transition-opacity border border-white/15">
-                  Tap to Watch
-                </span>
               </div>
 
-              {/* BOTTOM INFO OVERLAY */}
-              <div className="relative z-10 p-4 text-left space-y-1.5 bg-gradient-to-t from-black/95 via-black/80 to-transparent pt-6">
-                <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider block">
-                  {short.category}
-                </span>
-
-                <h4 className="text-xs sm:text-sm font-bold text-white line-clamp-2 leading-snug group-hover:text-amber-200 transition-colors">
+              {/* Clean Single-Line Title at bottom */}
+              <div className="relative z-10 p-3 bg-gradient-to-t from-black via-black/90 to-transparent">
+                <p className="text-xs font-semibold text-white/95 group-hover:text-amber-200 transition-colors line-clamp-1">
                   {short.title}
-                </h4>
-
-                <p className="text-[11px] text-amber-200/90 font-medium truncate">
-                  {short.marathiTitle}
                 </p>
-
-                <div className="flex items-center justify-between pt-2 border-t border-white/10 text-[10px] font-mono text-stone-300">
-                  <span className="flex items-center gap-1">
-                    <Eye className="w-3 h-3 text-stone-400" />
-                    <span>{short.views}</span>
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3 text-stone-400" />
-                    <span>{short.duration}</span>
-                  </span>
-                </div>
               </div>
             </div>
           ))}
         </div>
 
-        {/* ================= 4. OFFICIAL YOUTUBE CHANNEL CTA BANNER ================= */}
+        {/* ================= 5. OFFICIAL YOUTUBE CHANNEL CTA BANNER ================= */}
         <div className="mt-14 rounded-3xl bg-gradient-to-r from-red-950/60 via-[#24312d] to-[#1a2522] border border-white/15 p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl relative overflow-hidden">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-red-600 text-white flex items-center justify-center shrink-0 shadow-lg ring-4 ring-red-600/20">
@@ -321,14 +299,14 @@ export default function ClassroomVideos({ idPrefix = "home", className = "" }: C
         </div>
       </div>
 
-      {/* ================= 5. CINEMA LIGHTBOX THEATER MODAL ================= */}
+      {/* ================= 6. CINEMA LIGHTBOX THEATER MODAL ================= */}
       {modalVideo && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/90 backdrop-blur-md animate-fade-in"
           onClick={() => setModalVideo(null)}
         >
           <div
-            className="relative w-full max-w-4xl bg-[#14201b] rounded-3xl border border-white/20 shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[92vh]"
+            className="relative w-full max-w-3xl bg-[#14201b] rounded-3xl border border-white/20 shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[92vh]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close Button */}
@@ -340,15 +318,15 @@ export default function ClassroomVideos({ idPrefix = "home", className = "" }: C
               <X className="w-5 h-5" />
             </button>
 
-            {/* Left: 9:16 Video Player Container */}
-            <div className="md:w-1/2 bg-black flex items-center justify-center relative min-h-[380px] md:min-h-[560px]">
+            {/* 9:16 Video Player Container */}
+            <div className="md:w-1/2 bg-black flex items-center justify-center relative min-h-[380px] md:min-h-[520px]">
               <iframe
                 key={modalVideo.id}
                 src={`https://www.youtube-nocookie.com/embed/${modalVideo.id}?autoplay=1&rel=0&modestbranding=1`}
                 title={modalVideo.title}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
-                className="w-full h-full aspect-[9/16] max-h-[560px] border-0"
+                className="w-full h-full aspect-[9/16] max-h-[520px] border-0"
               />
 
               {/* Prev / Next Video Float Arrows */}
@@ -368,62 +346,16 @@ export default function ClassroomVideos({ idPrefix = "home", className = "" }: C
               </button>
             </div>
 
-            {/* Right: Detailed Video Information */}
-            <div className="md:w-1/2 p-6 sm:p-8 flex flex-col justify-between overflow-y-auto space-y-4">
+            {/* Video Details */}
+            <div className="md:w-1/2 p-6 sm:p-8 flex flex-col justify-between overflow-y-auto space-y-4 text-left">
               <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="px-3 py-1 rounded-full bg-red-600/20 text-red-300 text-xs font-bold border border-red-500/30">
-                    {modalVideo.badge}
-                  </span>
-                  <span className="text-xs text-stone-400 font-medium">
-                    {modalVideo.category}
-                  </span>
-                </div>
-
                 <h3 className="text-xl sm:text-2xl font-serif font-bold text-white leading-tight">
                   {modalVideo.title}
                 </h3>
-                <p className="mt-1 text-sm font-medium text-amber-200">
-                  {modalVideo.marathiTitle}
-                </p>
 
-                <p className="mt-4 text-xs sm:text-sm text-stone-300 leading-relaxed font-light">
+                <p className="mt-3 text-xs sm:text-sm text-stone-300 leading-relaxed font-light">
                   {modalVideo.description}
                 </p>
-
-                {/* Session Highlights */}
-                <div className="mt-6 p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
-                  <h5 className="text-xs font-bold uppercase tracking-wider text-stone-300 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                    <span>Key Classroom Highlights</span>
-                  </h5>
-                  <ul className="text-xs text-stone-300 space-y-1.5 font-light">
-                    <li className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                      <span>Live interactive speaking drills and phonetics practice</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                      <span>Peer-to-peer dialogue circles removing stage fear</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
-                      <span>Direct mentor feedback & certification guidance</span>
-                    </li>
-                  </ul>
-                </div>
-
-                {/* Tags */}
-                <div className="mt-4 flex flex-wrap gap-1.5">
-                  {modalVideo.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="px-2.5 py-0.5 rounded-full bg-white/10 text-[10px] text-stone-300"
-                    >
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
               </div>
 
               {/* Bottom Actions */}
@@ -443,7 +375,7 @@ export default function ClassroomVideos({ idPrefix = "home", className = "" }: C
                   onClick={() => setModalVideo(null)}
                   className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-stone-300 hover:text-white text-xs font-semibold transition cursor-pointer"
                 >
-                  Close Theater
+                  Close
                 </button>
               </div>
             </div>

@@ -93,6 +93,33 @@ export default function ContentPage() {
     {path === "/campaigns" && <><PageIntro eyebrow="Active campaigns" title="Small actions, lasting ripples." copy="Join the live efforts helping learners find the confidence, tools and support to keep moving forward." /><section className="page-section"><div className="grid gap-6 md:grid-cols-2"><Campaign title="Sponsor a learning kit" detail="Help put books, internet access and mentoring within reach for a learner." amount="₹1,500" /><Campaign title="Sponsor a month of classes" detail="Keep our community-led classrooms open and welcoming." amount="₹3,000" /></div></section></>}
     {path === "/story" && <>
       <PageIntro eyebrow="Our story" title="A timeline of showing up." copy="The work has grown, but the reason remains close to the ground: listen, learn and build with people." />
+
+      {/* Featured Documentary Video */}
+      <section className="page-section !pt-0 !pb-12">
+        <div className="rounded-3xl bg-[#1c2925] p-6 sm:p-8 md:p-10 text-white shadow-xl overflow-hidden border border-white/10">
+          <div className="max-w-3xl mb-6">
+            <span className="inline-block px-3.5 py-1 rounded-full bg-[#e5a37f]/20 border border-[#e5a37f]/40 text-[#f2c5a8] text-xs font-bold uppercase tracking-wider mb-3">
+              Documentary Video
+            </span>
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-serif text-white">
+              Watch Our Story: The Heart of Parivattan
+            </h2>
+            <p className="mt-2 text-stone-300 text-sm sm:text-base leading-relaxed">
+              Step inside our classrooms and hear directly from the students, teachers, and founders leading the educational movement across Maharashtra.
+            </p>
+          </div>
+          <div className="relative aspect-video w-full rounded-2xl overflow-hidden shadow-2xl bg-black border border-white/10">
+            <iframe
+              src="https://www.youtube.com/embed/xEjvPDR2ya8?rel=0&modestbranding=1"
+              title="Parivattan Mission Foundation - Our Story"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              className="w-full h-full border-0"
+            />
+          </div>
+        </div>
+      </section>
+
       <section className="page-section">
         <div className="space-y-5">
           {timeline.map(([year, text]) => (
