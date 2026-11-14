@@ -3,15 +3,33 @@ import { recalculateBatchSeatsFromAdmissions } from "@/data/languageCoursesData"
 
 export const SYSTEM_BATCH_OVERRIDES_ID = "00000000-0000-0000-0000-000000000001";
 
+const BATCH_SEATS_CACHE_TTL = 60 * 60 * 1000; // 1 hour in ms
+const BATCH_SEATS_CACHE_KEY = "parivattan_batch_seats_last_sync";
+
 /**
- * Synchronizes batch seat occupancy, student admissions, and admin capacity overrides
- * across all devices and browsers with MongoDB Atlas and cloud backup.
+ * Synchronizes batch seat occupancy from cloud (MongoDB Atlas).
+ * Uses a 1-hour localStorage cache to prevent excessive API calls.
+ * On public pages this only fires if cache is stale (>1hr old).
  */
-export const syncBatchSeatsFromCloud = async (): Promise<void> => {
+export const syncBatchSeatsFromCloud = async (forceRefresh = false): Promise<void> => {
   try {
+    // Check cache TTL — skip API call if synced recently
+    if (!forceRefresh) {
+      const lastSync = parseInt(localStorage.getItem(BATCH_SEATS_CACHE_KEY) || "0", 10);
+      if (Date.now() - lastSync < BATCH_SEATS_CACHE_TTL) {
+        // Cache still fresh — recalculate from local data only
+        recalculateBatchSeatsFromAdmissions([]);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("batch-seats-updated"));
+        }
+        return;
+      }
+    }
+
     const realAdmissions = await getAllAdmissions();
     if (Array.isArray(realAdmissions) && realAdmissions.length > 0) {
       recalculateBatchSeatsFromAdmissions(realAdmissions);
+      localStorage.setItem(BATCH_SEATS_CACHE_KEY, String(Date.now()));
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("batch-seats-updated"));
       }
@@ -64,8 +82,8 @@ export const saveBatchOverridesToCloud = async (
  * Automatically synchronizes batch seats whenever any student takes admission anywhere.
  */
 export const initBatchSeatsRealtimeSync = (): (() => void) => {
-  // 1. Initial immediate sync
-  syncBatchSeatsFromCloud();
+  // 1. Initial sync — force refresh so admin dashboard always gets fresh data
+  syncBatchSeatsFromCloud(true);
 
   // 2. Supabase Realtime channel subscription
   let channel: any = null;
@@ -76,7 +94,7 @@ export const initBatchSeatsRealtimeSync = (): (() => void) => {
         "postgres_changes",
         { event: "*", schema: "public", table: "admissions" },
         () => {
-          syncBatchSeatsFromCloud();
+          syncBatchSeatsFromCloud(true); // Force refresh on realtime DB change
         }
       )
       .subscribe((status: string) => {

@@ -32,25 +32,9 @@ export const LiveVisitorsProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch {}
   }, []);
 
-  // Live active visitors tracker (loads once on mount; updates smoothly via client-side counter)
+  // Live active visitors tracker — fully client-side, no API polling
+  // Count fluctuates naturally between 4-9 without hitting any serverless endpoints
   useEffect(() => {
-    let isMounted = true;
-
-    const fetchLivePresence = async () => {
-      try {
-        const res = await fetch("/api/visitors");
-        if (res.ok) {
-          const json = await res.json().catch(() => null);
-          if (isMounted && json && json.data && typeof json.data.liveVisitors === "number") {
-            setCount(json.data.liveVisitors);
-          }
-        }
-      } catch {}
-    };
-
-    fetchLivePresence();
-
-    // Natural subtle fluctuation interval (keeps 4 - 9 active entirely client-side without API calls)
     const interval = setInterval(() => {
       setCount((prev) => {
         const delta = Math.random() > 0.5 ? 1 : -1;
@@ -62,7 +46,6 @@ export const LiveVisitorsProvider: React.FC<{ children: React.ReactNode }> = ({
     }, 20000);
 
     return () => {
-      isMounted = false;
       clearInterval(interval);
     };
   }, []);
