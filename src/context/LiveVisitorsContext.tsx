@@ -5,13 +5,13 @@ interface LiveVisitorsContextValue {
   count: number;
 }
 
-const LiveVisitorsContext = createContext<LiveVisitorsContextValue>({ count: 5 });
+const LiveVisitorsContext = createContext<LiveVisitorsContextValue>({ count: 1 });
 
 export const LiveVisitorsProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  // Start with a natural concurrent presence baseline (e.g. 5-7 active visitors)
-  const [count, setCount] = useState(() => Math.floor(Math.random() * 3) + 5);
+  // Real baseline: the current visitor (1 active session)
+  const [count, setCount] = useState(1);
 
   // Global visitor session tracking (fires at most once per user per day, ignores bots)
   useEffect(() => {
@@ -47,24 +47,6 @@ export const LiveVisitorsProvider: React.FC<{ children: React.ReactNode }> = ({
         user_agent: ua,
       });
     } catch {}
-  }, []);
-
-  // Live active visitors tracker — fully client-side, no API polling
-  // Count fluctuates naturally between 4-9 without hitting any serverless endpoints
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCount((prev) => {
-        const delta = Math.random() > 0.5 ? 1 : -1;
-        const next = prev + delta;
-        if (next < 4) return 4;
-        if (next > 9) return 9;
-        return next;
-      });
-    }, 20000);
-
-    return () => {
-      clearInterval(interval);
-    };
   }, []);
 
   return (

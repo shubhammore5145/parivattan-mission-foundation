@@ -87,7 +87,7 @@ export async function getVisitorStatsFromMongo() {
       thisWeek: BASELINE_WEEK + weekCount,
       thisMonth: BASELINE_MONTH + monthCount,
       total: BASELINE_TOTAL + totalCount,
-      liveVisitors: Math.max(activeSessionsCount + 4, 5),
+      liveVisitors: Math.max(activeSessionsCount, 1),
     };
 
     cachedStats = stats;
@@ -101,7 +101,7 @@ export async function getVisitorStatsFromMongo() {
       thisWeek: BASELINE_WEEK,
       thisMonth: BASELINE_MONTH,
       total: BASELINE_TOTAL,
-      liveVisitors: 6,
+      liveVisitors: 1,
     };
   }
 }
@@ -212,7 +212,7 @@ export async function handleVisitorsRequest(req, res) {
         thisWeek: BASELINE_WEEK,
         thisMonth: BASELINE_MONTH,
         total: BASELINE_TOTAL,
-        liveVisitors: 6,
+        liveVisitors: 1,
       },
     });
   }
