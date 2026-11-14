@@ -281,41 +281,33 @@ export async function getAdmissionByIdFromMongo(id, extraQuery = {}) {
   const collection = db.collection("admissions");
   const studentsCollection = db.collection("students");
 
-  const orConditions = [];
+  let doc = null;
 
+  // 1. If an exact ID is passed, search for this exact record first!
   if (id) {
     const cleanId = String(id).trim();
-    orConditions.push({ id: cleanId });
-    if (ObjectId.isValid(cleanId)) {
-      try {
-        orConditions.push({ _id: new ObjectId(cleanId) });
-      } catch {}
+    const idOr = [{ id: cleanId }];
+    if (cleanId.length === 24 && /^[0-9a-fA-F]{24}$/.test(cleanId)) {
+      try { idOr.push({ _id: new ObjectId(cleanId) }); } catch {}
     }
-    if (cleanId.includes("@")) {
-      orConditions.push({ email: cleanId.toLowerCase() });
-      orConditions.push({ email: { $regex: new RegExp(`^${cleanId}$`, "i") } });
-    }
-    if (cleanId.startsWith("PMF") || cleanId.startsWith("PFLS")) {
-      orConditions.push({ prn: cleanId });
-      orConditions.push({ message: { $regex: cleanId } });
-    }
-    if (cleanId.startsWith("PAY_") || cleanId.startsWith("pay_")) {
-      orConditions.push({ payment_id: cleanId });
+    doc = await collection.findOne({ $or: idOr });
+    if (!doc) {
+      doc = await studentsCollection.findOne({ $or: idOr });
     }
   }
 
+  // 2. If no exact record found by ID, or if caller only passed email/phone/prn
+  const orConditions = [];
   if (extraQuery?.email) {
     const cleanEmail = String(extraQuery.email).trim().toLowerCase();
     orConditions.push({ email: cleanEmail });
     orConditions.push({ email: { $regex: new RegExp(`^${cleanEmail}$`, "i") } });
   }
-
   if (extraQuery?.prn) {
     const cleanPrn = String(extraQuery.prn).trim();
     orConditions.push({ prn: cleanPrn });
     orConditions.push({ message: { $regex: cleanPrn } });
   }
-
   if (extraQuery?.phone) {
     const cleanPhone = String(extraQuery.phone).replace(/\D/g, "");
     if (cleanPhone.length >= 7) {
@@ -323,47 +315,22 @@ export async function getAdmissionByIdFromMongo(id, extraQuery = {}) {
     }
   }
 
-  if (orConditions.length === 0) return null;
+  if (!doc && orConditions.length > 0) {
+    // Prioritize records that actually have heavy documents attached!
+    const docRecords = await collection.find({ $or: orConditions }).sort({ created_at: -1 }).toArray();
+    doc = docRecords.find(d => 
+      (d.identity_proof && d.identity_proof.length > 100) ||
+      (d.education_proof && d.education_proof.length > 100) ||
+      (d.photo && d.photo.length > 500)
+    ) || docRecords[0];
 
-  // 1. Search in admissions collection first (prioritize records with actual uploaded documents)
-  let doc = await collection.findOne(
-    {
-      $and: [
-        { $or: orConditions },
-        {
-          $or: [
-            { photo: { $type: "string", $ne: "" } },
-            { identity_proof: { $type: "string", $ne: "" } },
-            { education_proof: { $type: "string", $ne: "" } },
-            { caste_certificate: { $type: "string", $ne: "" } },
-          ],
-        },
-      ],
-    },
-    { sort: { created_at: -1 } }
-  );
-
-  if (!doc) {
-    doc = await collection.findOne(
-      { $or: orConditions },
-      { sort: { created_at: -1 } }
-    );
-  }
-
-  // 2. Fallback to students collection if still not found
-  if (!doc) {
-    const stdDoc = await studentsCollection.findOne(
-      { $or: orConditions },
-      { sort: { registeredAt: -1 } }
-    );
-    if (stdDoc) {
-      doc = {
-        ...stdDoc,
-        id: stdDoc.id || stdDoc.prn,
-        name: stdDoc.name,
-        email: stdDoc.email,
-        phone: stdDoc.phone,
-      };
+    if (!doc) {
+      const stdRecords = await studentsCollection.find({ $or: orConditions }).sort({ registeredAt: -1 }).toArray();
+      doc = stdRecords.find(s => 
+        (s.identity_proof && s.identity_proof.length > 100) ||
+        (s.education_proof && s.education_proof.length > 100) ||
+        (s.photo && s.photo.length > 500)
+      ) || stdRecords[0];
     }
   }
 
@@ -384,9 +351,13 @@ export async function getAdmissionByIdFromMongo(id, extraQuery = {}) {
     } catch {}
   }
 
-  // 4. Cross-reference between admissions and students collection to guarantee all uploaded documents are loaded
-  const hasDocuments = doc.photo || doc.identity_proof || doc.education_proof || doc.caste_certificate;
-  if (!hasDocuments && (doc.email || doc.phone || doc.prn)) {
+  // 4. Cross-reference companion records to ensure ANY missing document is recovered!
+  const needsMoreDocs = 
+    (!doc.identity_proof || doc.identity_proof.length < 100) ||
+    (!doc.education_proof || doc.education_proof.length < 100) ||
+    (!doc.photo || doc.photo.length < 500);
+
+  if (needsMoreDocs && (doc.email || doc.phone || doc.prn)) {
     try {
       const crossOr = [];
       if (doc.email) {
@@ -401,31 +372,24 @@ export async function getAdmissionByIdFromMongo(id, extraQuery = {}) {
         if (cleanP.length >= 7) crossOr.push({ phone: { $regex: cleanP } });
       }
       if (crossOr.length > 0) {
-        const comp = await collection.findOne(
-          {
-            $and: [
-              { $or: crossOr },
-              {
-                $or: [
-                  { photo: { $type: "string", $ne: "" } },
-                  { identity_proof: { $type: "string", $ne: "" } },
-                  { education_proof: { $type: "string", $ne: "" } },
-                  { caste_certificate: { $type: "string", $ne: "" } },
-                ],
-              },
-            ],
-          },
-          { sort: { created_at: -1 } }
-        );
-        if (comp) {
-          if (!doc.photo) doc.photo = comp.photo || comp.photoUrl || comp.avatar;
-          if (!doc.photo_name) doc.photo_name = comp.photo_name;
-          if (!doc.identity_proof) doc.identity_proof = comp.identity_proof || comp.identityProofUrl;
-          if (!doc.identity_proof_name) doc.identity_proof_name = comp.identity_proof_name;
-          if (!doc.education_proof) doc.education_proof = comp.education_proof || comp.marksheetUrl || comp.marksheet;
-          if (!doc.education_proof_name) doc.education_proof_name = comp.education_proof_name;
-          if (!doc.caste_certificate) doc.caste_certificate = comp.caste_certificate || comp.casteCertUrl;
-          if (!doc.caste_certificate_name) doc.caste_certificate_name = comp.caste_certificate_name;
+        const companions = await collection.find({ $or: crossOr }).toArray();
+        for (const comp of companions) {
+          if ((!doc.photo || doc.photo.length < 500) && comp.photo && comp.photo.length > 500) {
+            doc.photo = comp.photo;
+            doc.photo_name = comp.photo_name || doc.photo_name;
+          }
+          if ((!doc.identity_proof || doc.identity_proof.length < 100) && comp.identity_proof && comp.identity_proof.length > 100) {
+            doc.identity_proof = comp.identity_proof;
+            doc.identity_proof_name = comp.identity_proof_name || doc.identity_proof_name;
+          }
+          if ((!doc.education_proof || doc.education_proof.length < 100) && comp.education_proof && comp.education_proof.length > 100) {
+            doc.education_proof = comp.education_proof;
+            doc.education_proof_name = comp.education_proof_name || doc.education_proof_name;
+          }
+          if ((!doc.caste_certificate || doc.caste_certificate.length < 100) && comp.caste_certificate && comp.caste_certificate.length > 100) {
+            doc.caste_certificate = comp.caste_certificate;
+            doc.caste_certificate_name = comp.caste_certificate_name || doc.caste_certificate_name;
+          }
         }
       }
     } catch {}

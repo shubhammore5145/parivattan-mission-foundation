@@ -556,17 +556,45 @@ export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]>
     }
 
     // 4. Merge records: MongoDB (highest priority) -> Supabase -> Local
+    // IMPORTANT: documents are filled in from every source instead of letting a
+    // higher-priority (Mongo) record overwrite richer local/Supabase documents,
+    // so student uploads are never lost during the merge.
     const admissionsMap = new Map<string, Admission>();
 
-    for (const adm of localAdmissions) {
-      if (adm.id) admissionsMap.set(adm.id, adm);
-    }
-    for (const adm of supabaseAdmissions) {
-      if (adm.id) admissionsMap.set(adm.id, adm);
-    }
-    for (const adm of mongoAdmissions) {
-      if (adm.id) admissionsMap.set(adm.id, adm);
-    }
+    const fillMissingDocuments = (target: Admission, source: Admission) => {
+      const docPairs: Array<[keyof Admission, keyof Admission]> = [
+        ["photo", "photo"],
+        ["photoUrl", "photoUrl"],
+        ["photoDataUrl", "photoDataUrl"],
+        ["photo_name", "photo_name"],
+        ["identity_proof", "identity_proof"],
+        ["identityProofUrl", "identityProofUrl"],
+        ["identity_proof_name", "identity_proof_name"],
+        ["education_proof", "education_proof"],
+        ["marksheetUrl", "marksheetUrl"],
+        ["education_proof_name", "education_proof_name"],
+        ["caste_certificate", "caste_certificate"],
+        ["casteCertUrl", "casteCertUrl"],
+        ["caste_certificate_name", "caste_certificate_name"],
+      ];
+      for (const [t, s] of docPairs) {
+        if (!target[t] && (source as any)[s]) (target as any)[t] = (source as any)[s];
+      }
+    };
+
+    const upsertAdmission = (adm: Admission) => {
+      if (!adm.id) return;
+      const existing = admissionsMap.get(adm.id);
+      if (existing) {
+        fillMissingDocuments(existing, adm);
+      } else {
+        admissionsMap.set(adm.id, adm);
+      }
+    };
+
+    for (const adm of localAdmissions) upsertAdmission(adm);
+    for (const adm of supabaseAdmissions) upsertAdmission(adm);
+    for (const adm of mongoAdmissions) upsertAdmission(adm);
 
     const rawMerged = Array.from(admissionsMap.values()).sort((a, b) => {
       const timeB = new Date(b.created_at || (b as any).registeredAt || (b as any).createdAt || 0).getTime();
@@ -676,10 +704,25 @@ export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]>
         (ex) => (ex.email || "").toLowerCase().trim() === emailKey && (ex.program || "").toLowerCase().trim() === cleanProg
       );
       if (existing) {
-        if (!existing.photo && adm.photo) existing.photo = adm.photo;
-        if (!existing.identity_proof && adm.identity_proof) existing.identity_proof = adm.identity_proof;
-        if (!existing.education_proof && adm.education_proof) existing.education_proof = adm.education_proof;
-        if (!existing.caste_certificate && adm.caste_certificate) existing.caste_certificate = adm.caste_certificate;
+        // Preserve every document form (canonical + aliases + names) across dedup
+        const docPairs: Array<[keyof Admission, keyof Admission]> = [
+          ["photo", "photo"],
+          ["photoUrl", "photoUrl"],
+          ["photoDataUrl", "photoDataUrl"],
+          ["photo_name", "photo_name"],
+          ["identity_proof", "identity_proof"],
+          ["identityProofUrl", "identityProofUrl"],
+          ["identity_proof_name", "identity_proof_name"],
+          ["education_proof", "education_proof"],
+          ["marksheetUrl", "marksheetUrl"],
+          ["education_proof_name", "education_proof_name"],
+          ["caste_certificate", "caste_certificate"],
+          ["casteCertUrl", "casteCertUrl"],
+          ["caste_certificate_name", "caste_certificate_name"],
+        ];
+        for (const [t, s] of docPairs) {
+          if (!existing[t] && (adm as any)[s]) (existing as any)[t] = (adm as any)[s];
+        }
       }
       continue;
     }

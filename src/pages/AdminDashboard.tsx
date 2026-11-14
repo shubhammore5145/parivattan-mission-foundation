@@ -1255,10 +1255,10 @@ export default function AdminDashboard() {
   const handleViewStudent = async (student: StudentUser) => {
     setSelectedStudent(student);
     const hasFullDocs =
-      (typeof student.photo === "string" && student.photo.length > 100) ||
-      (typeof student.identity_proof === "string" && student.identity_proof.length > 100) ||
-      (typeof student.education_proof === "string" && student.education_proof.length > 100) ||
-      (typeof student.caste_certificate === "string" && student.caste_certificate.length > 100);
+      Boolean(student.photo && student.photo.length > 200) &&
+      (!student.identity_proof_name || Boolean(student.identity_proof && student.identity_proof.length > 100)) &&
+      (!student.education_proof_name || Boolean(student.education_proof && student.education_proof.length > 100)) &&
+      (!student.caste_certificate_name || Boolean(student.caste_certificate && student.caste_certificate.length > 100));
 
     if (!hasFullDocs && (student.id || student.email || student.prn || student.phone)) {
       setLoadingStudentDocs(true);
@@ -1309,10 +1309,10 @@ export default function AdminDashboard() {
   const handleViewAdmission = async (admission: Admission) => {
     setSelectedAdmission(admission);
     const hasFullDocs =
-      (typeof admission.photo === "string" && admission.photo.length > 100) ||
-      (typeof admission.identity_proof === "string" && admission.identity_proof.length > 100) ||
-      (typeof admission.education_proof === "string" && admission.education_proof.length > 100) ||
-      (typeof admission.caste_certificate === "string" && admission.caste_certificate.length > 100);
+      Boolean(admission.photo && admission.photo.length > 200) &&
+      (!admission.identity_proof_name || Boolean(admission.identity_proof && admission.identity_proof.length > 100)) &&
+      (!admission.education_proof_name || Boolean(admission.education_proof && admission.education_proof.length > 100)) &&
+      (!admission.caste_certificate_name || Boolean(admission.caste_certificate && admission.caste_certificate.length > 100));
 
     if (!hasFullDocs && (admission.id || admission.email || admission.phone)) {
       setLoadingAdmissionDocs(true);
@@ -1330,10 +1330,10 @@ export default function AdminDashboard() {
           if (rawDoc) {
             const fullNorm = normalizeAdmission(rawDoc);
             setSelectedAdmission((prev) =>
-              prev && (prev.id === admission.id || prev.email === admission.email) ? { ...prev, ...fullNorm } : prev
+              prev ? { ...prev, ...fullNorm } : fullNorm
             );
             setAdmissions((prev) =>
-              prev.map((a) => (a.id === admission.id ? { ...a, ...fullNorm } : a))
+              prev.map((a) => (a.id === admission.id || (a.email && a.email === admission.email && a.program === admission.program) ? { ...a, ...fullNorm } : a))
             );
           }
         }
@@ -5375,6 +5375,14 @@ export default function AdminDashboard() {
                       (selectedAdmission.message && s.prn && selectedAdmission.message.includes(s.prn))
                   );
 
+                  const matchOtherAdm = admissions.find(
+                    (a) =>
+                      a.id !== selectedAdmission.id &&
+                      ((a.email && selectedAdmission.email && a.email.toLowerCase() === selectedAdmission.email.toLowerCase()) ||
+                        (a.phone && selectedAdmission.phone && a.phone.replace(/\D/g, "") === selectedAdmission.phone.replace(/\D/g, ""))) &&
+                      (a.identity_proof || a.education_proof || a.photo)
+                  );
+
                   let msgPhoto = "";
                   let msgIdDoc = "";
                   let msgEduDoc = "";
@@ -5393,12 +5401,33 @@ export default function AdminDashboard() {
                     selectedAdmission.photo ||
                     (selectedAdmission as any).photoUrl ||
                     (selectedAdmission as any).photoDataUrl ||
+                    matchOtherAdm?.photo ||
                     matchStudent?.photo ||
                     matchStudent?.avatar ||
                     msgPhoto;
-                  const idDoc = selectedAdmission.identity_proof || (selectedAdmission as any).identityProofUrl || matchStudent?.identity_proof || msgIdDoc;
-                  const eduDoc = selectedAdmission.education_proof || selectedAdmission.marksheetUrl || matchStudent?.education_proof || (matchStudent as any)?.marksheetUrl || msgEduDoc;
-                  const casteDoc = selectedAdmission.caste_certificate || (selectedAdmission as any).casteCertUrl || matchStudent?.caste_certificate || msgCasteDoc;
+
+                  const idDoc =
+                    selectedAdmission.identity_proof ||
+                    (selectedAdmission as any).identityProofUrl ||
+                    matchOtherAdm?.identity_proof ||
+                    matchStudent?.identity_proof ||
+                    msgIdDoc;
+
+                  const eduDoc =
+                    selectedAdmission.education_proof ||
+                    selectedAdmission.marksheetUrl ||
+                    matchOtherAdm?.education_proof ||
+                    matchOtherAdm?.marksheetUrl ||
+                    matchStudent?.education_proof ||
+                    (matchStudent as any)?.marksheetUrl ||
+                    msgEduDoc;
+
+                  const casteDoc =
+                    selectedAdmission.caste_certificate ||
+                    (selectedAdmission as any).casteCertUrl ||
+                    matchOtherAdm?.caste_certificate ||
+                    matchStudent?.caste_certificate ||
+                    msgCasteDoc;
 
                   return (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
@@ -5435,6 +5464,15 @@ export default function AdminDashboard() {
                               <Download size={12} />
                             </a>
                           </div>
+                        ) : selectedAdmission.photo_name ? (
+                          <button
+                            type="button"
+                            onClick={() => handleViewAdmission(selectedAdmission)}
+                            className="mt-2 px-2 py-1 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-800 text-[10px] font-bold inline-flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <RefreshCw size={11} className={loadingAdmissionDocs ? "animate-spin text-[#b5623b]" : ""} />
+                            <span>{loadingAdmissionDocs ? "Loading..." : "Load Photo"}</span>
+                          </button>
                         ) : (
                           <span className="text-[11px] text-stone-400 italic mt-2.5 block">Not uploaded</span>
                         )}
@@ -5444,7 +5482,7 @@ export default function AdminDashboard() {
                       <div className="rounded-xl border border-stone-200 p-3 bg-white text-center flex flex-col justify-between">
                         <div>
                           <span className="font-bold text-stone-700 block text-xs">Identity Proof</span>
-                          <span className="text-[10px] text-stone-400 block truncate mt-0.5">
+                          <span className="text-[10px] text-stone-400 block truncate mt-0.5" title={selectedAdmission.identity_proof_name}>
                             {selectedAdmission.identity_proof_name || (idDoc ? "ID Attached" : "None")}
                           </span>
                         </div>
@@ -5473,6 +5511,15 @@ export default function AdminDashboard() {
                               <Download size={12} />
                             </a>
                           </div>
+                        ) : selectedAdmission.identity_proof_name ? (
+                          <button
+                            type="button"
+                            onClick={() => handleViewAdmission(selectedAdmission)}
+                            className="mt-2 px-2 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[10px] font-bold inline-flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <RefreshCw size={11} className={loadingAdmissionDocs ? "animate-spin text-emerald-600" : ""} />
+                            <span>{loadingAdmissionDocs ? "Loading..." : "Load ID Proof"}</span>
+                          </button>
                         ) : (
                           <span className="text-[11px] text-stone-400 italic mt-2.5 block">Not uploaded</span>
                         )}
@@ -5482,7 +5529,7 @@ export default function AdminDashboard() {
                       <div className="rounded-xl border border-blue-200 p-3 bg-blue-50/30 text-center flex flex-col justify-between">
                         <div>
                           <span className="font-bold text-blue-900 block text-xs">Marksheet / Education</span>
-                          <span className="text-[10px] text-blue-600 block truncate mt-0.5">
+                          <span className="text-[10px] text-blue-600 block truncate mt-0.5" title={selectedAdmission.education_proof_name}>
                             {selectedAdmission.education_proof_name || (eduDoc ? "Marksheet Attached" : "None")}
                           </span>
                         </div>
@@ -5511,6 +5558,15 @@ export default function AdminDashboard() {
                               <Download size={12} />
                             </a>
                           </div>
+                        ) : selectedAdmission.education_proof_name ? (
+                          <button
+                            type="button"
+                            onClick={() => handleViewAdmission(selectedAdmission)}
+                            className="mt-2 px-2 py-1 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-800 text-[10px] font-bold inline-flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <RefreshCw size={11} className={loadingAdmissionDocs ? "animate-spin text-blue-600" : ""} />
+                            <span>{loadingAdmissionDocs ? "Loading..." : "Load Marksheet"}</span>
+                          </button>
                         ) : (
                           <span className="text-[11px] text-stone-400 italic mt-2.5 block">Not uploaded</span>
                         )}
@@ -5520,7 +5576,7 @@ export default function AdminDashboard() {
                       <div className="rounded-xl border border-stone-200 p-3 bg-white text-center flex flex-col justify-between">
                         <div>
                           <span className="font-bold text-stone-700 block text-xs">Caste Certificate</span>
-                          <span className="text-[10px] text-stone-400 block truncate mt-0.5">
+                          <span className="text-[10px] text-stone-400 block truncate mt-0.5" title={selectedAdmission.caste_certificate_name}>
                             {selectedAdmission.caste_certificate_name || (casteDoc ? "Certificate Attached" : "None")}
                           </span>
                         </div>
@@ -5549,6 +5605,15 @@ export default function AdminDashboard() {
                               <Download size={12} />
                             </a>
                           </div>
+                        ) : selectedAdmission.caste_certificate_name && selectedAdmission.caste_certificate_name !== "General" ? (
+                          <button
+                            type="button"
+                            onClick={() => handleViewAdmission(selectedAdmission)}
+                            className="mt-2 px-2 py-1 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-800 text-[10px] font-bold inline-flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <RefreshCw size={11} className={loadingAdmissionDocs ? "animate-spin text-amber-600" : ""} />
+                            <span>{loadingAdmissionDocs ? "Loading..." : "Load Caste Cert"}</span>
+                          </button>
                         ) : (
                           <span className="text-[11px] text-stone-400 italic mt-2.5 block">Not uploaded</span>
                         )}
@@ -5792,6 +5857,15 @@ export default function AdminDashboard() {
                               <Download size={13} />
                             </a>
                           </div>
+                        ) : idName && idName !== "Not Uploaded" ? (
+                          <button
+                            type="button"
+                            onClick={() => handleViewStudent(selectedStudent)}
+                            className="px-2 py-0.5 rounded bg-stone-200 hover:bg-stone-300 text-stone-800 text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <RefreshCw size={10} className={loadingStudentDocs ? "animate-spin text-[#b5623b]" : ""} />
+                            <span>{loadingStudentDocs ? "Loading..." : "Load File"}</span>
+                          </button>
                         ) : (
                           <span className="text-[10px] text-stone-400 font-medium">None</span>
                         )}
@@ -5833,6 +5907,15 @@ export default function AdminDashboard() {
                               <Download size={13} />
                             </a>
                           </div>
+                        ) : eduName && eduName !== "Not Uploaded" ? (
+                          <button
+                            type="button"
+                            onClick={() => handleViewStudent(selectedStudent)}
+                            className="px-2 py-0.5 rounded bg-blue-100 hover:bg-blue-200 text-blue-800 text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <RefreshCw size={10} className={loadingStudentDocs ? "animate-spin text-blue-600" : ""} />
+                            <span>{loadingStudentDocs ? "Loading..." : "Load File"}</span>
+                          </button>
                         ) : (
                           <span className="text-[10px] text-stone-400 font-medium">None</span>
                         )}
@@ -5874,6 +5957,15 @@ export default function AdminDashboard() {
                               <Download size={13} />
                             </a>
                           </div>
+                        ) : casteName && casteName !== "Not Uploaded" && casteName !== "General" ? (
+                          <button
+                            type="button"
+                            onClick={() => handleViewStudent(selectedStudent)}
+                            className="px-2 py-0.5 rounded bg-amber-100 hover:bg-amber-200 text-amber-800 text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <RefreshCw size={10} className={loadingStudentDocs ? "animate-spin text-amber-600" : ""} />
+                            <span>{loadingStudentDocs ? "Loading..." : "Load File"}</span>
+                          </button>
                         ) : (
                           <span className="text-[10px] text-stone-400 font-medium">None</span>
                         )}
