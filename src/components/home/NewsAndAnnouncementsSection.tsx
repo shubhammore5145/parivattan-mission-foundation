@@ -24,6 +24,7 @@ import {
   getStoredAnnouncements,
   getStoredNews,
 } from "@/data/newsAndAnnouncementsData";
+import { syncAnnouncementsAndNewsFromCloud } from "@/lib/news-announcements-sync";
 
 export default function NewsAndAnnouncementsSection() {
   const [announcements, setAnnouncements] = useState<AnnouncementItem[]>(() =>
@@ -48,8 +49,24 @@ export default function NewsAndAnnouncementsSection() {
   // Category filter for announcements
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
 
-  // Sync when admin modifies data
+  // Fetch latest announcements and news from MongoDB Atlas & Supabase
   useEffect(() => {
+    let isMounted = true;
+    syncAnnouncementsAndNewsFromCloud()
+      .then((cloud) => {
+        if (isMounted && cloud) {
+          if (Array.isArray(cloud.announcements) && cloud.announcements.length > 0) {
+            setAnnouncements(cloud.announcements);
+          }
+          if (Array.isArray(cloud.newsList) && cloud.newsList.length > 0) {
+            setNewsList(cloud.newsList);
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn("[NewsAndAnnouncementsSection] Cloud sync notice:", err);
+      });
+
     const handleSync = () => {
       setAnnouncements(getStoredAnnouncements());
       setNewsList(getStoredNews());
@@ -58,6 +75,7 @@ export default function NewsAndAnnouncementsSection() {
     window.addEventListener("parivattan-news-announcements-updated", handleSync);
     window.addEventListener("storage", handleSync);
     return () => {
+      isMounted = false;
       window.removeEventListener(
         "parivattan-news-announcements-updated",
         handleSync
@@ -338,6 +356,20 @@ export default function NewsAndAnnouncementsSection() {
                       className="w-[280px] sm:w-[330px] shrink-0 bg-white rounded-2xl border border-slate-200/90 shadow-[0_4px_16px_rgba(0,0,0,0.06)] p-5 sm:p-5 flex flex-col justify-between hover:shadow-xl hover:border-[#b5623b]/50 hover:-translate-y-0.5 transition-all duration-300 cursor-pointer group"
                     >
                       <div className="space-y-3">
+                        {/* Notice Image Poster if attached */}
+                        {item.imageUrl && (
+                          <div className="relative h-28 w-full rounded-xl overflow-hidden bg-slate-100 border border-slate-100">
+                            <img
+                              src={item.imageUrl}
+                              alt={item.title}
+                              className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = "none";
+                              }}
+                            />
+                          </div>
+                        )}
+
                         {/* Hashtags */}
                         <div className="flex flex-wrap items-center gap-1.5">
                           {getHashtags(item).map((tag, idx) => (
@@ -394,6 +426,20 @@ export default function NewsAndAnnouncementsSection() {
                       className="w-[280px] sm:w-[330px] shrink-0 bg-white rounded-2xl border border-slate-200/90 shadow-[0_4px_16px_rgba(0,0,0,0.06)] p-5 sm:p-5 flex flex-col justify-between hover:shadow-xl hover:border-[#b5623b]/50 hover:-translate-y-0.5 transition-all duration-300 cursor-pointer group"
                     >
                       <div className="space-y-3">
+                        {/* Notice Image Poster if attached */}
+                        {item.imageUrl && (
+                          <div className="relative h-28 w-full rounded-xl overflow-hidden bg-slate-100 border border-slate-100">
+                            <img
+                              src={item.imageUrl}
+                              alt={item.title}
+                              className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = "none";
+                              }}
+                            />
+                          </div>
+                        )}
+
                         {/* Hashtags */}
                         <div className="flex flex-wrap items-center gap-1.5">
                           {getHashtags(item).map((tag, idx) => (
@@ -610,6 +656,16 @@ export default function NewsAndAnnouncementsSection() {
                 {selectedAnnouncement.title}
               </h3>
             </div>
+
+            {selectedAnnouncement.imageUrl && (
+              <div className="rounded-2xl overflow-hidden border border-stone-200 bg-stone-50 max-h-80 flex items-center justify-center p-1">
+                <img
+                  src={selectedAnnouncement.imageUrl}
+                  alt={selectedAnnouncement.title}
+                  className="max-h-76 w-auto max-w-full rounded-xl object-contain shadow-2xs"
+                />
+              </div>
+            )}
 
             <div className="rounded-2xl bg-[#fbfaf7] border border-[#e2e5dc] p-4 text-xs sm:text-sm text-[#24312d] leading-relaxed whitespace-pre-line">
               {selectedAnnouncement.description}

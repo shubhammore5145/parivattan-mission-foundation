@@ -287,10 +287,13 @@ export const isSystemConfigRow = (row: any): boolean => {
   if (
     row.id === "00000000-0000-0000-0000-000000000001" ||
     row.id === "00000000-0000-0000-0000-000000000002" ||
+    row.id === "00000000-0000-0000-0000-000000000003" ||
     row.name === "SYSTEM_BATCH_OVERRIDES" ||
     row.name === "SYSTEM_CUSTOM_COURSES" ||
+    row.name === "SYSTEM_NEWS_ANNOUNCEMENTS" ||
     row.program === "SYSTEM_BATCH_SETTINGS" ||
-    row.program === "SYSTEM_CUSTOM_COURSES"
+    row.program === "SYSTEM_CUSTOM_COURSES" ||
+    row.program === "SYSTEM_NEWS_ANNOUNCEMENTS"
   ) {
     return true;
   }
