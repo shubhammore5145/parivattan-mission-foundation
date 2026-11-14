@@ -286,6 +286,8 @@ export default function AdminDashboard() {
     url: string;
     isImage: boolean;
   } | null>(null);
+  const [loadingStudentDocs, setLoadingStudentDocs] = useState<boolean>(false);
+  const [loadingAdmissionDocs, setLoadingAdmissionDocs] = useState<boolean>(false);
 
   // Add New Admission Modal State
   const [showAddAdmissionModal, setShowAddAdmissionModal] = useState(false);
@@ -1169,29 +1171,89 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleViewStudent = async (student: StudentUser) => {
+    setSelectedStudent(student);
+    const hasFullDocs =
+      (typeof student.photo === "string" && student.photo.length > 100) ||
+      (typeof student.identity_proof === "string" && student.identity_proof.length > 100) ||
+      (typeof student.education_proof === "string" && student.education_proof.length > 100) ||
+      (typeof student.caste_certificate === "string" && student.caste_certificate.length > 100);
+
+    if (!hasFullDocs && (student.id || student.email || student.prn || student.phone)) {
+      setLoadingStudentDocs(true);
+      try {
+        const queryParams = new URLSearchParams();
+        if (student.id) queryParams.set("id", student.id);
+        if (student.email) queryParams.set("email", student.email);
+        if (student.prn) queryParams.set("prn", student.prn);
+        if (student.phone) queryParams.set("phone", student.phone);
+        queryParams.set("full", "true");
+
+        const res = await fetch(`/api/admissions?${queryParams.toString()}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            const docData = json.data;
+            const updatedStudent: StudentUser = {
+              ...student,
+              photo: docData.photo || (docData as any).photoUrl || student.photo,
+              photo_name: docData.photo_name || student.photo_name,
+              identity_proof: docData.identity_proof || (docData as any).identityProofUrl || student.identity_proof,
+              identity_proof_name: docData.identity_proof_name || student.identity_proof_name,
+              education_proof: docData.education_proof || docData.marksheetUrl || student.education_proof,
+              education_proof_name: docData.education_proof_name || student.education_proof_name,
+              caste_certificate: docData.caste_certificate || (docData as any).casteCertUrl || student.caste_certificate,
+              caste_certificate_name: docData.caste_certificate_name || student.caste_certificate_name,
+            };
+
+            setSelectedStudent(updatedStudent);
+            setStudents((prev) =>
+              prev.map((s) => (s.id === student.id || s.prn === student.prn ? updatedStudent : s))
+            );
+          }
+        }
+      } catch (err) {
+        console.warn("[AdminDashboard] Error loading full student documents:", err);
+      } finally {
+        setLoadingStudentDocs(false);
+      }
+    }
+  };
+
   const handleViewAdmission = async (admission: Admission) => {
     setSelectedAdmission(admission);
-    // If attached documents are not yet loaded in list memory, fetch single complete record
-    if (
-      !admission.photo &&
-      !admission.identity_proof &&
-      !admission.education_proof &&
-      !admission.caste_certificate &&
-      admission.id
-    ) {
+    const hasFullDocs =
+      (typeof admission.photo === "string" && admission.photo.length > 100) ||
+      (typeof admission.identity_proof === "string" && admission.identity_proof.length > 100) ||
+      (typeof admission.education_proof === "string" && admission.education_proof.length > 100) ||
+      (typeof admission.caste_certificate === "string" && admission.caste_certificate.length > 100);
+
+    if (!hasFullDocs && (admission.id || admission.email || admission.phone)) {
+      setLoadingAdmissionDocs(true);
       try {
-        const res = await fetch(`/api/admissions?id=${encodeURIComponent(admission.id)}&full=true`);
+        const queryParams = new URLSearchParams();
+        if (admission.id) queryParams.set("id", admission.id);
+        if (admission.email) queryParams.set("email", admission.email);
+        if (admission.phone) queryParams.set("phone", admission.phone);
+        queryParams.set("full", "true");
+
+        const res = await fetch(`/api/admissions?${queryParams.toString()}`);
         if (res.ok) {
           const json = await res.json();
           if (json.success && json.data) {
             const fullNorm = normalizeAdmission(json.data);
             setSelectedAdmission((prev) =>
-              prev && prev.id === admission.id ? { ...prev, ...fullNorm } : prev
+              prev && (prev.id === admission.id || prev.email === admission.email) ? { ...prev, ...fullNorm } : prev
+            );
+            setAdmissions((prev) =>
+              prev.map((a) => (a.id === admission.id ? { ...a, ...fullNorm } : a))
             );
           }
         }
       } catch (err) {
         console.warn("[AdminDashboard] Error fetching full documents:", err);
+      } finally {
+        setLoadingAdmissionDocs(false);
       }
     }
   };
@@ -3609,23 +3671,26 @@ export default function AdminDashboard() {
                                     <img
                                       src={applicantPhoto}
                                       alt={adm.name}
-                                      onClick={() =>
-                                        setViewingDoc({
-                                          title: `${adm.name} - Photo`,
-                                          url: applicantPhoto,
-                                          isImage: true,
-                                        })
-                                      }
+                                      onClick={() => handleViewAdmission(adm)}
                                       className="h-10 w-10 rounded-full object-cover border border-stone-200 shadow-xs cursor-pointer hover:scale-105 transition shrink-0"
+                                      title="Click to view full application & documents"
                                     />
                                   ) : (
-                                    <div className="h-10 w-10 rounded-full bg-stone-100 text-stone-600 font-bold flex items-center justify-center shrink-0 border border-stone-200">
+                                    <div 
+                                      onClick={() => handleViewAdmission(adm)}
+                                      className="h-10 w-10 rounded-full bg-stone-100 text-stone-600 font-bold flex items-center justify-center shrink-0 border border-stone-200 cursor-pointer hover:bg-stone-200 transition"
+                                      title="Click to view full application & documents"
+                                    >
                                       {(adm.name || "?").charAt(0).toUpperCase()}
                                     </div>
                                   );
                                 })()}
                                 <div className="min-w-0">
-                                  <div className="font-bold text-[#1b2b25] text-sm truncate">
+                                  <div 
+                                    onClick={() => handleViewAdmission(adm)}
+                                    className="font-bold text-[#1b2b25] text-sm truncate hover:text-[#b5623b] hover:underline cursor-pointer transition-colors"
+                                    title="Click to view full application & documents"
+                                  >
                                     {adm.name}
                                   </div>
                                   <div className="text-[11px] text-stone-600 truncate font-medium">
@@ -3836,7 +3901,15 @@ export default function AdminDashboard() {
                                       </button>
                                     )}
                                     {!eduDoc && !idDoc && !casteDoc && (
-                                      <span className="text-stone-300 italic text-[10px]">None attached</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleViewAdmission(adm)}
+                                        className="text-[#b5623b] hover:underline text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+                                        title="Click to fetch verification documents from cloud database"
+                                      >
+                                        <FileText size={12} />
+                                        <span>View Docs</span>
+                                      </button>
                                     )}
                                   </div>
                                 );
@@ -4247,7 +4320,13 @@ export default function AdminDashboard() {
                                     </div>
                                   )}
                                   <div>
-                                    <div className="font-bold text-[#1b2b25]">{s.name}</div>
+                                    <div
+                                      onClick={() => handleViewStudent(s)}
+                                      className="font-bold text-[#1b2b25] hover:text-[#b5623b] cursor-pointer transition-colors"
+                                      title="Click to view student profile & documents"
+                                    >
+                                      {s.name}
+                                    </div>
                                     <div className="text-[10px] text-stone-400 font-mono">ID: {s.id}</div>
                                   </div>
                                 </div>
@@ -4419,9 +4498,9 @@ export default function AdminDashboard() {
                                     <Edit2 size={16} />
                                   </button>
                                   <button
-                                    onClick={() => setSelectedStudent(s)}
+                                    onClick={() => handleViewStudent(s)}
                                     className="p-1.5 text-emerald-700 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
-                                    title="View Student Profile"
+                                    title="View Student Profile & Documents"
                                   >
                                     <Eye size={16} />
                                   </button>
@@ -5181,6 +5260,12 @@ export default function AdminDashboard() {
                 <span className="text-xs font-bold uppercase text-stone-500 mb-2 block">
                   Attached Verification Documents
                 </span>
+                {loadingAdmissionDocs && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold mb-3 animate-pulse">
+                    <RefreshCw size={14} className="animate-spin text-amber-600" />
+                    <span>Loading application verification documents & certificates...</span>
+                  </div>
+                )}
                 {(() => {
                   const matchStudent = students.find(
                     (s) =>
@@ -5499,6 +5584,13 @@ export default function AdminDashboard() {
                     <Upload size={11} /> Upload / Change Documents
                   </button>
                 </div>
+
+                {loadingStudentDocs && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold mb-3 animate-pulse">
+                    <RefreshCw size={14} className="animate-spin text-amber-600" />
+                    <span>Loading student verification documents & certificates...</span>
+                  </div>
+                )}
 
                 {(() => {
                   const matchAdm = admissions.find(

@@ -273,16 +273,99 @@ export async function getAdmissionsFromMongo(query = {}, options = {}) {
 }
 
 /**
- * Retrieves a single admission from MongoDB with full attachments/base64 files
+ * Retrieves a single admission or student record from MongoDB with full attachments/base64 files
  */
-export async function getAdmissionByIdFromMongo(id) {
-  if (!id) return null;
+export async function getAdmissionByIdFromMongo(id, extraQuery = {}) {
+  if (!id && (!extraQuery || Object.keys(extraQuery).length === 0)) return null;
   const { db } = await connectToDatabase();
   const collection = db.collection("admissions");
+  const studentsCollection = db.collection("students");
 
-  const doc = await collection.findOne({
-    $or: [{ id: String(id) }, { _id: id }],
-  });
+  const orConditions = [];
+
+  if (id) {
+    const cleanId = String(id).trim();
+    orConditions.push({ id: cleanId });
+    if (ObjectId.isValid(cleanId)) {
+      try {
+        orConditions.push({ _id: new ObjectId(cleanId) });
+      } catch {}
+    }
+    if (cleanId.includes("@")) {
+      orConditions.push({ email: cleanId.toLowerCase() });
+      orConditions.push({ email: { $regex: new RegExp(`^${cleanId}$`, "i") } });
+    }
+    if (cleanId.startsWith("PMF") || cleanId.startsWith("PFLS")) {
+      orConditions.push({ prn: cleanId });
+      orConditions.push({ message: { $regex: cleanId } });
+    }
+    if (cleanId.startsWith("PAY_") || cleanId.startsWith("pay_")) {
+      orConditions.push({ payment_id: cleanId });
+    }
+  }
+
+  if (extraQuery?.email) {
+    const cleanEmail = String(extraQuery.email).trim().toLowerCase();
+    orConditions.push({ email: cleanEmail });
+    orConditions.push({ email: { $regex: new RegExp(`^${cleanEmail}$`, "i") } });
+  }
+
+  if (extraQuery?.prn) {
+    const cleanPrn = String(extraQuery.prn).trim();
+    orConditions.push({ prn: cleanPrn });
+    orConditions.push({ message: { $regex: cleanPrn } });
+  }
+
+  if (extraQuery?.phone) {
+    const cleanPhone = String(extraQuery.phone).replace(/\D/g, "");
+    if (cleanPhone.length >= 7) {
+      orConditions.push({ phone: { $regex: cleanPhone } });
+    }
+  }
+
+  if (orConditions.length === 0) return null;
+
+  // 1. Search in admissions collection first (prioritize records with actual uploaded documents)
+  let doc = await collection.findOne(
+    {
+      $and: [
+        { $or: orConditions },
+        {
+          $or: [
+            { photo: { $type: "string", $ne: "" } },
+            { identity_proof: { $type: "string", $ne: "" } },
+            { education_proof: { $type: "string", $ne: "" } },
+            { caste_certificate: { $type: "string", $ne: "" } },
+          ],
+        },
+      ],
+    },
+    { sort: { created_at: -1 } }
+  );
+
+  if (!doc) {
+    doc = await collection.findOne(
+      { $or: orConditions },
+      { sort: { created_at: -1 } }
+    );
+  }
+
+  // 2. Fallback to students collection if still not found
+  if (!doc) {
+    const stdDoc = await studentsCollection.findOne(
+      { $or: orConditions },
+      { sort: { registeredAt: -1 } }
+    );
+    if (stdDoc) {
+      doc = {
+        ...stdDoc,
+        id: stdDoc.id || stdDoc.prn,
+        name: stdDoc.name,
+        email: stdDoc.email,
+        phone: stdDoc.phone,
+      };
+    }
+  }
 
   if (!doc) return null;
 
@@ -573,16 +656,22 @@ export async function handleAdmissionsRequest(req, res) {
       const targetId = parsedUrl.searchParams.get("id");
       const targetEmail = parsedUrl.searchParams.get("email");
       const targetPhone = parsedUrl.searchParams.get("phone");
+      const targetPrn = parsedUrl.searchParams.get("prn");
 
-      // Single admission lookup by ID (e.g. for document viewing or verification)
-      if (targetId) {
-        const singleDoc = await getAdmissionByIdFromMongo(targetId);
-        if (!singleDoc) {
+      // Single admission or student document lookup (when full=true or targetId is present)
+      if (targetId || (isFull && (targetEmail || targetPrn || targetPhone))) {
+        const singleDoc = await getAdmissionByIdFromMongo(targetId, {
+          email: targetEmail,
+          prn: targetPrn,
+          phone: targetPhone,
+        });
+        if (singleDoc) {
+          res.statusCode = 200;
+          return res.end(JSON.stringify({ success: true, data: singleDoc, source: "mongodb" }));
+        } else if (targetId && !targetEmail && !targetPrn && !targetPhone) {
           res.statusCode = 404;
           return res.end(JSON.stringify({ success: false, error: "Admission not found" }));
         }
-        res.statusCode = 200;
-        return res.end(JSON.stringify({ success: true, data: singleDoc, source: "mongodb" }));
       }
 
       // Filter by email (e.g. student portal loading their own applications in <20ms)
