@@ -1211,6 +1211,7 @@ export const logVisitor = async (payload: {
       const json = await res.json().catch(() => null);
       if (json && json.data && json.data.total > 0) {
         localStorage.setItem(VISITOR_CACHE_KEY, JSON.stringify(json.data));
+        localStorage.setItem(VISITOR_CACHE_KEY + "_time", String(Date.now()));
       }
     }
   } catch {}
@@ -1219,14 +1220,30 @@ export const logVisitor = async (payload: {
 let cachedVisitorStats: VisitorStats | null = null;
 let lastVisitorStatsFetch = 0;
 
-// Aggregate visitor statistics exclusively via MongoDB Atlas (fast, resilient, quota-free)
-export const getVisitorStats = async (): Promise<VisitorStats> => {
+// Aggregate visitor statistics with smart localStorage cache to prevent excessive serverless hits
+export const getVisitorStats = async (forceFresh = false): Promise<VisitorStats> => {
   const now = Date.now();
-  if (cachedVisitorStats && now - lastVisitorStatsFetch < 45000) {
+  if (!forceFresh && cachedVisitorStats && now - lastVisitorStatsFetch < 60000) {
     return cachedVisitorStats;
   }
 
-  // 1. Direct high-speed MongoDB Atlas /api/visitors query
+  // 1. Check local storage cache with 1-hour TTL first
+  if (!forceFresh) {
+    try {
+      const cached = localStorage.getItem(VISITOR_CACHE_KEY);
+      const cachedTime = parseInt(localStorage.getItem(VISITOR_CACHE_KEY + "_time") || "0", 10);
+      if (cached && now - cachedTime < 60 * 60 * 1000) {
+        const parsed = JSON.parse(cached);
+        if (parsed && typeof parsed.total === "number" && parsed.total > 0) {
+          cachedVisitorStats = parsed;
+          lastVisitorStatsFetch = now;
+          return parsed;
+        }
+      }
+    } catch {}
+  }
+
+  // 2. Query MongoDB Atlas /api/visitors if cache is missing or stale
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 2000);
@@ -1237,16 +1254,17 @@ export const getVisitorStats = async (): Promise<VisitorStats> => {
       const json = await res.json().catch(() => null);
       if (json && json.success && json.data && typeof json.data.total === "number" && json.data.total > 0) {
         localStorage.setItem(VISITOR_CACHE_KEY, JSON.stringify(json.data));
+        localStorage.setItem(VISITOR_CACHE_KEY + "_time", String(now));
         cachedVisitorStats = json.data;
         lastVisitorStatsFetch = now;
         return json.data;
       }
     }
   } catch (err) {
-    // proceed to local cache fallback
+    // proceed to fallback
   }
 
-  // 2. Instant fallback to cached stats or verified community baseline
+  // 3. Fallback to cached stats or verified community baseline
   try {
     const cached = localStorage.getItem(VISITOR_CACHE_KEY);
     if (cached) {

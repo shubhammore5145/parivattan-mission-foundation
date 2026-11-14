@@ -13,21 +13,38 @@ export const LiveVisitorsProvider: React.FC<{ children: React.ReactNode }> = ({
   // Start with a natural concurrent presence baseline (e.g. 5-7 active visitors)
   const [count, setCount] = useState(() => Math.floor(Math.random() * 3) + 5);
 
-  // Global visitor session tracking (fires once per browser session)
+  // Global visitor session tracking (fires at most once per user per day, ignores bots)
   useEffect(() => {
     try {
+      if (typeof window === "undefined" || typeof navigator === "undefined") return;
+
+      // Guard 1: Ignore automated bots, scrapers, and headless crawlers
+      const ua = navigator.userAgent || "";
+      const isBot =
+        /bot|crawl|spider|slurp|facebookexternalhit|whatsapp|preview|headless|phantom|puppeteer|lighthouse/i.test(
+          ua
+        ) || (navigator as any).webdriver;
+      if (isBot) return;
+
+      // Guard 2: Once per browser per day (localStorage check)
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const lastLoggedDate = localStorage.getItem("parivattan_visitor_last_logged_date");
+      if (lastLoggedDate === todayStr) return;
+
+      // Guard 3: Prevent duplicate triggers within the same active tab session
       const sessionKey = "parivattan_visitor_session";
       const existingSession = sessionStorage.getItem(sessionKey);
-      if (existingSession) return; // Prevent duplicate API hits on page reloads/routes
+      if (existingSession) return;
 
       const sessionId = `pmf_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
       sessionStorage.setItem(sessionKey, sessionId);
+      localStorage.setItem("parivattan_visitor_last_logged_date", todayStr);
 
       logVisitor({
         session_id: sessionId,
         path: window.location.pathname,
         referrer: document.referrer || null,
-        user_agent: navigator.userAgent,
+        user_agent: ua,
       });
     } catch {}
   }, []);
