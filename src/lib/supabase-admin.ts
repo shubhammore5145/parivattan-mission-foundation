@@ -287,10 +287,13 @@ export const isSystemConfigRow = (row: any): boolean => {
   if (
     row.id === "00000000-0000-0000-0000-000000000001" ||
     row.id === "00000000-0000-0000-0000-000000000002" ||
+    row.id === "00000000-0000-0000-0000-000000000003" ||
     row.name === "SYSTEM_BATCH_OVERRIDES" ||
     row.name === "SYSTEM_CUSTOM_COURSES" ||
+    row.name === "SYSTEM_NEWS_ANNOUNCEMENTS" ||
     row.program === "SYSTEM_BATCH_SETTINGS" ||
-    row.program === "SYSTEM_CUSTOM_COURSES"
+    row.program === "SYSTEM_CUSTOM_COURSES" ||
+    row.program === "SYSTEM_NEWS_ANNOUNCEMENTS"
   ) {
     return true;
   }
@@ -300,6 +303,24 @@ export const isSystemConfigRow = (row: any): boolean => {
 export const isRealCourseAdmission = (row: any): boolean => {
   if (!row) return false;
   if (isSystemConfigRow(row)) return false;
+
+  // Pure student user registrations without course application belong in Students tab, not Admissions
+  const prog = String(row.program || "").trim();
+  if (
+    prog === "STUDENT_REGISTRATION" ||
+    prog === "Student Portal Registration" ||
+    prog === "USER_REGISTRATION" ||
+    prog === "ACCOUNT_SIGNUP" ||
+    prog === "REGISTERED_ACCOUNT"
+  ) {
+    const hasPayment = row.payment_id && row.payment_id !== "OFFLINE_RECORD" && Number(row.amount || 0) > 0;
+    const hasCourse =
+      row.courseTitle ||
+      row.language ||
+      (typeof row.message === "string" && (row.message.includes("German") || row.message.includes("French") || row.message.includes("Japanese") || row.message.includes("Spanish") || row.message.includes("English")));
+    return Boolean(hasPayment || hasCourse);
+  }
+
   return true;
 };
 
@@ -535,17 +556,45 @@ export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]>
     }
 
     // 4. Merge records: MongoDB (highest priority) -> Supabase -> Local
+    // IMPORTANT: documents are filled in from every source instead of letting a
+    // higher-priority (Mongo) record overwrite richer local/Supabase documents,
+    // so student uploads are never lost during the merge.
     const admissionsMap = new Map<string, Admission>();
 
-    for (const adm of localAdmissions) {
-      if (adm.id) admissionsMap.set(adm.id, adm);
-    }
-    for (const adm of supabaseAdmissions) {
-      if (adm.id) admissionsMap.set(adm.id, adm);
-    }
-    for (const adm of mongoAdmissions) {
-      if (adm.id) admissionsMap.set(adm.id, adm);
-    }
+    const fillMissingDocuments = (target: Admission, source: Admission) => {
+      const docPairs: Array<[keyof Admission, keyof Admission]> = [
+        ["photo", "photo"],
+        ["photoUrl", "photoUrl"],
+        ["photoDataUrl", "photoDataUrl"],
+        ["photo_name", "photo_name"],
+        ["identity_proof", "identity_proof"],
+        ["identityProofUrl", "identityProofUrl"],
+        ["identity_proof_name", "identity_proof_name"],
+        ["education_proof", "education_proof"],
+        ["marksheetUrl", "marksheetUrl"],
+        ["education_proof_name", "education_proof_name"],
+        ["caste_certificate", "caste_certificate"],
+        ["casteCertUrl", "casteCertUrl"],
+        ["caste_certificate_name", "caste_certificate_name"],
+      ];
+      for (const [t, s] of docPairs) {
+        if (!target[t] && (source as any)[s]) (target as any)[t] = (source as any)[s];
+      }
+    };
+
+    const upsertAdmission = (adm: Admission) => {
+      if (!adm.id) return;
+      const existing = admissionsMap.get(adm.id);
+      if (existing) {
+        fillMissingDocuments(existing, adm);
+      } else {
+        admissionsMap.set(adm.id, adm);
+      }
+    };
+
+    for (const adm of localAdmissions) upsertAdmission(adm);
+    for (const adm of supabaseAdmissions) upsertAdmission(adm);
+    for (const adm of mongoAdmissions) upsertAdmission(adm);
 
     const rawMerged = Array.from(admissionsMap.values()).sort((a, b) => {
       const timeB = new Date(b.created_at || (b as any).registeredAt || (b as any).createdAt || 0).getTime();
@@ -645,6 +694,42 @@ export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]>
       seenStudentCourses.add(idKey);
     }
 
+    // 3. Student + Course deduplication: prevent dual-records for the same applicant and course
+    const emailKey = (adm.email || "").trim().toLowerCase();
+    const cleanProg = (adm.program || "").trim().toLowerCase();
+    const studentCourseKey = emailKey && cleanProg ? `${emailKey}::${cleanProg}` : "";
+    if (studentCourseKey && seenStudentCourses.has(studentCourseKey)) {
+      // Merge documents into existing entry if it was missing any
+      const existing = deduplicatedAdmissions.find(
+        (ex) => (ex.email || "").toLowerCase().trim() === emailKey && (ex.program || "").toLowerCase().trim() === cleanProg
+      );
+      if (existing) {
+        // Preserve every document form (canonical + aliases + names) across dedup
+        const docPairs: Array<[keyof Admission, keyof Admission]> = [
+          ["photo", "photo"],
+          ["photoUrl", "photoUrl"],
+          ["photoDataUrl", "photoDataUrl"],
+          ["photo_name", "photo_name"],
+          ["identity_proof", "identity_proof"],
+          ["identityProofUrl", "identityProofUrl"],
+          ["identity_proof_name", "identity_proof_name"],
+          ["education_proof", "education_proof"],
+          ["marksheetUrl", "marksheetUrl"],
+          ["education_proof_name", "education_proof_name"],
+          ["caste_certificate", "caste_certificate"],
+          ["casteCertUrl", "casteCertUrl"],
+          ["caste_certificate_name", "caste_certificate_name"],
+        ];
+        for (const [t, s] of docPairs) {
+          if (!existing[t] && (adm as any)[s]) (existing as any)[t] = (adm as any)[s];
+        }
+      }
+      continue;
+    }
+    if (studentCourseKey) {
+      seenStudentCourses.add(studentCourseKey);
+    }
+
     deduplicatedAdmissions.push(adm);
   }
 
@@ -716,16 +801,34 @@ export const deleteAdmission = async (
     console.warn("Supabase admissions delete notice:", e);
   }
 
-  // 3. Delete from localStorage
-  try {
-    const list: Admission[] = JSON.parse(localStorage.getItem("parivattan_admissions") || "[]");
-    const updated = list.filter(
-      (item) => item.id !== id && (!options?.payment_id || item.payment_id !== options.payment_id)
-    );
-    localStorage.setItem("parivattan_admissions", JSON.stringify(updated));
-    recalculateBatchSeatsFromAdmissions(updated);
-  } catch (e) {
-    console.warn("localStorage delete notice:", e);
+  // 3. Delete from all local storage admission keys to prevent resurrection
+  const storageKeys = [
+    "parivattan_admissions",
+    "parivattan_admissions_records",
+    "parivattan_student_admissions",
+    "parivattan_course_registrations",
+  ];
+  for (const key of storageKeys) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const list: Admission[] = JSON.parse(raw);
+        if (Array.isArray(list)) {
+          const updated = list.filter(
+            (item) =>
+              item.id !== id &&
+              (!options?.payment_id || item.payment_id !== options.payment_id) &&
+              (!options?.email || !item.email || item.email.toLowerCase() !== options.email.toLowerCase() || (options.program && item.program !== options.program))
+          );
+          localStorage.setItem(key, JSON.stringify(updated));
+          if (key === "parivattan_admissions") {
+            recalculateBatchSeatsFromAdmissions(updated);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("localStorage delete notice for", key, e);
+    }
   }
 };
 

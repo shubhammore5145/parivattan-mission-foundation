@@ -18,10 +18,15 @@ import {
   FileText,
   Clock,
   Pin,
+  Upload,
+  Image as ImageIcon,
+  RefreshCw,
 } from "lucide-react";
 import {
   AnnouncementItem,
   NewsArticleItem,
+  INITIAL_ANNOUNCEMENTS,
+  INITIAL_NEWS,
   getStoredAnnouncements,
   saveAnnouncement,
   deleteAnnouncement,
@@ -30,6 +35,11 @@ import {
   deleteNewsArticle,
   resetNewsAndAnnouncements,
 } from "@/data/newsAndAnnouncementsData";
+import {
+  compressImageFile,
+  saveAnnouncementsAndNewsToCloud,
+  syncAnnouncementsAndNewsFromCloud,
+} from "@/lib/news-announcements-sync";
 import { toast } from "sonner";
 
 const ANNOUNCEMENT_CATEGORIES: AnnouncementItem["category"][] = [
@@ -94,6 +104,8 @@ export default function NewsAndAnnouncementsManager() {
     isNew: true,
     isPinned: false,
     description: "",
+    imageUrl: "",
+    imageName: "",
     linkText: "Learn More",
     linkUrl: "/courses",
     attachmentName: "",
@@ -114,7 +126,13 @@ export default function NewsAndAnnouncementsManager() {
     linkUrl: "/courses",
   });
 
-  // Listen for sync
+  // Uploading and Cloud Sync States
+  const [annImageUploading, setAnnImageUploading] = useState(false);
+  const [newsImageUploading, setNewsImageUploading] = useState(false);
+  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+  const [lastSyncedTime, setLastSyncedTime] = useState<string>("");
+
+  // Listen for local and cross-tab sync
   useEffect(() => {
     const handleSync = () => {
       setAnnouncements(getStoredAnnouncements());
@@ -127,6 +145,108 @@ export default function NewsAndAnnouncementsManager() {
         handleSync
       );
   }, []);
+
+  // Sync from Cloud (MongoDB Atlas & Supabase) on initial load
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCloud = async () => {
+      setIsCloudSyncing(true);
+      try {
+        const result = await syncAnnouncementsAndNewsFromCloud(true);
+        if (isMounted && result) {
+          if (Array.isArray(result.announcements) && result.announcements.length > 0) {
+            setAnnouncements(result.announcements);
+          }
+          if (Array.isArray(result.newsList) && result.newsList.length > 0) {
+            setNewsList(result.newsList);
+          }
+          setLastSyncedTime(
+            new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          );
+        }
+      } catch (err) {
+        console.warn("[CloudSync] Initial fetch notice:", err);
+      } finally {
+        if (isMounted) setIsCloudSyncing(false);
+      }
+    };
+
+    fetchCloud();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Manual Trigger to re-fetch from cloud
+  const handleManualCloudSync = async () => {
+    setIsCloudSyncing(true);
+    try {
+      const result = await syncAnnouncementsAndNewsFromCloud(true);
+      if (result) {
+        if (Array.isArray(result.announcements) && result.announcements.length > 0) {
+          setAnnouncements(result.announcements);
+        }
+        if (Array.isArray(result.newsList) && result.newsList.length > 0) {
+          setNewsList(result.newsList);
+        }
+        setLastSyncedTime(
+          new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        );
+        toast.success("Synchronized with MongoDB Atlas cloud!");
+      }
+    } catch (err) {
+      toast.error("Could not complete cloud sync. Please check network connection.");
+    } finally {
+      setIsCloudSyncing(false);
+    }
+  };
+
+  // Image Upload Handler: Announcement
+  const handleAnnouncementImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select a valid image file (PNG, JPG, WebP).");
+      return;
+    }
+    setAnnImageUploading(true);
+    try {
+      const { dataUrl, name } = await compressImageFile(file, 1200, 0.85);
+      setAnnFormData((prev) => ({
+        ...prev,
+        imageUrl: dataUrl,
+        imageName: name,
+      }));
+      toast.success("Announcement image uploaded and optimized!");
+    } catch (err) {
+      toast.error("Failed to process image. Please try again.");
+    } finally {
+      setAnnImageUploading(false);
+    }
+  };
+
+  // Image Upload Handler: News
+  const handleNewsImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select a valid image file (PNG, JPG, WebP).");
+      return;
+    }
+    setNewsImageUploading(true);
+    try {
+      const { dataUrl } = await compressImageFile(file, 1200, 0.85);
+      setNewsFormData((prev) => ({
+        ...prev,
+        image: dataUrl,
+      }));
+      toast.success("News cover photo uploaded and optimized!");
+    } catch (err) {
+      toast.error("Failed to process image. Please try again.");
+    } finally {
+      setNewsImageUploading(false);
+    }
+  };
 
   // Filtered lists
   const filteredAnnouncements = useMemo(() => {
@@ -170,6 +290,8 @@ export default function NewsAndAnnouncementsManager() {
       isNew: true,
       isPinned: false,
       description: "",
+      imageUrl: "",
+      imageName: "",
       linkText: "View Details",
       linkUrl: "/admissions",
       attachmentName: "",
@@ -180,12 +302,16 @@ export default function NewsAndAnnouncementsManager() {
   // Open Announcement Edit
   const handleOpenEditAnnouncement = (item: AnnouncementItem) => {
     setEditingAnnouncement(item);
-    setAnnFormData({ ...item });
+    setAnnFormData({
+      ...item,
+      imageUrl: item.imageUrl || "",
+      imageName: item.imageName || "",
+    });
     setAnnouncementModalOpen(true);
   };
 
   // Save Announcement
-  const handleSaveAnnouncement = (e: React.FormEvent) => {
+  const handleSaveAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!annFormData.title.trim()) {
       toast.error("Please enter a title for the announcement.");
@@ -209,22 +335,39 @@ export default function NewsAndAnnouncementsManager() {
     };
 
     saveAnnouncement(finalItem);
-    setAnnouncements(getStoredAnnouncements());
+    const updated = getStoredAnnouncements();
+    setAnnouncements(updated);
     setAnnouncementModalOpen(false);
     toast.success(
       editingAnnouncement
-        ? "Announcement updated successfully!"
-        : "New announcement published to homepage!"
+        ? "Announcement updated! Syncing to cloud..."
+        : "New announcement posted! Syncing to cloud..."
     );
+
+    // Save to Cloud MongoDB Atlas and Supabase
+    try {
+      await saveAnnouncementsAndNewsToCloud(updated, newsList);
+      toast.success("Saved & synchronized with MongoDB Atlas cloud!");
+    } catch (err) {
+      console.warn("Cloud persistence error:", err);
+    }
   };
 
   // Delete Announcement
-  const handleDeleteAnnouncement = () => {
+  const handleDeleteAnnouncement = async () => {
     if (!deletingAnnouncement) return;
     deleteAnnouncement(deletingAnnouncement.id);
-    setAnnouncements(getStoredAnnouncements());
-    toast.success("Announcement deleted.");
+    const updated = getStoredAnnouncements();
+    setAnnouncements(updated);
+    toast.success("Announcement deleted. Syncing cloud...");
     setDeletingAnnouncement(null);
+
+    try {
+      await saveAnnouncementsAndNewsToCloud(updated, newsList);
+      toast.success("Deleted from cloud.");
+    } catch (err) {
+      console.warn(err);
+    }
   };
 
   // Open News Add
@@ -260,7 +403,7 @@ export default function NewsAndAnnouncementsManager() {
   };
 
   // Save News
-  const handleSaveNews = (e: React.FormEvent) => {
+  const handleSaveNews = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newsFormData.title.trim()) {
       toast.error("Please enter an article title.");
@@ -288,31 +431,57 @@ export default function NewsAndAnnouncementsManager() {
     };
 
     saveNewsArticle(finalItem);
-    setNewsList(getStoredNews());
+    const updated = getStoredNews();
+    setNewsList(updated);
     setNewsModalOpen(false);
     toast.success(
       editingNews
-        ? "News article updated successfully!"
-        : "New story published to homepage!"
+        ? "News article updated! Syncing to cloud..."
+        : "New story published! Syncing to cloud..."
     );
+
+    // Save to Cloud MongoDB Atlas and Supabase
+    try {
+      await saveAnnouncementsAndNewsToCloud(announcements, updated);
+      toast.success("Saved & synchronized with MongoDB Atlas cloud!");
+    } catch (err) {
+      console.warn("Cloud persistence error:", err);
+    }
   };
 
   // Delete News
-  const handleDeleteNews = () => {
+  const handleDeleteNews = async () => {
     if (!deletingNews) return;
     deleteNewsArticle(deletingNews.id);
-    setNewsList(getStoredNews());
-    toast.success("News article deleted.");
+    const updated = getStoredNews();
+    setNewsList(updated);
+    toast.success("News article deleted. Syncing cloud...");
     setDeletingNews(null);
+
+    try {
+      await saveAnnouncementsAndNewsToCloud(announcements, updated);
+      toast.success("Deleted from cloud.");
+    } catch (err) {
+      console.warn(err);
+    }
   };
 
   // Reset to default
-  const handleResetDefaults = () => {
+  const handleResetDefaults = async () => {
     resetNewsAndAnnouncements();
-    setAnnouncements(getStoredAnnouncements());
-    setNewsList(getStoredNews());
+    const defAnn = INITIAL_ANNOUNCEMENTS;
+    const defNews = INITIAL_NEWS;
+    setAnnouncements(defAnn);
+    setNewsList(defNews);
     setResetConfirmOpen(false);
-    toast.success("All announcements and news restored to defaults.");
+    toast.success("All announcements and news restored to defaults. Syncing cloud...");
+
+    try {
+      await saveAnnouncementsAndNewsToCloud(defAnn, defNews);
+      toast.success("Cloud database restored to defaults!");
+    } catch (err) {
+      console.warn(err);
+    }
   };
 
   return (
@@ -356,6 +525,18 @@ export default function NewsAndAnnouncementsManager() {
             )}
 
             <button
+              onClick={handleManualCloudSync}
+              disabled={isCloudSyncing}
+              title="Force sync latest changes with MongoDB Atlas cloud"
+              className="inline-flex items-center gap-1.5 rounded-2xl bg-white/10 px-4 py-3 text-xs sm:text-sm font-semibold text-stone-300 hover:bg-white/20 hover:text-white transition disabled:opacity-50"
+            >
+              <RefreshCw size={15} className={isCloudSyncing ? "animate-spin text-amber-300" : ""} />
+              <span className="hidden sm:inline">
+                {isCloudSyncing ? "Syncing..." : "Sync Cloud"}
+              </span>
+            </button>
+
+            <button
               onClick={() => setResetConfirmOpen(true)}
               title="Reset to default items"
               className="inline-flex items-center gap-1.5 rounded-2xl bg-white/10 px-4 py-3 text-xs sm:text-sm font-semibold text-stone-300 hover:bg-white/20 hover:text-white transition"
@@ -387,11 +568,25 @@ export default function NewsAndAnnouncementsManager() {
             </span>
           </div>
           <div>
-            <span className="text-stone-400 block font-medium">Homepage Sync</span>
-            <span className="text-xl sm:text-2xl font-bold font-serif text-emerald-400 flex items-center gap-1">
-              <CheckCircle2 size={18} />
-              <span>Live Active</span>
+            <span className="text-stone-400 block font-medium">Cloud Database Sync</span>
+            <span className="text-xl sm:text-2xl font-bold font-serif text-emerald-400 flex items-center gap-1.5">
+              {isCloudSyncing ? (
+                <>
+                  <RefreshCw size={17} className="animate-spin text-amber-300" />
+                  <span className="text-sm font-sans font-semibold text-amber-300">Syncing...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={18} />
+                  <span className="text-sm font-sans font-semibold">MongoDB Atlas</span>
+                </>
+              )}
             </span>
+            {lastSyncedTime && !isCloudSyncing && (
+              <span className="text-[10px] text-stone-400 block mt-0.5">
+                Last checked at {lastSyncedTime}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -466,7 +661,7 @@ export default function NewsAndAnnouncementsManager() {
                   key={ann.id}
                   className="rounded-2xl border border-stone-200 bg-white p-4.5 sm:p-5 shadow-xs hover:border-[#b5623b]/50 hover:shadow-md transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                 >
-                  <div className="flex items-start gap-4 flex-1 min-w-0">
+                  <div className="flex items-start gap-3.5 sm:gap-4 flex-1 min-w-0">
                     <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl bg-[#24312d] text-white">
                       <span className="text-[9px] font-bold uppercase tracking-wider text-amber-200">
                         {new Date(ann.date).toLocaleDateString("en-US", { month: "short" })}
@@ -475,6 +670,17 @@ export default function NewsAndAnnouncementsManager() {
                         {new Date(ann.date).getDate() || "16"}
                       </span>
                     </div>
+
+                    {/* Announcement Image Thumbnail if uploaded */}
+                    {ann.imageUrl && (
+                      <div className="relative h-11 w-14 sm:h-12 sm:w-16 shrink-0 rounded-xl overflow-hidden border border-stone-200 bg-stone-100 shadow-2xs group">
+                        <img
+                          src={ann.imageUrl}
+                          alt={ann.title}
+                          className="h-full w-full object-cover group-hover:scale-105 transition-transform"
+                        />
+                      </div>
+                    )}
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -713,6 +919,78 @@ export default function NewsAndAnnouncementsManager() {
                 />
               </div>
 
+              {/* Image / Circular Poster Upload Option */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-stone-700 block">
+                    Announcement Poster / Image (Optional)
+                  </label>
+                  {annFormData.imageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setAnnFormData((prev) => ({ ...prev, imageUrl: "", imageName: "" }))}
+                      className="text-[11px] text-rose-600 hover:text-rose-700 font-semibold inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 size={12} />
+                      <span>Remove Photo</span>
+                    </button>
+                  )}
+                </div>
+
+                {annFormData.imageUrl ? (
+                  <div className="rounded-2xl border border-stone-200 bg-stone-50 p-3 flex items-center gap-4">
+                    <div className="relative h-20 w-28 shrink-0 rounded-xl overflow-hidden border border-stone-200 bg-white">
+                      <img
+                        src={annFormData.imageUrl}
+                        alt="Notice preview"
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-stone-800 truncate">
+                        {annFormData.imageName || "Custom Notice Poster"}
+                      </p>
+                      <p className="text-[11px] text-emerald-600 font-medium mt-0.5 flex items-center gap-1">
+                        <CheckCircle2 size={12} /> Ready to sync with cloud
+                      </p>
+                      <label className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-stone-300 bg-white text-[11px] font-bold text-stone-700 hover:bg-stone-50 cursor-pointer transition shadow-2xs">
+                        <Upload size={12} />
+                        <span>Change Photo</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleAnnouncementImageFile}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center p-4 rounded-2xl border-2 border-dashed border-stone-200 hover:border-[#b5623b] bg-stone-50/60 hover:bg-stone-50 cursor-pointer transition group">
+                    <div className="h-10 w-10 rounded-full bg-stone-100 group-hover:bg-amber-100 text-stone-500 group-hover:text-[#b5623b] flex items-center justify-center transition mb-1.5">
+                      {annImageUploading ? (
+                        <RefreshCw size={18} className="animate-spin text-[#b5623b]" />
+                      ) : (
+                        <Upload size={18} />
+                      )}
+                    </div>
+                    <span className="text-xs font-bold text-stone-800">
+                      {annImageUploading ? "Optimizing image..." : "Upload Photo / Notice Poster"}
+                    </span>
+                    <span className="text-[10px] text-stone-500 mt-0.5">
+                      Select JPG, PNG, or WebP from your device (Auto-compressed)
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={annImageUploading}
+                      onChange={handleAnnouncementImageFile}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-stone-700 block mb-1">
@@ -887,21 +1165,73 @@ export default function NewsAndAnnouncementsManager() {
                 </div>
               </div>
 
-              {/* Cover Image Preset Picker & Custom Input */}
-              <div>
-                <label className="text-xs font-bold text-stone-700 block mb-1">
-                  Article Cover Image URL
+              {/* Cover Image Upload, Custom URL & Preset Picker */}
+              <div className="space-y-2.5">
+                <label className="text-xs font-bold text-stone-700 block">
+                  Article Cover Photo *
                 </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="/img/japanese.jpeg or external https://..."
-                  value={newsFormData.image}
-                  onChange={(e) => setNewsFormData({ ...newsFormData, image: e.target.value })}
-                  className="w-full rounded-xl border border-stone-200 px-3 py-2 text-xs text-stone-900 outline-none focus:border-[#b5623b]"
-                />
 
-                <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                {/* Cover Image Preview */}
+                {newsFormData.image && (
+                  <div className="relative h-44 w-full rounded-2xl overflow-hidden border border-stone-200 bg-stone-100 group">
+                    <img
+                      src={newsFormData.image}
+                      alt="News preview"
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "/img/japanese.jpeg";
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <label className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white text-stone-800 text-xs font-bold cursor-pointer hover:bg-stone-50 shadow-md transition">
+                        <Upload size={13} />
+                        <span>Change Cover Photo</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleNewsImageFile}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {/* Upload Button from Device */}
+                <div className="flex items-center gap-2">
+                  <label className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50/50 hover:bg-emerald-50 text-emerald-800 text-xs font-bold cursor-pointer transition">
+                    {newsImageUploading ? (
+                      <RefreshCw size={14} className="animate-spin text-emerald-700" />
+                    ) : (
+                      <Upload size={14} />
+                    )}
+                    <span>{newsImageUploading ? "Processing photo..." : "Upload Photo from Device (JPG/PNG)"}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={newsImageUploading}
+                      onChange={handleNewsImageFile}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                {/* Custom URL or Quick Presets */}
+                <div>
+                  <label className="text-[11px] text-stone-500 font-medium block mb-1">
+                    Or specify image path / external URL:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="/img/japanese.jpeg or https://..."
+                    value={newsFormData.image}
+                    onChange={(e) => setNewsFormData({ ...newsFormData, image: e.target.value })}
+                    className="w-full rounded-xl border border-stone-200 px-3 py-2 text-xs text-stone-900 outline-none focus:border-[#b5623b]"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[10px] text-stone-500 font-bold uppercase">Quick Presets:</span>
                   {PRESET_NEWS_IMAGES.map((preset) => (
                     <button
@@ -910,7 +1240,7 @@ export default function NewsAndAnnouncementsManager() {
                       onClick={() => setNewsFormData({ ...newsFormData, image: preset.url })}
                       className={`text-[10px] px-2 py-0.5 rounded-lg border font-medium transition ${
                         newsFormData.image === preset.url
-                          ? "bg-[#b5623b] text-white border-[#b5623b]"
+                          ? "bg-emerald-600 text-white border-emerald-600"
                           : "bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100"
                       }`}
                     >

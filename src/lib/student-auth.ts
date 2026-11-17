@@ -308,19 +308,28 @@ export const fetchRegisteredStudentsFromCloud = async (forceFresh = false): Prom
     await Promise.allSettled([fetchMongo(), fetchSupabase()]);
 
     // Query cloud trash to exclude specifically deleted student IDs from showing
-    const deletedIdSet = new Set<string>();
-    const deletedEmailMap = new Map<string, string>(); // email -> deletedAt
+    const deletedStudentIdSet = new Set<string>();
     try {
+      // Local student trash
+      const localTrash = localStorage.getItem("parivattan_deleted_students");
+      if (localTrash) {
+        const arr = JSON.parse(localTrash);
+        if (Array.isArray(arr)) {
+          arr.forEach((it: any) => {
+            if (it.id) deletedStudentIdSet.add(String(it.id));
+            if (it.student?.id) deletedStudentIdSet.add(String(it.student.id));
+          });
+        }
+      }
+
+      // Cloud trash - only check items explicitly deleted as student registrations
       const trashRes = await fetch("/api/admissions?trash=true");
       if (trashRes.ok) {
         const trashJson = await trashRes.json();
         if (Array.isArray(trashJson?.data)) {
           trashJson.data.forEach((d: any) => {
-            if (d.id) deletedIdSet.add(String(d.id));
-            if (d.student?.id) deletedIdSet.add(String(d.student.id));
-            if (d.email) {
-              deletedEmailMap.set(d.email.toLowerCase().trim(), d.deletedAt || d.created_at || "");
-            }
+            if (d.student?.id) deletedStudentIdSet.add(String(d.student.id));
+            if (d.program === "STUDENT_REGISTRATION" && d.id) deletedStudentIdSet.add(String(d.id));
           });
         }
       }
@@ -339,19 +348,9 @@ export const fetchRegisteredStudentsFromCloud = async (forceFresh = false): Prom
       const cleanPhone = (s.phone || "").replace(/\D/g, "");
       const isOrgEmail = cleanEmail.includes("parivattan@") || cleanEmail.includes("shubhamvmore");
 
-      // Skip ONLY if the exact student record ID was deleted in trash
-      if (s.id && deletedIdSet.has(String(s.id))) {
+      // Skip ONLY if the student profile ID was explicitly deleted
+      if (s.id && deletedStudentIdSet.has(String(s.id))) {
         continue;
-      }
-
-      // If an old deleted record with this email exists in trash, check if this is a newly created account.
-      // If the student's registration date is newer than the deletion date (or if student was freshly created), do NOT skip!
-      if (!isOrgEmail && cleanEmail && deletedEmailMap.has(cleanEmail)) {
-        const deletedAt = deletedEmailMap.get(cleanEmail);
-        const registeredAt = s.registeredAt || (s as any).createdAt || "";
-        if (deletedAt && registeredAt && new Date(registeredAt).getTime() <= new Date(deletedAt).getTime()) {
-          continue;
-        }
       }
 
       if (cleanPrn && seenPrns.has(cleanPrn)) {

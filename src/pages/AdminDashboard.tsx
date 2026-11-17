@@ -286,6 +286,8 @@ export default function AdminDashboard() {
     url: string;
     isImage: boolean;
   } | null>(null);
+  const [loadingStudentDocs, setLoadingStudentDocs] = useState<boolean>(false);
+  const [loadingAdmissionDocs, setLoadingAdmissionDocs] = useState<boolean>(false);
 
   // Add New Admission Modal State
   const [showAddAdmissionModal, setShowAddAdmissionModal] = useState(false);
@@ -503,9 +505,64 @@ export default function AdminDashboard() {
       }
       checkMongoStatus().then(setMongoStatus).catch(() => {});
 
+      // 1. Gather deleted admission IDs and signatures to guarantee deleted records never resurrect
+      const deletedList = getDeletedAdmissions();
+      const deletedIds = new Set<string>();
+      const deletedSigs = new Set<string>();
+      for (const d of deletedList) {
+        if (d.id) deletedIds.add(d.id);
+        if (d.admission?.id) deletedIds.add(d.admission.id);
+        const dEmail = (d.admission?.email || "").toLowerCase().trim();
+        const dProg = (d.admission?.program || "").toLowerCase().trim();
+        if (dEmail && dProg) deletedSigs.add(`${dEmail}::${dProg}`);
+        const dPid = (d.admission?.payment_id || "").trim();
+        if (dPid && dPid !== "OFFLINE_RECORD" && !dPid.startsWith("PAY_ADM_")) deletedIds.add(dPid);
+      }
+
       const mergedMap = new Map<string, Admission>();
 
-      // 1. Gather all local storage admission stores
+      const upsertAdmission = (item: Admission) => {
+        if (!item || !item.id || isSystemConfigRow(item) || !isRealCourseAdmission(item)) return;
+
+        // Skip if deleted in trash
+        if (deletedIds.has(item.id)) return;
+        const eKey = (item.email || "").toLowerCase().trim();
+        const pKey = (item.program || "").toLowerCase().trim();
+        if (eKey && pKey && deletedSigs.has(`${eKey}::${pKey}`)) return;
+        const pid = (item.payment_id || "").trim();
+        if (pid && pid !== "OFFLINE_RECORD" && !pid.startsWith("PAY_ADM_") && deletedIds.has(pid)) return;
+
+        // Compound key for deduplication: payment reference -> email+program -> id
+        const compoundKey =
+          pid && pid !== "OFFLINE_RECORD" && !pid.startsWith("PAY_ADM_")
+            ? `pid_${pid.toLowerCase()}`
+            : eKey && pKey
+            ? `sig_${eKey}::${pKey}`
+            : `id_${item.id}`;
+
+        const existing = mergedMap.get(compoundKey);
+        if (existing) {
+          // Merge documents and preserve valid fields so no documents or data are lost
+          mergedMap.set(compoundKey, {
+            ...item,
+            ...existing,
+            photo: existing.photo || item.photo || (item as any).photoUrl || (existing as any).photoUrl,
+            photo_name: existing.photo_name || item.photo_name,
+            identity_proof: existing.identity_proof || item.identity_proof || (item as any).identityProofUrl || (existing as any).identityProofUrl,
+            identity_proof_name: existing.identity_proof_name || item.identity_proof_name,
+            education_proof: existing.education_proof || item.education_proof || item.marksheetUrl || existing.marksheetUrl,
+            education_proof_name: existing.education_proof_name || item.education_proof_name,
+            caste_certificate: existing.caste_certificate || item.caste_certificate || (item as any).casteCertUrl || (existing as any).casteCertUrl,
+            caste_certificate_name: existing.caste_certificate_name || item.caste_certificate_name,
+            payment_id: existing.payment_id && existing.payment_id !== "OFFLINE_RECORD" ? existing.payment_id : item.payment_id,
+            status: existing.status === "completed" ? "completed" : item.status,
+          });
+        } else {
+          mergedMap.set(compoundKey, item);
+        }
+      };
+
+      // 2. Gather all local storage admission stores
       const localKeys = [
         "parivattan_admissions",
         "parivattan_admissions_records",
@@ -520,7 +577,7 @@ export default function AdminDashboard() {
             if (Array.isArray(arr)) {
               for (const item of arr) {
                 const norm = normalizeAdmission(item);
-                if (norm && norm.id) mergedMap.set(String(norm.id), norm);
+                if (norm) upsertAdmission(norm);
               }
             }
           }
@@ -529,14 +586,12 @@ export default function AdminDashboard() {
 
       // If we already have local data, paint it immediately so user NEVER waits
       if (mergedMap.size > 0) {
-        const localList = Array.from(mergedMap.values()).filter((a) => !isSystemConfigRow(a));
-        if (localList.length > 0) {
-          setAdmissions(localList);
-          setAdmissionsLoading(false);
-        }
+        const localList = Array.from(mergedMap.values());
+        setAdmissions(localList);
+        setAdmissionsLoading(false);
       }
 
-      // 2. Fetch live from MongoDB Atlas AND Supabase in parallel
+      // 3. Fetch live from MongoDB Atlas AND Supabase in parallel
       const fetchDirectMongo = async () => {
         try {
           const directRes = await fetch("/api/admissions?fresh=true");
@@ -559,61 +614,52 @@ export default function AdminDashboard() {
 
       if (directMongoRecords.status === "fulfilled" && Array.isArray(directMongoRecords.value)) {
         for (const item of directMongoRecords.value) {
-          if (item && item.id) mergedMap.set(String(item.id), item);
+          if (item) upsertAdmission(item);
         }
       }
 
       if (allCloudRecords.status === "fulfilled" && Array.isArray(allCloudRecords.value)) {
         for (const item of allCloudRecords.value) {
-          if (item && item.id) mergedMap.set(String(item.id), item);
+          if (item) upsertAdmission(item);
         }
       }
 
-      // 3. Synthesize any registered student who enrolled in a course or submitted an application
+      // 4. Synthesize any registered student who enrolled in a course or submitted an application
       try {
         const stdList = getAllRegisteredStudents();
         for (const s of stdList) {
           if (s && (s.courseTitle || s.program || s.language || (Array.isArray(s.enrolledCourses) && s.enrolledCourses.length > 0))) {
             const sAdmId = `adm_std_${s.id || s.prn || s.email}`;
-            const exists = Array.from(mergedMap.values()).some(
-              (ex) =>
-                (ex.id && (ex.id === sAdmId || ex.id === s.id)) ||
-                (ex.email && s.email && ex.email.toLowerCase() === s.email.toLowerCase())
-            );
-            if (!exists) {
-              const synthesized: Admission = {
-                id: sAdmId,
-                name: s.name || "Student Applicant",
-                email: s.email || "",
-                phone: s.phone || "",
-                program: s.courseTitle || s.program || (Array.isArray(s.enrolledCourses) && s.enrolledCourses[0]?.courseTitle) || "Enrolled Course",
-                amount: Number(s.amount || (Array.isArray(s.enrolledCourses) && s.enrolledCourses[0]?.amount) || 0),
-                payment_id: s.payment_id || s.paymentId || "OFFLINE_RECORD",
-                status: s.status || "completed",
-                created_at: s.registeredAt || s.created_at || new Date().toISOString(),
-                photo: s.photo || s.photoUrl || s.avatar,
-                identity_proof: s.identity_proof || s.identityProofUrl,
-                identity_proof_name: s.identity_proof_name,
-                education_proof: s.education_proof || s.marksheetUrl,
-                education_proof_name: s.education_proof_name,
-                caste_certificate: s.caste_certificate || s.casteCertUrl,
-                caste_certificate_name: s.caste_certificate_name,
-                education: s.education,
-                college_name: s.college_name || s.collegeName,
-                address: s.address || s.city || "",
-                gender: s.gender,
-                dob: s.dob || s.date_of_birth,
-                message: `PRN: ${s.prn || ""} | Student Portal Account`,
-              };
-              mergedMap.set(sAdmId, synthesized);
-            }
+            const synthesized: Admission = {
+              id: sAdmId,
+              name: s.name || "Student Applicant",
+              email: s.email || "",
+              phone: s.phone || "",
+              program: s.courseTitle || s.program || (Array.isArray(s.enrolledCourses) && s.enrolledCourses[0]?.courseTitle) || "Enrolled Course",
+              amount: Number(s.amount || (Array.isArray(s.enrolledCourses) && s.enrolledCourses[0]?.amount) || 0),
+              payment_id: s.payment_id || s.paymentId || "OFFLINE_RECORD",
+              status: s.status || "completed",
+              created_at: s.registeredAt || s.created_at || new Date().toISOString(),
+              photo: s.photo || s.photoUrl || s.avatar,
+              identity_proof: s.identity_proof || s.identityProofUrl,
+              identity_proof_name: s.identity_proof_name,
+              education_proof: s.education_proof || s.marksheetUrl,
+              education_proof_name: s.education_proof_name,
+              caste_certificate: s.caste_certificate || s.casteCertUrl,
+              caste_certificate_name: s.caste_certificate_name,
+              education: s.education,
+              college_name: s.college_name || s.collegeName,
+              address: s.address || s.city || "",
+              gender: s.gender,
+              dob: s.dob || s.date_of_birth,
+              message: `PRN: ${s.prn || ""} | Student Portal Account`,
+            };
+            upsertAdmission(synthesized);
           }
         }
       } catch {}
 
-      const allMerged = Array.from(mergedMap.values());
-      // Exclude only system batch capacity configuration rows
-      const validAdmissions = allMerged.filter((a) => !isSystemConfigRow(a));
+      const validAdmissions = Array.from(mergedMap.values());
 
       if (validAdmissions.length > 0) {
         setAdmissions(validAdmissions);
@@ -634,9 +680,13 @@ export default function AdminDashboard() {
 
   const loadStudents = async () => {
     try {
+      const delStudents = getDeletedStudents();
+      const delIds = new Set(delStudents.map((d) => d.id || d.student?.id).filter(Boolean));
+
       const localList = getAllRegisteredStudents();
-      if (localList.length > 0) {
-        setStudents(localList);
+      const cleanLocal = localList.filter((s) => !delIds.has(s.id));
+      if (cleanLocal.length > 0) {
+        setStudents(cleanLocal);
         setStudentsLoading(false);
       } else if (students.length === 0) {
         setStudentsLoading(true);
@@ -644,7 +694,8 @@ export default function AdminDashboard() {
 
       const cloudList = await fetchRegisteredStudentsFromCloud(true);
       if (cloudList && cloudList.length > 0) {
-        setStudents(cloudList);
+        const cleanCloud = cloudList.filter((s) => !delIds.has(s.id));
+        setStudents(cleanCloud);
       }
     } catch (err) {
       console.error("Error loading students:", err);
@@ -782,13 +833,45 @@ export default function AdminDashboard() {
       return matchesSearch && matchesCourse && matchesBatch && matchesStatus;
     });
 
-    // Deduplicate strictly by unique ID
+    // Deduplicate strictly by compound signature (payment reference -> email+program -> id)
     const deduped: Admission[] = [];
-    const seenIds = new Set<string>();
+    const seenSignatures = new Set<string>();
 
     for (const a of list) {
-      if (a.id && seenIds.has(a.id)) continue;
-      if (a.id) seenIds.add(a.id);
+      const pid = (a.payment_id || "").trim();
+      const hasValidPid = pid && pid !== "OFFLINE_RECORD" && !pid.startsWith("PAY_ADM_");
+      const eKey = (a.email || "").trim().toLowerCase();
+      const pKey = (a.program || "").trim().toLowerCase();
+
+      const key = hasValidPid
+        ? `pid_${pid.toLowerCase()}`
+        : eKey && pKey
+        ? `sig_${eKey}::${pKey}`
+        : `id_${a.id || ""}`;
+
+      if (seenSignatures.has(key)) {
+        // Merge documents into existing entry if it lacked any
+        const existing = deduped.find((ex) => {
+          const exPid = (ex.payment_id || "").trim();
+          const exHasValidPid = exPid && exPid !== "OFFLINE_RECORD" && !exPid.startsWith("PAY_ADM_");
+          const exEKey = (ex.email || "").trim().toLowerCase();
+          const exPKey = (ex.program || "").trim().toLowerCase();
+          const exKey = exHasValidPid
+            ? `pid_${exPid.toLowerCase()}`
+            : exEKey && exPKey
+            ? `sig_${exEKey}::${exPKey}`
+            : `id_${ex.id || ""}`;
+          return exKey === key;
+        });
+        if (existing) {
+          if (!existing.photo && a.photo) existing.photo = a.photo;
+          if (!existing.identity_proof && a.identity_proof) existing.identity_proof = a.identity_proof;
+          if (!existing.education_proof && a.education_proof) existing.education_proof = a.education_proof;
+          if (!existing.caste_certificate && a.caste_certificate) existing.caste_certificate = a.caste_certificate;
+        }
+        continue;
+      }
+      seenSignatures.add(key);
       deduped.push(a);
     }
 
@@ -1169,29 +1252,266 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleViewAdmission = async (admission: Admission) => {
-    setSelectedAdmission(admission);
-    // If attached documents are not yet loaded in list memory, fetch single complete record
-    if (
-      !admission.photo &&
-      !admission.identity_proof &&
-      !admission.education_proof &&
-      !admission.caste_certificate &&
-      admission.id
-    ) {
+  const handleViewStudent = async (student: StudentUser) => {
+    const cleanEmail = (student.email || "").trim().toLowerCase();
+    const cleanPhone = (student.phone || "").replace(/\D/g, "");
+    const cleanPrn = (student.prn || "").trim();
+
+    // 1. Immediate resolution from admissions in state
+    const matchAdm = admissions.find(
+      (a) =>
+        (cleanEmail && a.email && a.email.toLowerCase() === cleanEmail) ||
+        (cleanPhone && cleanPhone.length >= 7 && a.phone && a.phone.replace(/\D/g, "") === cleanPhone) ||
+        (cleanPrn && a.message && a.message.includes(cleanPrn))
+    );
+
+    // 2. Immediate resolution from localStorage stores
+    let localFound: any = null;
+    const localKeys = [
+      "parivattan_student_admissions",
+      "parivattan_admissions",
+      "parivattan_active_students",
+      "parivattan_course_registrations",
+    ];
+    for (const lk of localKeys) {
+      if (localFound?.identity_proof && localFound?.education_proof) break;
       try {
-        const res = await fetch(`/api/admissions?id=${encodeURIComponent(admission.id)}&full=true`);
+        const raw = localStorage.getItem(lk);
+        if (raw) {
+          const arr = JSON.parse(raw);
+          if (Array.isArray(arr)) {
+            const found = arr.find(
+              (item: any) =>
+                (cleanEmail && item.email && item.email.toLowerCase() === cleanEmail) ||
+                (cleanPhone && cleanPhone.length >= 7 && item.phone && String(item.phone).replace(/\D/g, "") === cleanPhone) ||
+                (cleanPrn && item.prn && String(item.prn).trim() === cleanPrn)
+            );
+            if (found && (found.identity_proof || found.education_proof || found.photo)) {
+              localFound = {
+                ...localFound,
+                identity_proof: found.identity_proof || (localFound?.identity_proof),
+                identity_proof_name: found.identity_proof_name || (localFound?.identity_proof_name),
+                education_proof: found.education_proof || found.marksheetUrl || (localFound?.education_proof),
+                education_proof_name: found.education_proof_name || (localFound?.education_proof_name),
+                photo: found.photo || (localFound?.photo),
+                photo_name: found.photo_name || (localFound?.photo_name),
+                caste_certificate: found.caste_certificate || (localFound?.caste_certificate),
+                caste_certificate_name: found.caste_certificate_name || (localFound?.caste_certificate_name),
+              };
+            }
+          }
+        }
+      } catch {}
+    }
+
+    const mergedStudent: StudentUser = {
+      ...student,
+      photo: student.photo || matchAdm?.photo || (matchAdm as any)?.photoUrl || localFound?.photo,
+      photo_name: student.photo_name || matchAdm?.photo_name || localFound?.photo_name,
+      identity_proof: student.identity_proof || (student as any).identityProofUrl || matchAdm?.identity_proof || (matchAdm as any)?.identityProofUrl || localFound?.identity_proof,
+      identity_proof_name: student.identity_proof_name || matchAdm?.identity_proof_name || localFound?.identity_proof_name,
+      education_proof: student.education_proof || (student as any).marksheetUrl || matchAdm?.education_proof || matchAdm?.marksheetUrl || localFound?.education_proof,
+      education_proof_name: student.education_proof_name || (student as any).educationProofName || matchAdm?.education_proof_name || localFound?.education_proof_name,
+      caste_certificate: student.caste_certificate || (student as any).casteCertUrl || matchAdm?.caste_certificate || (matchAdm as any)?.casteCertUrl || localFound?.caste_certificate,
+      caste_certificate_name: student.caste_certificate_name || matchAdm?.caste_certificate_name || localFound?.caste_certificate_name,
+    };
+
+    setSelectedStudent(mergedStudent);
+
+    const hasFullDocs =
+      Boolean(mergedStudent.photo && mergedStudent.photo.length > 200) &&
+      (!mergedStudent.identity_proof_name || Boolean(mergedStudent.identity_proof && mergedStudent.identity_proof.length > 100)) &&
+      (!mergedStudent.education_proof_name || Boolean(mergedStudent.education_proof && mergedStudent.education_proof.length > 100)) &&
+      (!mergedStudent.caste_certificate_name || Boolean(mergedStudent.caste_certificate && mergedStudent.caste_certificate.length > 100));
+
+    if (!hasFullDocs && (student.id || student.email || student.prn || student.phone)) {
+      setLoadingStudentDocs(true);
+      try {
+        const queryParams = new URLSearchParams();
+        if (student.id) queryParams.set("id", student.id);
+        if (student.email) queryParams.set("email", student.email);
+        if (student.prn) queryParams.set("prn", student.prn);
+        if (student.phone) queryParams.set("phone", student.phone);
+        queryParams.set("full", "true");
+
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 8000);
+
+        const res = await fetch(`/api/admissions?${queryParams.toString()}`, { signal: controller.signal });
+        clearTimeout(timer);
+
         if (res.ok) {
           const json = await res.json();
-          if (json.success && json.data) {
-            const fullNorm = normalizeAdmission(json.data);
-            setSelectedAdmission((prev) =>
-              prev && prev.id === admission.id ? { ...prev, ...fullNorm } : prev
+          const docData = Array.isArray(json.data) ? json.data[0] : json.data;
+          if (docData) {
+            let meta: any = {};
+            if (docData.message && typeof docData.message === "string" && docData.message.trim().startsWith("{")) {
+              try { meta = JSON.parse(docData.message); } catch {}
+            }
+
+            const updatedStudent: StudentUser = {
+              ...mergedStudent,
+              photo: docData.photo || (docData as any).photoUrl || meta.photo || meta.photoUrl || meta.avatar || mergedStudent.photo,
+              photo_name: docData.photo_name || meta.photo_name || mergedStudent.photo_name,
+              identity_proof: docData.identity_proof || (docData as any).identityProofUrl || meta.identity_proof || meta.identityProofUrl || mergedStudent.identity_proof,
+              identity_proof_name: docData.identity_proof_name || meta.identity_proof_name || mergedStudent.identity_proof_name,
+              education_proof: docData.education_proof || docData.marksheetUrl || meta.education_proof || meta.marksheetUrl || mergedStudent.education_proof,
+              education_proof_name: docData.education_proof_name || meta.education_proof_name || mergedStudent.education_proof_name,
+              caste_certificate: docData.caste_certificate || (docData as any).casteCertUrl || meta.caste_certificate || meta.casteCertUrl || mergedStudent.caste_certificate,
+              caste_certificate_name: docData.caste_certificate_name || meta.caste_certificate_name || mergedStudent.caste_certificate_name,
+            };
+
+            setSelectedStudent(updatedStudent);
+            setStudents((prev) =>
+              prev.map((s) => (s.id === student.id || s.prn === student.prn ? updatedStudent : s))
+            );
+          }
+        }
+      } catch (err) {
+        console.warn("[AdminDashboard] Error loading full student documents:", err);
+      } finally {
+        setLoadingStudentDocs(false);
+      }
+    }
+  };
+
+  const handleViewAdmission = async (admission: Admission) => {
+    const cleanEmail = (admission.email || "").trim().toLowerCase();
+    const cleanPhone = (admission.phone || "").replace(/\D/g, "");
+
+    // 1. Immediate resolution from students list in memory
+    const matchStd = students.find(
+      (s) =>
+        (cleanEmail && s.email && s.email.toLowerCase() === cleanEmail) ||
+        (cleanPhone && cleanPhone.length >= 7 && s.phone && s.phone.replace(/\D/g, "") === cleanPhone) ||
+        (admission.message && s.prn && admission.message.includes(s.prn))
+    );
+
+    // 2. Immediate resolution from other admissions in memory
+    const matchAdm = admissions.find(
+      (a) =>
+        a.id !== admission.id &&
+        ((cleanEmail && a.email && a.email.toLowerCase() === cleanEmail) ||
+          (cleanPhone && cleanPhone.length >= 7 && a.phone && a.phone.replace(/\D/g, "") === cleanPhone)) &&
+        (a.identity_proof || a.education_proof || a.photo)
+    );
+
+    // 3. Immediate resolution from local storage caches
+    let localFound: Partial<Admission> | null = null;
+    const localKeys = [
+      "parivattan_student_admissions",
+      "parivattan_admissions",
+      "parivattan_active_students",
+      "parivattan_course_registrations",
+    ];
+    for (const lk of localKeys) {
+      if (localFound?.identity_proof && localFound?.education_proof) break;
+      try {
+        const raw = localStorage.getItem(lk);
+        if (raw) {
+          const arr = JSON.parse(raw);
+          if (Array.isArray(arr)) {
+            const found = arr.find(
+              (item: any) =>
+                (cleanEmail && item.email && item.email.toLowerCase() === cleanEmail) ||
+                (cleanPhone && cleanPhone.length >= 7 && item.phone && String(item.phone).replace(/\D/g, "") === cleanPhone)
+            );
+            if (found && (found.identity_proof || found.education_proof || found.photo)) {
+              localFound = {
+                ...localFound,
+                identity_proof: found.identity_proof || (localFound?.identity_proof),
+                identity_proof_name: found.identity_proof_name || (localFound?.identity_proof_name),
+                education_proof: found.education_proof || found.marksheetUrl || (localFound?.education_proof),
+                education_proof_name: found.education_proof_name || (localFound?.education_proof_name),
+                photo: found.photo || (localFound?.photo),
+                photo_name: found.photo_name || (localFound?.photo_name),
+                caste_certificate: found.caste_certificate || (localFound?.caste_certificate),
+                caste_certificate_name: found.caste_certificate_name || (localFound?.caste_certificate_name),
+              };
+            }
+          }
+        }
+      } catch {}
+    }
+
+    const mergedImmediate: Admission = {
+      ...admission,
+      photo: admission.photo || matchAdm?.photo || matchStd?.photo || matchStd?.avatar || localFound?.photo,
+      photo_name: admission.photo_name || matchAdm?.photo_name || matchStd?.photo_name || localFound?.photo_name,
+      identity_proof: admission.identity_proof || matchAdm?.identity_proof || matchStd?.identity_proof || localFound?.identity_proof,
+      identity_proof_name: admission.identity_proof_name || matchAdm?.identity_proof_name || matchStd?.identity_proof_name || localFound?.identity_proof_name,
+      education_proof: admission.education_proof || matchAdm?.education_proof || matchStd?.education_proof || localFound?.education_proof,
+      education_proof_name: admission.education_proof_name || matchAdm?.education_proof_name || matchStd?.education_proof_name || localFound?.education_proof_name,
+      caste_certificate: admission.caste_certificate || matchAdm?.caste_certificate || matchStd?.caste_certificate || localFound?.caste_certificate,
+      caste_certificate_name: admission.caste_certificate_name || matchAdm?.caste_certificate_name || matchStd?.caste_certificate_name || localFound?.caste_certificate_name,
+    };
+
+    setSelectedAdmission(mergedImmediate);
+
+    const hasFullDocs =
+      Boolean(mergedImmediate.photo && mergedImmediate.photo.length > 200) &&
+      (!mergedImmediate.identity_proof_name || Boolean(mergedImmediate.identity_proof && mergedImmediate.identity_proof.length > 100)) &&
+      (!mergedImmediate.education_proof_name || Boolean(mergedImmediate.education_proof && mergedImmediate.education_proof.length > 100)) &&
+      (!mergedImmediate.caste_certificate_name || Boolean(mergedImmediate.caste_certificate && mergedImmediate.caste_certificate.length > 100));
+
+    if (!hasFullDocs && (admission.id || admission.email || admission.phone)) {
+      setLoadingAdmissionDocs(true);
+      try {
+        const queryParams = new URLSearchParams();
+        if (admission.id) queryParams.set("id", admission.id);
+        if (admission.email) queryParams.set("email", admission.email);
+        if (admission.phone) queryParams.set("phone", admission.phone);
+        queryParams.set("full", "true");
+
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 8000);
+
+        const res = await fetch(`/api/admissions?${queryParams.toString()}`, { signal: controller.signal });
+        clearTimeout(timer);
+
+        if (res.ok) {
+          const json = await res.json();
+          const rawDoc = Array.isArray(json.data) ? json.data[0] : json.data;
+          if (rawDoc) {
+            const fullNorm = normalizeAdmission(rawDoc);
+            setSelectedAdmission((prev) => {
+              if (!prev) return fullNorm;
+              return {
+                ...prev,
+                photo: fullNorm.photo || prev.photo,
+                photo_name: fullNorm.photo_name || prev.photo_name,
+                identity_proof: fullNorm.identity_proof || prev.identity_proof,
+                identity_proof_name: fullNorm.identity_proof_name || prev.identity_proof_name,
+                education_proof: fullNorm.education_proof || prev.education_proof,
+                education_proof_name: fullNorm.education_proof_name || prev.education_proof_name,
+                caste_certificate: fullNorm.caste_certificate || prev.caste_certificate,
+                caste_certificate_name: fullNorm.caste_certificate_name || prev.caste_certificate_name,
+                id: prev.id, // Preserve original admission row id
+              };
+            });
+            setAdmissions((prev) =>
+              prev.map((a) =>
+                a.id === admission.id || (a.email && admission.email && a.email.toLowerCase() === admission.email.toLowerCase() && a.program === admission.program)
+                  ? {
+                      ...a,
+                      photo: fullNorm.photo || a.photo,
+                      photo_name: fullNorm.photo_name || a.photo_name,
+                      identity_proof: fullNorm.identity_proof || a.identity_proof,
+                      identity_proof_name: fullNorm.identity_proof_name || a.identity_proof_name,
+                      education_proof: fullNorm.education_proof || a.education_proof,
+                      education_proof_name: fullNorm.education_proof_name || a.education_proof_name,
+                      caste_certificate: fullNorm.caste_certificate || a.caste_certificate,
+                      caste_certificate_name: fullNorm.caste_certificate_name || a.caste_certificate_name,
+                    }
+                  : a
+              )
             );
           }
         }
       } catch (err) {
         console.warn("[AdminDashboard] Error fetching full documents:", err);
+      } finally {
+        setLoadingAdmissionDocs(false);
       }
     }
   };
@@ -1596,7 +1916,14 @@ export default function AdminDashboard() {
     try {
       setDeletingAdmissionId(id);
       await softDeleteAdmission(target, "Admin");
-      setAdmissions((prev) => prev.filter((a) => a.id !== id));
+      setAdmissions((prev) =>
+        prev.filter(
+          (a) =>
+            a.id !== id &&
+            (!target.payment_id || target.payment_id === "OFFLINE_RECORD" || a.payment_id !== target.payment_id) &&
+            (!target.email || !target.program || a.email?.toLowerCase() !== target.email.toLowerCase() || a.program !== target.program)
+        )
+      );
       if (selectedAdmission && selectedAdmission.id === id) {
         setSelectedAdmission(null);
       }
@@ -1659,7 +1986,14 @@ export default function AdminDashboard() {
     try {
       setDeletingStudentId(id);
       await softDeleteStudent(target, "Admin");
-      setStudents((prev) => prev.filter((s) => s.id !== id));
+      setStudents((prev) =>
+        prev.filter(
+          (s) =>
+            s.id !== id &&
+            (!target.prn || s.prn !== target.prn) &&
+            (!target.email || s.email?.toLowerCase() !== target.email.toLowerCase())
+        )
+      );
       if (selectedStudent && selectedStudent.id === id) {
         setSelectedStudent(null);
       }
@@ -3609,23 +3943,26 @@ export default function AdminDashboard() {
                                     <img
                                       src={applicantPhoto}
                                       alt={adm.name}
-                                      onClick={() =>
-                                        setViewingDoc({
-                                          title: `${adm.name} - Photo`,
-                                          url: applicantPhoto,
-                                          isImage: true,
-                                        })
-                                      }
+                                      onClick={() => handleViewAdmission(adm)}
                                       className="h-10 w-10 rounded-full object-cover border border-stone-200 shadow-xs cursor-pointer hover:scale-105 transition shrink-0"
+                                      title="Click to view full application & documents"
                                     />
                                   ) : (
-                                    <div className="h-10 w-10 rounded-full bg-stone-100 text-stone-600 font-bold flex items-center justify-center shrink-0 border border-stone-200">
+                                    <div 
+                                      onClick={() => handleViewAdmission(adm)}
+                                      className="h-10 w-10 rounded-full bg-stone-100 text-stone-600 font-bold flex items-center justify-center shrink-0 border border-stone-200 cursor-pointer hover:bg-stone-200 transition"
+                                      title="Click to view full application & documents"
+                                    >
                                       {(adm.name || "?").charAt(0).toUpperCase()}
                                     </div>
                                   );
                                 })()}
                                 <div className="min-w-0">
-                                  <div className="font-bold text-[#1b2b25] text-sm truncate">
+                                  <div 
+                                    onClick={() => handleViewAdmission(adm)}
+                                    className="font-bold text-[#1b2b25] text-sm truncate hover:text-[#b5623b] hover:underline cursor-pointer transition-colors"
+                                    title="Click to view full application & documents"
+                                  >
                                     {adm.name}
                                   </div>
                                   <div className="text-[11px] text-stone-600 truncate font-medium">
@@ -3836,7 +4173,15 @@ export default function AdminDashboard() {
                                       </button>
                                     )}
                                     {!eduDoc && !idDoc && !casteDoc && (
-                                      <span className="text-stone-300 italic text-[10px]">None attached</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleViewAdmission(adm)}
+                                        className="text-[#b5623b] hover:underline text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+                                        title="Click to fetch verification documents from cloud database"
+                                      >
+                                        <FileText size={12} />
+                                        <span>View Docs</span>
+                                      </button>
                                     )}
                                   </div>
                                 );
@@ -4247,7 +4592,13 @@ export default function AdminDashboard() {
                                     </div>
                                   )}
                                   <div>
-                                    <div className="font-bold text-[#1b2b25]">{s.name}</div>
+                                    <div
+                                      onClick={() => handleViewStudent(s)}
+                                      className="font-bold text-[#1b2b25] hover:text-[#b5623b] cursor-pointer transition-colors"
+                                      title="Click to view student profile & documents"
+                                    >
+                                      {s.name}
+                                    </div>
                                     <div className="text-[10px] text-stone-400 font-mono">ID: {s.id}</div>
                                   </div>
                                 </div>
@@ -4419,9 +4770,9 @@ export default function AdminDashboard() {
                                     <Edit2 size={16} />
                                   </button>
                                   <button
-                                    onClick={() => setSelectedStudent(s)}
+                                    onClick={() => handleViewStudent(s)}
                                     className="p-1.5 text-emerald-700 hover:bg-emerald-50 rounded-lg transition cursor-pointer"
-                                    title="View Student Profile"
+                                    title="View Student Profile & Documents"
                                   >
                                     <Eye size={16} />
                                   </button>
@@ -5181,12 +5532,35 @@ export default function AdminDashboard() {
                 <span className="text-xs font-bold uppercase text-stone-500 mb-2 block">
                   Attached Verification Documents
                 </span>
+                {loadingAdmissionDocs && (
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold mb-3 animate-pulse">
+                    <div className="flex items-center gap-2">
+                      <RefreshCw size={14} className="animate-spin text-amber-600" />
+                      <span>Loading application verification documents & certificates...</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setLoadingAdmissionDocs(false)}
+                      className="text-[10px] font-bold uppercase text-stone-500 hover:text-stone-800 px-2 py-0.5 rounded hover:bg-amber-100 cursor-pointer"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
                 {(() => {
                   const matchStudent = students.find(
                     (s) =>
                       (s.email && selectedAdmission.email && s.email.toLowerCase() === selectedAdmission.email.toLowerCase()) ||
                       (s.phone && selectedAdmission.phone && s.phone.replace(/\D/g, "") === selectedAdmission.phone.replace(/\D/g, "")) ||
                       (selectedAdmission.message && s.prn && selectedAdmission.message.includes(s.prn))
+                  );
+
+                  const matchOtherAdm = admissions.find(
+                    (a) =>
+                      a.id !== selectedAdmission.id &&
+                      ((a.email && selectedAdmission.email && a.email.toLowerCase() === selectedAdmission.email.toLowerCase()) ||
+                        (a.phone && selectedAdmission.phone && a.phone.replace(/\D/g, "") === selectedAdmission.phone.replace(/\D/g, ""))) &&
+                      (a.identity_proof || a.education_proof || a.photo)
                   );
 
                   let msgPhoto = "";
@@ -5207,12 +5581,33 @@ export default function AdminDashboard() {
                     selectedAdmission.photo ||
                     (selectedAdmission as any).photoUrl ||
                     (selectedAdmission as any).photoDataUrl ||
+                    matchOtherAdm?.photo ||
                     matchStudent?.photo ||
                     matchStudent?.avatar ||
                     msgPhoto;
-                  const idDoc = selectedAdmission.identity_proof || (selectedAdmission as any).identityProofUrl || matchStudent?.identity_proof || msgIdDoc;
-                  const eduDoc = selectedAdmission.education_proof || selectedAdmission.marksheetUrl || matchStudent?.education_proof || (matchStudent as any)?.marksheetUrl || msgEduDoc;
-                  const casteDoc = selectedAdmission.caste_certificate || (selectedAdmission as any).casteCertUrl || matchStudent?.caste_certificate || msgCasteDoc;
+
+                  const idDoc =
+                    selectedAdmission.identity_proof ||
+                    (selectedAdmission as any).identityProofUrl ||
+                    matchOtherAdm?.identity_proof ||
+                    matchStudent?.identity_proof ||
+                    msgIdDoc;
+
+                  const eduDoc =
+                    selectedAdmission.education_proof ||
+                    selectedAdmission.marksheetUrl ||
+                    matchOtherAdm?.education_proof ||
+                    matchOtherAdm?.marksheetUrl ||
+                    matchStudent?.education_proof ||
+                    (matchStudent as any)?.marksheetUrl ||
+                    msgEduDoc;
+
+                  const casteDoc =
+                    selectedAdmission.caste_certificate ||
+                    (selectedAdmission as any).casteCertUrl ||
+                    matchOtherAdm?.caste_certificate ||
+                    matchStudent?.caste_certificate ||
+                    msgCasteDoc;
 
                   return (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
@@ -5249,6 +5644,15 @@ export default function AdminDashboard() {
                               <Download size={12} />
                             </a>
                           </div>
+                        ) : selectedAdmission.photo_name ? (
+                          <button
+                            type="button"
+                            onClick={() => handleViewAdmission(selectedAdmission)}
+                            className="mt-2 px-2 py-1 rounded-md bg-stone-100 hover:bg-stone-200 text-stone-800 text-[10px] font-bold inline-flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <RefreshCw size={11} className={loadingAdmissionDocs ? "animate-spin text-[#b5623b]" : ""} />
+                            <span>{loadingAdmissionDocs ? "Loading..." : "Load Photo"}</span>
+                          </button>
                         ) : (
                           <span className="text-[11px] text-stone-400 italic mt-2.5 block">Not uploaded</span>
                         )}
@@ -5258,7 +5662,7 @@ export default function AdminDashboard() {
                       <div className="rounded-xl border border-stone-200 p-3 bg-white text-center flex flex-col justify-between">
                         <div>
                           <span className="font-bold text-stone-700 block text-xs">Identity Proof</span>
-                          <span className="text-[10px] text-stone-400 block truncate mt-0.5">
+                          <span className="text-[10px] text-stone-400 block truncate mt-0.5" title={selectedAdmission.identity_proof_name}>
                             {selectedAdmission.identity_proof_name || (idDoc ? "ID Attached" : "None")}
                           </span>
                         </div>
@@ -5287,6 +5691,15 @@ export default function AdminDashboard() {
                               <Download size={12} />
                             </a>
                           </div>
+                        ) : selectedAdmission.identity_proof_name ? (
+                          <button
+                            type="button"
+                            onClick={() => handleViewAdmission(selectedAdmission)}
+                            className="mt-2 px-2 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[10px] font-bold inline-flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <RefreshCw size={11} className={loadingAdmissionDocs ? "animate-spin text-emerald-600" : ""} />
+                            <span>{loadingAdmissionDocs ? "Loading..." : "Load ID Proof"}</span>
+                          </button>
                         ) : (
                           <span className="text-[11px] text-stone-400 italic mt-2.5 block">Not uploaded</span>
                         )}
@@ -5296,7 +5709,7 @@ export default function AdminDashboard() {
                       <div className="rounded-xl border border-blue-200 p-3 bg-blue-50/30 text-center flex flex-col justify-between">
                         <div>
                           <span className="font-bold text-blue-900 block text-xs">Marksheet / Education</span>
-                          <span className="text-[10px] text-blue-600 block truncate mt-0.5">
+                          <span className="text-[10px] text-blue-600 block truncate mt-0.5" title={selectedAdmission.education_proof_name}>
                             {selectedAdmission.education_proof_name || (eduDoc ? "Marksheet Attached" : "None")}
                           </span>
                         </div>
@@ -5325,6 +5738,15 @@ export default function AdminDashboard() {
                               <Download size={12} />
                             </a>
                           </div>
+                        ) : selectedAdmission.education_proof_name ? (
+                          <button
+                            type="button"
+                            onClick={() => handleViewAdmission(selectedAdmission)}
+                            className="mt-2 px-2 py-1 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-800 text-[10px] font-bold inline-flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <RefreshCw size={11} className={loadingAdmissionDocs ? "animate-spin text-blue-600" : ""} />
+                            <span>{loadingAdmissionDocs ? "Loading..." : "Load Marksheet"}</span>
+                          </button>
                         ) : (
                           <span className="text-[11px] text-stone-400 italic mt-2.5 block">Not uploaded</span>
                         )}
@@ -5334,7 +5756,7 @@ export default function AdminDashboard() {
                       <div className="rounded-xl border border-stone-200 p-3 bg-white text-center flex flex-col justify-between">
                         <div>
                           <span className="font-bold text-stone-700 block text-xs">Caste Certificate</span>
-                          <span className="text-[10px] text-stone-400 block truncate mt-0.5">
+                          <span className="text-[10px] text-stone-400 block truncate mt-0.5" title={selectedAdmission.caste_certificate_name}>
                             {selectedAdmission.caste_certificate_name || (casteDoc ? "Certificate Attached" : "None")}
                           </span>
                         </div>
@@ -5363,6 +5785,15 @@ export default function AdminDashboard() {
                               <Download size={12} />
                             </a>
                           </div>
+                        ) : selectedAdmission.caste_certificate_name && selectedAdmission.caste_certificate_name !== "General" ? (
+                          <button
+                            type="button"
+                            onClick={() => handleViewAdmission(selectedAdmission)}
+                            className="mt-2 px-2 py-1 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-800 text-[10px] font-bold inline-flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <RefreshCw size={11} className={loadingAdmissionDocs ? "animate-spin text-amber-600" : ""} />
+                            <span>{loadingAdmissionDocs ? "Loading..." : "Load Caste Cert"}</span>
+                          </button>
                         ) : (
                           <span className="text-[11px] text-stone-400 italic mt-2.5 block">Not uploaded</span>
                         )}
@@ -5500,6 +5931,22 @@ export default function AdminDashboard() {
                   </button>
                 </div>
 
+                {loadingStudentDocs && (
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold mb-3 animate-pulse">
+                    <div className="flex items-center gap-2">
+                      <RefreshCw size={14} className="animate-spin text-amber-600" />
+                      <span>Loading student verification documents & certificates...</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setLoadingStudentDocs(false)}
+                      className="text-[10px] font-bold uppercase text-stone-500 hover:text-stone-800 px-2 py-0.5 rounded hover:bg-amber-100 cursor-pointer"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
+
                 {(() => {
                   const matchAdm = admissions.find(
                     (a) =>
@@ -5599,6 +6046,15 @@ export default function AdminDashboard() {
                               <Download size={13} />
                             </a>
                           </div>
+                        ) : idName && idName !== "Not Uploaded" ? (
+                          <button
+                            type="button"
+                            onClick={() => handleViewStudent(selectedStudent)}
+                            className="px-2 py-0.5 rounded bg-stone-200 hover:bg-stone-300 text-stone-800 text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <RefreshCw size={10} className={loadingStudentDocs ? "animate-spin text-[#b5623b]" : ""} />
+                            <span>{loadingStudentDocs ? "Loading..." : "Load File"}</span>
+                          </button>
                         ) : (
                           <span className="text-[10px] text-stone-400 font-medium">None</span>
                         )}
@@ -5640,6 +6096,15 @@ export default function AdminDashboard() {
                               <Download size={13} />
                             </a>
                           </div>
+                        ) : eduName && eduName !== "Not Uploaded" ? (
+                          <button
+                            type="button"
+                            onClick={() => handleViewStudent(selectedStudent)}
+                            className="px-2 py-0.5 rounded bg-blue-100 hover:bg-blue-200 text-blue-800 text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <RefreshCw size={10} className={loadingStudentDocs ? "animate-spin text-blue-600" : ""} />
+                            <span>{loadingStudentDocs ? "Loading..." : "Load File"}</span>
+                          </button>
                         ) : (
                           <span className="text-[10px] text-stone-400 font-medium">None</span>
                         )}
@@ -5681,6 +6146,15 @@ export default function AdminDashboard() {
                               <Download size={13} />
                             </a>
                           </div>
+                        ) : casteName && casteName !== "Not Uploaded" && casteName !== "General" ? (
+                          <button
+                            type="button"
+                            onClick={() => handleViewStudent(selectedStudent)}
+                            className="px-2 py-0.5 rounded bg-amber-100 hover:bg-amber-200 text-amber-800 text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <RefreshCw size={10} className={loadingStudentDocs ? "animate-spin text-amber-600" : ""} />
+                            <span>{loadingStudentDocs ? "Loading..." : "Load File"}</span>
+                          </button>
                         ) : (
                           <span className="text-[10px] text-stone-400 font-medium">None</span>
                         )}

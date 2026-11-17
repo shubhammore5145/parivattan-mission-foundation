@@ -273,18 +273,155 @@ export async function getAdmissionsFromMongo(query = {}, options = {}) {
 }
 
 /**
- * Retrieves a single admission from MongoDB with full attachments/base64 files
+ * Retrieves a single admission or student record from MongoDB with full attachments/base64 files
  */
-export async function getAdmissionByIdFromMongo(id) {
-  if (!id) return null;
+export async function getAdmissionByIdFromMongo(id, extraQuery = {}) {
+  const cleanId = (id && id !== "undefined" && id !== "null") ? String(id).trim() : null;
+  if (!cleanId && (!extraQuery || Object.keys(extraQuery).length === 0)) return null;
   const { db } = await connectToDatabase();
   const collection = db.collection("admissions");
+  const studentsCollection = db.collection("students");
 
-  const doc = await collection.findOne({
-    $or: [{ id: String(id) }, { _id: id }],
-  });
+  let doc = null;
+
+  // 1. If an exact ID is passed, search for this exact record first!
+  if (cleanId) {
+    const idOr = [{ id: cleanId }];
+    if (cleanId.length === 24 && /^[0-9a-fA-F]{24}$/.test(cleanId)) {
+      try { idOr.push({ _id: new ObjectId(cleanId) }); } catch {}
+    }
+    doc = await collection.findOne({ $or: idOr });
+    if (!doc) {
+      doc = await studentsCollection.findOne({ $or: idOr });
+    }
+  }
+
+  // 2. If no exact record found by ID, or if caller only passed email/phone/prn
+  const orConditions = [];
+  if (extraQuery?.email) {
+    const cleanEmail = String(extraQuery.email).trim().toLowerCase();
+    orConditions.push({ email: cleanEmail });
+    orConditions.push({ email: { $regex: new RegExp(`^${cleanEmail}$`, "i") } });
+  }
+  if (extraQuery?.prn) {
+    const cleanPrn = String(extraQuery.prn).trim();
+    orConditions.push({ prn: cleanPrn });
+    orConditions.push({ message: { $regex: cleanPrn } });
+  }
+  if (extraQuery?.phone) {
+    const cleanPhone = String(extraQuery.phone).replace(/\D/g, "");
+    if (cleanPhone.length >= 7) {
+      orConditions.push({ phone: { $regex: cleanPhone } });
+    }
+  }
+
+  if (!doc && orConditions.length > 0) {
+    // Prioritize records that actually have heavy documents attached!
+    const docRecords = await collection.find({ $or: orConditions }).sort({ created_at: -1 }).toArray();
+    doc = docRecords.find(d => 
+      (d.identity_proof && d.identity_proof.length > 100) ||
+      (d.education_proof && d.education_proof.length > 100) ||
+      (d.photo && d.photo.length > 500)
+    ) || docRecords[0];
+
+    if (!doc) {
+      const stdRecords = await studentsCollection.find({ $or: orConditions }).sort({ registeredAt: -1 }).toArray();
+      doc = stdRecords.find(s => 
+        (s.identity_proof && s.identity_proof.length > 100) ||
+        (s.education_proof && s.education_proof.length > 100) ||
+        (s.photo && s.photo.length > 500)
+      ) || stdRecords[0];
+    }
+  }
 
   if (!doc) return null;
+
+  // 3. Unpack message JSON if present to retrieve any nested documents/metadata
+  if (doc.message && typeof doc.message === "string" && doc.message.trim().startsWith("{")) {
+    try {
+      const meta = JSON.parse(doc.message);
+      if (!doc.photo) doc.photo = meta.photo || meta.photoUrl || meta.avatar;
+      if (!doc.photo_name) doc.photo_name = meta.photo_name;
+      if (!doc.identity_proof) doc.identity_proof = meta.identity_proof || meta.identityProofUrl;
+      if (!doc.identity_proof_name) doc.identity_proof_name = meta.identity_proof_name;
+      if (!doc.education_proof) doc.education_proof = meta.education_proof || meta.marksheetUrl || meta.marksheet;
+      if (!doc.education_proof_name) doc.education_proof_name = meta.education_proof_name || meta.marksheet_name;
+      if (!doc.caste_certificate) doc.caste_certificate = meta.caste_certificate || meta.casteCertUrl;
+      if (!doc.caste_certificate_name) doc.caste_certificate_name = meta.caste_certificate_name;
+    } catch {}
+  }
+
+  // 4. Cross-reference companion records to ensure ANY missing document is recovered!
+  const needsMoreDocs = 
+    (!doc.identity_proof || doc.identity_proof.length < 100) ||
+    (!doc.education_proof || doc.education_proof.length < 100) ||
+    (!doc.photo || doc.photo.length < 500);
+
+  const lookupEmail = doc.email || extraQuery?.email;
+  const lookupPhone = doc.phone || extraQuery?.phone;
+  const lookupPrn = doc.prn || extraQuery?.prn;
+
+  if (needsMoreDocs && (lookupEmail || lookupPhone || lookupPrn)) {
+    try {
+      const crossOr = [];
+      if (lookupEmail) {
+        const cleanE = String(lookupEmail).trim().toLowerCase();
+        crossOr.push({ email: cleanE });
+        crossOr.push({ email: { $regex: new RegExp(`^${cleanE}$`, "i") } });
+      }
+      if (lookupPrn) {
+        const cleanP = String(lookupPrn).trim();
+        crossOr.push({ prn: cleanP });
+        crossOr.push({ message: { $regex: cleanP } });
+      }
+      if (lookupPhone) {
+        const cleanPh = String(lookupPhone).replace(/\D/g, "");
+        if (cleanPh.length >= 7) crossOr.push({ phone: { $regex: cleanPh } });
+      }
+      if (crossOr.length > 0) {
+        const [admCompanions, stdCompanions] = await Promise.all([
+          collection.find({ $or: crossOr }).toArray().catch(() => []),
+          studentsCollection.find({ $or: crossOr }).toArray().catch(() => []),
+        ]);
+        const allCompanions = [...admCompanions, ...stdCompanions];
+
+        for (const comp of allCompanions) {
+          let compMeta = {};
+          if (comp.message && typeof comp.message === "string" && comp.message.trim().startsWith("{")) {
+            try { compMeta = JSON.parse(comp.message); } catch {}
+          }
+
+          const cPhoto = comp.photo || comp.photoUrl || comp.photoDataUrl || comp.avatar || compMeta.photo || compMeta.photoUrl || compMeta.avatar;
+          const cPhotoName = comp.photo_name || compMeta.photo_name;
+          const cIdProof = comp.identity_proof || comp.identityProofUrl || comp.identityProof || compMeta.identity_proof || compMeta.identityProofUrl;
+          const cIdProofName = comp.identity_proof_name || comp.identityProofName || compMeta.identity_proof_name;
+          const cEduProof = comp.education_proof || comp.marksheetUrl || comp.educationProof || comp.marksheet || compMeta.education_proof || compMeta.marksheetUrl;
+          const cEduProofName = comp.education_proof_name || comp.marksheet_name || compMeta.education_proof_name || compMeta.marksheet_name;
+          const cCaste = comp.caste_certificate || comp.casteCertUrl || compMeta.caste_certificate || compMeta.casteCertUrl;
+          const cCasteName = comp.caste_certificate_name || compMeta.caste_certificate_name;
+
+          if ((!doc.photo || doc.photo.length < 500) && cPhoto && cPhoto.length > 500) {
+            doc.photo = cPhoto;
+            doc.photo_name = cPhotoName || doc.photo_name;
+          }
+          if ((!doc.identity_proof || doc.identity_proof.length < 100) && cIdProof && cIdProof.length > 100) {
+            doc.identity_proof = cIdProof;
+            doc.identity_proof_name = cIdProofName || doc.identity_proof_name;
+          }
+          if ((!doc.education_proof || doc.education_proof.length < 100) && cEduProof && cEduProof.length > 100) {
+            doc.education_proof = cEduProof;
+            doc.education_proof_name = cEduProofName || doc.education_proof_name;
+          }
+          if ((!doc.caste_certificate || doc.caste_certificate.length < 100) && cCaste && cCaste.length > 100) {
+            doc.caste_certificate = cCaste;
+            doc.caste_certificate_name = cCasteName || doc.caste_certificate_name;
+          }
+        }
+      }
+    } catch (crossErr) {
+      console.warn("[MongoDB Atlas] Notice in companion recovery:", crossErr);
+    }
+  }
 
   return {
     ...doc,
@@ -331,10 +468,15 @@ export async function deleteAdmissionFromMongo(id, options = {}) {
   const cleanEmail = String(options.email || "").trim().toLowerCase();
   const cleanPrn = String(options.prn || "").trim();
   const cleanPaymentId = String(options.payment_id || "").trim();
+  const cleanProgram = String(options.program || "").trim();
 
   const orList = [];
   if (cleanId) {
     orList.push({ id: cleanId });
+    if (cleanId.startsWith("adm_std_")) {
+      const stripped = cleanId.replace("adm_std_", "");
+      orList.push({ id: stripped }, { prn: stripped });
+    }
     if (cleanId.length === 24 && /^[0-9a-fA-F]{24}$/.test(cleanId)) {
       try {
         orList.push({ _id: new ObjectId(cleanId) });
@@ -344,8 +486,17 @@ export async function deleteAdmissionFromMongo(id, options = {}) {
   if (cleanPaymentId && cleanPaymentId !== "OFFLINE_RECORD" && !cleanPaymentId.startsWith("PAY_ADM_")) {
     orList.push({ payment_id: cleanPaymentId });
   }
-  if (options.isStudent && cleanEmail) {
-    orList.push({ email: cleanEmail, program: "STUDENT_REGISTRATION" });
+  if (cleanPrn) {
+    orList.push({ prn: cleanPrn });
+    orList.push({ message: { $regex: cleanPrn } });
+  }
+  if (cleanEmail) {
+    if (cleanProgram) {
+      orList.push({ email: cleanEmail, program: cleanProgram });
+    } else {
+      orList.push({ email: cleanEmail });
+      orList.push({ email: { $regex: new RegExp(`^${cleanEmail}$`, "i") } });
+    }
   }
 
   const query = orList.length > 0 ? { $or: orList } : { id: cleanId };
@@ -573,16 +724,31 @@ export async function handleAdmissionsRequest(req, res) {
       const targetId = parsedUrl.searchParams.get("id");
       const targetEmail = parsedUrl.searchParams.get("email");
       const targetPhone = parsedUrl.searchParams.get("phone");
+      const targetPrn = parsedUrl.searchParams.get("prn");
 
-      // Single admission lookup by ID (e.g. for document viewing or verification)
-      if (targetId) {
-        const singleDoc = await getAdmissionByIdFromMongo(targetId);
-        if (!singleDoc) {
+      // Single admission or student document lookup (when full=true or targetId is present)
+      if (targetId || (isFull && (targetEmail || targetPrn || targetPhone))) {
+        const singleDoc = await getAdmissionByIdFromMongo(targetId, {
+          email: targetEmail,
+          prn: targetPrn,
+          phone: targetPhone,
+        });
+        if (singleDoc) {
+          res.statusCode = 200;
+          return res.end(JSON.stringify({ success: true, data: singleDoc, source: "mongodb" }));
+        } else if (isFull) {
+          res.statusCode = 200;
+          return res.end(JSON.stringify({ success: false, data: null, message: "Documents not found for this record" }));
+        } else if (targetId && !targetEmail && !targetPrn && !targetPhone) {
           res.statusCode = 404;
           return res.end(JSON.stringify({ success: false, error: "Admission not found" }));
         }
+      }
+
+      // Safe guard: never dump the entire database with full heavy base64 strings
+      if (isFull) {
         res.statusCode = 200;
-        return res.end(JSON.stringify({ success: true, data: singleDoc, source: "mongodb" }));
+        return res.end(JSON.stringify({ success: false, data: null, message: "A specific ID or applicant email is required for full document fetch." }));
       }
 
       // Filter by email (e.g. student portal loading their own applications in <20ms)

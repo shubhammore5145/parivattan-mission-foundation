@@ -7,6 +7,8 @@ export interface AnnouncementItem {
   isNew?: boolean;
   isPinned?: boolean;
   description: string;
+  imageUrl?: string;
+  imageName?: string;
   linkText?: string;
   linkUrl?: string;
   attachmentName?: string;

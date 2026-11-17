@@ -110,7 +110,7 @@ export default function ContentPage() {
           </div>
           <div className="relative aspect-video w-full rounded-2xl overflow-hidden shadow-2xl bg-black border border-white/10">
             <iframe
-              src="https://www.youtube.com/embed/xEjvPDR2ya8?rel=0&modestbranding=1"
+              src="https://www.youtube.com/embed/eYp65wfFgAw?rel=0&modestbranding=1"
               title="Parivattan Mission Foundation - Our Story"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen

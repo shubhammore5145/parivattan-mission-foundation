@@ -19,12 +19,12 @@ export interface YouTubeShortItem {
 }
 
 export const FEATURED_STORY_VIDEO = {
-  id: "xEjvPDR2ya8",
+  id: "eYp65wfFgAw",
   title: "The Heart of Parivattan: Grassroots Transformation & Student Stories",
   subtitle: "Authentic Documentary · Inspiring Real Stories from Maharashtra",
   description:
     "Witness the inspiring journey of students and mentors building life-changing foreign language and educational pathways across rural and semi-urban Maharashtra. A powerful story of hope, resilience, and global opportunities.",
-  url: "https://youtu.be/xEjvPDR2ya8",
+  url: "https://youtu.be/eYp65wfFgAw",
 };
 
 export const YOUTUBE_SHORTS: YouTubeShortItem[] = [
