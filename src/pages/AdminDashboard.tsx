@@ -97,6 +97,7 @@ import {
   getVisitorStats,
   VisitorStats,
   getAllAdmissions,
+  normalizeAdmission,
   deleteAdmission,
   updateAdmissionStatus,
   updateAdmission,
