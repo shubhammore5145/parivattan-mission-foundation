@@ -8,33 +8,182 @@ const BASELINE_WEEK = 218;
 const BASELINE_YESTERDAY = 44;
 const BASELINE_TODAY = 38;
 
+// Active sessions tracked in-memory (zero DB queries per normal heartbeat)
+// Map<sessionId, { lastSeen: number, path: string }>
+const activeSessions = new Map();
+const mongoTouchThrottle = new Map(); // Map<sessionId, number>
+
+// A session is considered active if seen within the last 90 seconds (1.5 min)
+const PRESENCE_TTL_MS = 90 * 1000;
+// Throttle MongoDB update per session: at most once every 2 minutes
+const MONGO_TOUCH_INTERVAL_MS = 120 * 1000;
+
+let lastDbLiveCount = 1;
+let lastDbLiveCheck = 0;
+const DB_LIVE_CHECK_TTL = 15000; // Check DB active sessions at most once every 15s
+
 let cachedStats = null;
 let cachedStatsTime = 0;
-const STATS_CACHE_TTL = 60000; // 60s memory cache to prevent repeated count queries
+const STATS_CACHE_TTL = 30000; // 30s memory cache for historical count queries
+
+/**
+ * Remove stale sessions older than 90 seconds from memory
+ */
+function purgeExpiredSessions() {
+  const cutoff = Date.now() - PRESENCE_TTL_MS;
+  for (const [sid, sess] of activeSessions.entries()) {
+    if (sess.lastSeen < cutoff) {
+      activeSessions.delete(sid);
+      mongoTouchThrottle.delete(sid);
+    }
+  }
+}
+
+// Periodic cleanup every 45s (unref'd so it won't hold the process open)
+if (typeof setInterval !== "undefined") {
+  const cleanupTimer = setInterval(purgeExpiredSessions, 45000);
+  if (cleanupTimer && typeof cleanupTimer.unref === "function") {
+    cleanupTimer.unref();
+  }
+}
+
+/**
+ * Get synchronous live visitor count based on memory and recent DB state
+ */
+export function getLiveVisitorsCount() {
+  purgeExpiredSessions();
+  return Math.max(activeSessions.size, lastDbLiveCount, 1);
+}
+
+/**
+ * Get asynchronous live visitor count cross-checked with MongoDB Atlas
+ */
+export async function getLiveVisitorsCountAsync() {
+  purgeExpiredSessions();
+  const memCount = activeSessions.size;
+  const now = Date.now();
+
+  if (now - lastDbLiveCheck < DB_LIVE_CHECK_TTL) {
+    return Math.max(memCount, lastDbLiveCount, 1);
+  }
+
+  try {
+    const { db } = await connectToDatabase();
+    if (db) {
+      const activeThreshold = new Date(now - PRESENCE_TTL_MS);
+      const dbCount = await db.collection("visitors").countDocuments({
+        last_active: { $gte: activeThreshold },
+      });
+      lastDbLiveCount = Math.max(dbCount, memCount, 1);
+      lastDbLiveCheck = now;
+      return lastDbLiveCount;
+    }
+  } catch (err) {
+    console.warn("[VisitorHandler] Fallback getting live count:", err.message);
+  }
+
+  lastDbLiveCount = Math.max(memCount, 1);
+  lastDbLiveCheck = now;
+  return lastDbLiveCount;
+}
+
+/**
+ * Touch a session heartbeat. Ultra-fast in-memory update with throttled DB write.
+ */
+export async function touchVisitorHeartbeat(sessionId, path) {
+  if (!sessionId) return getLiveVisitorsCount();
+
+  const now = Date.now();
+  activeSessions.set(sessionId, { lastSeen: now, path: path || "/" });
+
+  // Only touch MongoDB at most once every 2 minutes per session
+  const lastTouch = mongoTouchThrottle.get(sessionId) || 0;
+  if (now - lastTouch > MONGO_TOUCH_INTERVAL_MS) {
+    mongoTouchThrottle.set(sessionId, now);
+    connectToDatabase()
+      .then(({ db }) => {
+        if (db) {
+          return db.collection("visitors").updateOne(
+            { session_id: sessionId },
+            {
+              $set: {
+                last_active: new Date(now),
+                path: path || "/",
+              },
+            },
+            { upsert: false }
+          );
+        }
+      })
+      .catch((err) => console.warn("[VisitorHandler] Heartbeat DB touch:", err.message));
+  }
+
+  return getLiveVisitorsCount();
+}
+
+/**
+ * Remove session on tab close / pagehide
+ */
+export async function removeVisitorSession(sessionId) {
+  if (!sessionId) return getLiveVisitorsCount();
+
+  activeSessions.delete(sessionId);
+  mongoTouchThrottle.delete(sessionId);
+
+  // Sync disconnect to MongoDB asynchronously
+  connectToDatabase()
+    .then(({ db }) => {
+      if (db) {
+        return db.collection("visitors").updateOne(
+          { session_id: sessionId },
+          { $set: { last_active: new Date(0) } }
+        );
+      }
+    })
+    .catch(() => {});
+
+  if (lastDbLiveCount > activeSessions.size) {
+    lastDbLiveCount = Math.max(activeSessions.size, 1);
+  }
+
+  return getLiveVisitorsCount();
+}
 
 /**
  * Log a visitor session in MongoDB Atlas
  */
 export async function logVisitorInMongo(payload) {
   try {
+    const sessionId = payload.session_id || `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const now = Date.now();
+    const nowDate = new Date(now);
+
+    // Register active presence in memory immediately
+    activeSessions.set(sessionId, { lastSeen: now, path: payload.path || "/" });
+    mongoTouchThrottle.set(sessionId, now);
+
     const { db } = await connectToDatabase();
-    if (!db) return null;
+    if (!db) return { success: true };
 
     const collection = db.collection("visitors");
-    const sessionId = payload.session_id || `sess_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
     const doc = {
       session_id: sessionId,
-      path: payload.path || "/",
       referrer: payload.referrer || null,
       user_agent: payload.user_agent || "",
-      created_at: new Date(),
+      created_at: nowDate,
     };
 
-    // Update if session exists within 30 min, else insert new
+    // Update if session exists, else insert new. Always touch last_active.
     await collection.updateOne(
       { session_id: sessionId },
-      { $setOnInsert: doc },
+      {
+        $setOnInsert: doc,
+        $set: {
+          last_active: nowDate,
+          path: payload.path || "/",
+        },
+      },
       { upsert: true }
     );
 
@@ -51,7 +200,10 @@ export async function logVisitorInMongo(payload) {
 export async function getVisitorStatsFromMongo() {
   const now = Date.now();
   if (cachedStats && now - cachedStatsTime < STATS_CACHE_TTL) {
-    return cachedStats;
+    return {
+      ...cachedStats,
+      liveVisitors: getLiveVisitorsCount(),
+    };
   }
 
   try {
@@ -72,15 +224,19 @@ export async function getVisitorStatsFromMongo() {
 
     const startOfMonth = new Date(nowDate.getFullYear(), nowDate.getMonth(), 1, 0, 0, 0);
 
-    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
-    const [todayCount, yesterdayCount, weekCount, monthCount, totalCount, activeSessionsCount] = await Promise.all([
+    const activeThreshold = new Date(now - PRESENCE_TTL_MS);
+
+    const [todayCount, yesterdayCount, weekCount, monthCount, totalCount, activeCount] = await Promise.all([
       collection.countDocuments({ created_at: { $gte: startOfToday } }),
       collection.countDocuments({ created_at: { $gte: startOfYesterday, $lt: startOfToday } }),
       collection.countDocuments({ created_at: { $gte: startOfWeek } }),
       collection.countDocuments({ created_at: { $gte: startOfMonth } }),
       collection.countDocuments({}),
-      collection.countDocuments({ created_at: { $gte: fifteenMinutesAgo } }),
+      collection.countDocuments({ last_active: { $gte: activeThreshold } }).catch(() => 0),
     ]);
+
+    lastDbLiveCount = Math.max(activeCount, activeSessions.size, 1);
+    lastDbLiveCheck = now;
 
     const stats = {
       today: BASELINE_TODAY + todayCount,
@@ -88,7 +244,7 @@ export async function getVisitorStatsFromMongo() {
       thisWeek: BASELINE_WEEK + weekCount,
       thisMonth: BASELINE_MONTH + monthCount,
       total: BASELINE_TOTAL + totalCount,
-      liveVisitors: Math.max(activeSessionsCount, 1),
+      liveVisitors: lastDbLiveCount,
     };
 
     cachedStats = stats;
@@ -102,7 +258,7 @@ export async function getVisitorStatsFromMongo() {
       thisWeek: BASELINE_WEEK,
       thisMonth: BASELINE_MONTH,
       total: BASELINE_TOTAL,
-      liveVisitors: 1,
+      liveVisitors: getLiveVisitorsCount(),
     };
   }
 }
@@ -188,26 +344,72 @@ export async function handleVisitorsRequest(req, res) {
         }
       }
       const result = await logVisitorInMongo(body || {});
+      const liveVisitors = getLiveVisitorsCount();
       const stats = await getVisitorStatsFromMongo();
-      return sendJson(res, 200, { success: true, result, data: stats });
+      return sendJson(res, 200, {
+        success: true,
+        result,
+        liveVisitors,
+        data: stats,
+      });
     }
 
     if (req.method === "GET" || req.method === "HEAD") {
-      // Allow Vercel Edge CDN to cache visitor summary for 2 minutes to protect serverless quotas
-      try {
-        res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=300");
-      } catch {}
+      const query = req.query || {};
+      let heartbeatParam = query.heartbeat;
+      let leaveParam = query.leave;
+      let sessionIdParam = query.session_id;
+      let pathParam = query.path;
+      let dateParam = query.date;
 
-      const url = new URL(req.url, "http://localhost");
-      const dateParam = url.searchParams.get("date");
+      if (req.url && req.url.includes("?")) {
+        try {
+          const parsedUrl = new URL(req.url, "http://localhost");
+          heartbeatParam = heartbeatParam || parsedUrl.searchParams.get("heartbeat");
+          leaveParam = leaveParam || parsedUrl.searchParams.get("leave");
+          sessionIdParam = sessionIdParam || parsedUrl.searchParams.get("session_id");
+          pathParam = pathParam || parsedUrl.searchParams.get("path");
+          dateParam = dateParam || parsedUrl.searchParams.get("date");
+        } catch {}
+      }
 
+      // Fast-path 1: Real-time heartbeat
+      if (heartbeatParam === "true") {
+        try {
+          res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+        } catch {}
+        const liveVisitors = await touchVisitorHeartbeat(sessionIdParam, pathParam);
+        return sendJson(res, 200, { success: true, liveVisitors });
+      }
+
+      // Fast-path 2: Real-time session leave / disconnect
+      if (leaveParam === "true") {
+        try {
+          res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+        } catch {}
+        const liveVisitors = await removeVisitorSession(sessionIdParam);
+        return sendJson(res, 200, { success: true, liveVisitors });
+      }
+
+      // Fast-path 3: Specific calendar date query
       if (dateParam) {
+        try {
+          res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
+        } catch {}
         const count = await getVisitorsForDateFromMongo(dateParam);
         return sendJson(res, 200, { success: true, date: dateParam, count });
       }
 
+      // Full visitor statistics
+      try {
+        res.setHeader("Cache-Control", "no-cache, max-age=10, stale-while-revalidate=30");
+      } catch {}
       const stats = await getVisitorStatsFromMongo();
-      return sendJson(res, 200, { success: true, data: stats });
+      return sendJson(res, 200, {
+        success: true,
+        liveVisitors: stats.liveVisitors,
+        data: stats,
+      });
     }
 
     return sendJson(res, 405, { success: false, message: "Method Not Allowed" });
@@ -222,7 +424,7 @@ export async function handleVisitorsRequest(req, res) {
         thisWeek: BASELINE_WEEK,
         thisMonth: BASELINE_MONTH,
         total: BASELINE_TOTAL,
-        liveVisitors: 1,
+        liveVisitors: getLiveVisitorsCount(),
       },
     });
   }

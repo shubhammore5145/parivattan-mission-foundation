@@ -21,6 +21,7 @@ export interface VisitorStats {
   thisWeek: number;
   thisMonth: number;
   total: number;
+  liveVisitors?: number;
 }
 
 // Donation Types
@@ -1303,7 +1304,7 @@ export const logVisitor = async (payload: {
   path?: string;
   referrer?: string | null;
   user_agent?: string;
-}): Promise<void> => {
+}): Promise<{ success: boolean; liveVisitors: number; data?: VisitorStats }> => {
   try {
     const res = await fetch("/api/visitors", {
       method: "POST",
@@ -1316,6 +1317,44 @@ export const logVisitor = async (payload: {
         localStorage.setItem(VISITOR_CACHE_KEY, JSON.stringify(json.data));
         localStorage.setItem(VISITOR_CACHE_KEY + "_time", String(Date.now()));
       }
+      const live = json?.liveVisitors || json?.data?.liveVisitors || 1;
+      return { success: true, liveVisitors: Math.max(live, 1), data: json?.data };
+    }
+  } catch {}
+  return { success: false, liveVisitors: 1 };
+};
+
+// Send a lightweight heartbeat to keep the session alive and retrieve real-time live count
+export const sendVisitorHeartbeat = async (
+  sessionId: string,
+  path?: string
+): Promise<number> => {
+  try {
+    const params = new URLSearchParams({
+      heartbeat: "true",
+      session_id: sessionId,
+      path: path || (typeof window !== "undefined" ? window.location.pathname : "/"),
+    });
+    const res = await fetch(`/api/visitors?${params.toString()}`);
+    if (res.ok) {
+      const json = await res.json().catch(() => null);
+      if (json && typeof json.liveVisitors === "number") {
+        return Math.max(json.liveVisitors, 1);
+      }
+    }
+  } catch {}
+  return 1;
+};
+
+// Immediately notify server when visitor leaves or closes tab (non-blocking beacon)
+export const sendVisitorLeave = (sessionId: string): void => {
+  try {
+    if (!sessionId || typeof window === "undefined") return;
+    const url = `/api/visitors?leave=true&session_id=${encodeURIComponent(sessionId)}`;
+    if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+      navigator.sendBeacon(url);
+    } else {
+      fetch(url, { method: "GET", keepalive: true }).catch(() => {});
     }
   } catch {}
 };
