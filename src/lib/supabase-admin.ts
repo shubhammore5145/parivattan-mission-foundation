@@ -1288,14 +1288,14 @@ export const deleteContact = async (id: string): Promise<void> => {
   if (error) throw error;
 };
 
-const VISITOR_CACHE_KEY = "pmf_visitor_stats_cache_v1";
+const VISITOR_CACHE_KEY = "pmf_real_visitor_stats_v2";
 
 const DEFAULT_VISITOR_STATS: VisitorStats = {
-  today: 38,
-  yesterday: 44,
-  thisWeek: 218,
-  thisMonth: 684,
-  total: 3420,
+  today: 0,
+  yesterday: 0,
+  thisWeek: 0,
+  thisMonth: 0,
+  total: 0,
 };
 
 // Track a visitor session across MongoDB Atlas endpoint and local session
@@ -1421,21 +1421,21 @@ export const getVisitorStats = async (forceFresh = false): Promise<VisitorStats>
   return DEFAULT_VISITOR_STATS;
 };
 
-// Fetch visitor count for any specific calendar date via MongoDB Atlas
+// Fetch 100% REAL visitor count for any specific calendar date via MongoDB Atlas
 export const getVisitorsForDate = async (targetDate: Date | string): Promise<number> => {
   try {
     const d = typeof targetDate === "string" ? new Date(targetDate) : targetDate;
-    if (isNaN(d.getTime())) return 38;
+    if (isNaN(d.getTime())) return 0;
 
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, "0");
     const dayStr = String(d.getDate()).padStart(2, "0");
     const dateFormatted = `${y}-${m}-${dayStr}`;
 
-    // 1. Query MongoDB endpoint
+    // 1. Query MongoDB endpoint for exact real records
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2500);
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
       const res = await fetch(`/api/visitors?date=${dateFormatted}`, {
         signal: controller.signal,
       });
@@ -1448,11 +1448,8 @@ export const getVisitorsForDate = async (targetDate: Date | string): Promise<num
       }
     } catch {}
 
-    // 2. Deterministic realistic daily count based on date hash
-    const dateNum = d.getDate() + (d.getMonth() + 1) * 31;
-    const pseudoRandom = ((dateNum * 17 + 23) % 35) + 32;
-    return pseudoRandom;
+    return 0;
   } catch {
-    return 38;
+    return 0;
   }
 };

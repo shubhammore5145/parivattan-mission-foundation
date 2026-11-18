@@ -1,13 +1,6 @@
 import { connectToDatabase } from "./mongoHandler.js";
 import { generalApiRateLimiter } from "./rateLimiter.js";
 
-// Established authentic community baseline for Parivattan Mission Foundation
-const BASELINE_TOTAL = 3420;
-const BASELINE_MONTH = 684;
-const BASELINE_WEEK = 218;
-const BASELINE_YESTERDAY = 44;
-const BASELINE_TODAY = 38;
-
 // Active sessions tracked in-memory (zero DB queries per normal heartbeat)
 // Map<sessionId, { lastSeen: number, path: string }>
 const activeSessions = new Map();
@@ -52,7 +45,7 @@ if (typeof setInterval !== "undefined") {
  */
 export function getLiveVisitorsCount() {
   purgeExpiredSessions();
-  return Math.max(activeSessions.size, lastDbLiveCount, 1);
+  return Math.max(activeSessions.size, 1);
 }
 
 /**
@@ -195,7 +188,7 @@ export async function logVisitorInMongo(payload) {
 }
 
 /**
- * Get visitor statistics from MongoDB Atlas with baseline blending
+ * Get 100% REAL visitor statistics directly from MongoDB Atlas (no fake baselines)
  */
 export async function getVisitorStatsFromMongo() {
   const now = Date.now();
@@ -239,11 +232,11 @@ export async function getVisitorStatsFromMongo() {
     lastDbLiveCheck = now;
 
     const stats = {
-      today: BASELINE_TODAY + todayCount,
-      yesterday: BASELINE_YESTERDAY + yesterdayCount,
-      thisWeek: BASELINE_WEEK + weekCount,
-      thisMonth: BASELINE_MONTH + monthCount,
-      total: BASELINE_TOTAL + totalCount,
+      today: todayCount,
+      yesterday: yesterdayCount,
+      thisWeek: weekCount,
+      thisMonth: monthCount,
+      total: totalCount,
       liveVisitors: lastDbLiveCount,
     };
 
@@ -251,20 +244,20 @@ export async function getVisitorStatsFromMongo() {
     cachedStatsTime = now;
     return stats;
   } catch (err) {
-    console.warn("[VisitorHandler] Fallback to baseline stats:", err.message);
+    console.warn("[VisitorHandler] Fallback real stats:", err.message);
     return {
-      today: BASELINE_TODAY,
-      yesterday: BASELINE_YESTERDAY,
-      thisWeek: BASELINE_WEEK,
-      thisMonth: BASELINE_MONTH,
-      total: BASELINE_TOTAL,
+      today: 0,
+      yesterday: 0,
+      thisWeek: 0,
+      thisMonth: 0,
+      total: 0,
       liveVisitors: getLiveVisitorsCount(),
     };
   }
 }
 
 /**
- * Get count for a specific calendar date (YYYY-MM-DD)
+ * Get 100% REAL count for a specific calendar date (YYYY-MM-DD) from MongoDB Atlas
  */
 export async function getVisitorsForDateFromMongo(dateStr) {
   try {
@@ -281,15 +274,11 @@ export async function getVisitorsForDateFromMongo(dateStr) {
       const realCount = await collection.countDocuments({
         created_at: { $gte: start, $lt: end },
       });
-      if (realCount > 0) return realCount + 25;
+      return realCount;
     }
-
-    // Deterministic realistic daily count based on date hash
-    const dateNum = target.getDate() + (target.getMonth() + 1) * 31;
-    const pseudoRandom = ((dateNum * 17 + 23) % 35) + 32; // between 32 and 67
-    return pseudoRandom;
+    return 0;
   } catch {
-    return 38;
+    return 0;
   }
 }
 
@@ -400,7 +389,7 @@ export async function handleVisitorsRequest(req, res) {
         return sendJson(res, 200, { success: true, date: dateParam, count });
       }
 
-      // Full visitor statistics
+      // Full visitor statistics directly from MongoDB Atlas
       try {
         res.setHeader("Cache-Control", "no-cache, max-age=10, stale-while-revalidate=30");
       } catch {}
@@ -419,11 +408,11 @@ export async function handleVisitorsRequest(req, res) {
       success: true,
       message: err.message,
       data: {
-        today: BASELINE_TODAY,
-        yesterday: BASELINE_YESTERDAY,
-        thisWeek: BASELINE_WEEK,
-        thisMonth: BASELINE_MONTH,
-        total: BASELINE_TOTAL,
+        today: 0,
+        yesterday: 0,
+        thisWeek: 0,
+        thisMonth: 0,
+        total: 0,
         liveVisitors: getLiveVisitorsCount(),
       },
     });

@@ -332,18 +332,19 @@ export default function AdminDashboard() {
   // Visitors State
   const [visitorStats, setVisitorStats] = useState<VisitorStats>(() => {
     try {
-      const cached = localStorage.getItem("pmf_visitor_stats_cache_v1");
+      localStorage.removeItem("pmf_visitor_stats_cache_v1");
+      const cached = localStorage.getItem("pmf_real_visitor_stats_v2");
       if (cached) {
         const p = JSON.parse(cached);
-        if (p && p.total > 0) return p;
+        if (p && typeof p.total === "number") return p;
       }
     } catch {}
     return {
-      today: 38,
-      yesterday: 44,
-      thisWeek: 218,
-      thisMonth: 684,
-      total: 3420,
+      today: 0,
+      yesterday: 0,
+      thisWeek: 0,
+      thisMonth: 0,
+      total: 0,
     };
   });
 

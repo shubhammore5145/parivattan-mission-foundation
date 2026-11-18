@@ -24,25 +24,26 @@ const Visitors = () => {
   const { count: liveVisitors } = useLiveVisitors();
   const [stats, setStats] = useState<VisitorStats>(() => {
     try {
-      const cached = localStorage.getItem("pmf_visitor_stats_cache_v1");
+      localStorage.removeItem("pmf_visitor_stats_cache_v1");
+      const cached = localStorage.getItem("pmf_real_visitor_stats_v2");
       if (cached) {
         const p = JSON.parse(cached);
-        if (p && p.total > 0) return p;
+        if (p && typeof p.total === "number") return p;
       }
     } catch {}
     return {
-      today: 38,
-      yesterday: 44,
-      thisWeek: 218,
-      thisMonth: 684,
-      total: 3420,
+      today: 0,
+      yesterday: 0,
+      thisWeek: 0,
+      thisMonth: 0,
+      total: 0,
     };
   });
   const [loading, setLoading] = useState(false);
 
   // Calendar Date Picker State
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
-  const [selectedCount, setSelectedCount] = useState<number>(() => stats.today || 38);
+  const [selectedCount, setSelectedCount] = useState<number>(() => stats.today ?? 0);
   const [loadingDate, setLoadingDate] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [dateCache, setDateCache] = useState<Record<string, number>>({});
@@ -55,23 +56,24 @@ const Visitors = () => {
         setLoading(true);
         const data = await getVisitorStats();
         if (isMounted && data) {
-          setStats((prev) => ({
-            today: data.today || prev.today || 42,
-            yesterday: data.yesterday || prev.yesterday || 45,
-            thisWeek: data.thisWeek || prev.thisWeek || 224,
-            thisMonth: data.thisMonth || prev.thisMonth || 690,
-            total: data.total || prev.total || 3426,
-          }));
+          const fresh = {
+            today: data.today ?? 0,
+            yesterday: data.yesterday ?? 0,
+            thisWeek: data.thisWeek ?? 0,
+            thisMonth: data.thisMonth ?? 0,
+            total: data.total ?? 0,
+          };
+          setStats(fresh);
 
           // Preload today and yesterday in cache
           const todayKey = format(new Date(), "yyyy-MM-dd");
           const yesterdayKey = format(subDays(new Date(), 1), "yyyy-MM-dd");
           setDateCache((prev) => ({
             ...prev,
-            [todayKey]: data.today || 42,
-            [yesterdayKey]: data.yesterday || 45,
+            [todayKey]: fresh.today,
+            [yesterdayKey]: fresh.yesterday,
           }));
-          setSelectedCount(data.today || 42);
+          setSelectedCount(fresh.today);
         }
       } catch (err) {
         console.warn("Failed to load visitor stats", err);
@@ -195,7 +197,7 @@ const Visitors = () => {
             </div>
             <div className="mt-3.5">
               <div className="text-2xl sm:text-3xl font-serif font-bold text-white tracking-tight">
-                {stats.today ? stats.today.toLocaleString() : (loading ? "..." : "42")}
+                {loading && !stats.today ? "..." : (stats.today ?? 0).toLocaleString()}
               </div>
               <div className="text-[11px] font-medium text-stone-300/80 mt-0.5 truncate">
                 Past 24 hours
@@ -224,7 +226,7 @@ const Visitors = () => {
             </div>
             <div className="mt-3.5">
               <div className="text-2xl sm:text-3xl font-serif font-bold text-white tracking-tight">
-                {stats.yesterday ? stats.yesterday.toLocaleString() : (loading ? "..." : "45")}
+                {loading && !stats.yesterday ? "..." : (stats.yesterday ?? 0).toLocaleString()}
               </div>
               <div className="text-[11px] font-medium text-stone-300/80 mt-0.5 truncate">
                 Closed 24h count
@@ -253,7 +255,7 @@ const Visitors = () => {
             </div>
             <div className="mt-3.5">
               <div className="text-2xl sm:text-3xl font-serif font-bold text-white tracking-tight">
-                {stats.thisWeek ? stats.thisWeek.toLocaleString() : (loading ? "..." : "224")}
+                {loading && !stats.thisWeek ? "..." : (stats.thisWeek ?? 0).toLocaleString()}
               </div>
               <div className="text-[11px] font-medium text-stone-300/80 mt-0.5 truncate">
                 Past 7 days
@@ -273,7 +275,7 @@ const Visitors = () => {
             </div>
             <div className="mt-3.5">
               <div className="text-2xl sm:text-3xl font-serif font-bold text-white tracking-tight">
-                {stats.thisMonth ? stats.thisMonth.toLocaleString() : (loading ? "..." : "690")}
+                {loading && !stats.thisMonth ? "..." : (stats.thisMonth ?? 0).toLocaleString()}
               </div>
               <div className="text-[11px] font-medium text-stone-300/80 mt-0.5 truncate">
                 Past 30 days
@@ -293,7 +295,7 @@ const Visitors = () => {
             </div>
             <div className="mt-3.5">
               <div className="text-2xl sm:text-3xl font-serif font-bold text-[#f2c5a8] tracking-tight">
-                {stats.total ? stats.total.toLocaleString() : (loading ? "..." : "3,426")}
+                {loading && !stats.total ? "..." : (stats.total ?? 0).toLocaleString()}
               </div>
               <div className="text-[11px] font-medium text-stone-300/80 mt-0.5 truncate">
                 Total visits
