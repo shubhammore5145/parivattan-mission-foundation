@@ -72,6 +72,24 @@ export const saveBatchOverridesToCloud = async (
       ],
       { onConflict: "id" }
     );
+
+    // Also persist to MongoDB Atlas via /api/admissions
+    try {
+      await fetch("/api/admissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: SYSTEM_BATCH_OVERRIDES_ID,
+          name: "SYSTEM_BATCH_OVERRIDES",
+          education: "System",
+          college_name: "Parivattan",
+          address: "System",
+          program: "SYSTEM_BATCH_SETTINGS",
+          message: JSON.stringify(overrides),
+          status: "completed",
+        }),
+      });
+    } catch {}
   } catch (e) {
     console.warn("Could not save batch overrides to cloud:", e);
   }

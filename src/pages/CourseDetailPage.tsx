@@ -8,6 +8,7 @@ import {
   CourseLevel,
   getCourseById,
   getCourseLevelById,
+  getBatchSeatsInfo,
 } from "@/data/languageCoursesData";
 import { CountryFlagIcon } from "@/components/common/CountryFlagIcon";
 import {
@@ -243,9 +244,23 @@ export default function CourseDetailPage() {
                           <span>Duration:</span>
                           <strong className="text-[#24312d]">{batch.duration}</strong>
                         </div>
-                        <div className="flex justify-between">
+                        <div className="flex justify-between items-center">
                           <span>Available Seats / Intake:</span>
-                          <strong className="text-emerald-700">{batch.intakeLabel || "Limited"}</strong>
+                          {(() => {
+                            const seatInfo = getBatchSeatsInfo(batch.id);
+                            if (seatInfo.isFull) {
+                              return <strong className="text-rose-600 font-bold">FULL (Closed)</strong>;
+                            }
+                            if (seatInfo.remainingSeats <= 5) {
+                              return (
+                                <strong className="text-amber-600 font-bold flex items-center gap-1">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-ping inline-block"></span>
+                                  Only {seatInfo.remainingSeats} Seats Left!
+                                </strong>
+                              );
+                            }
+                            return <strong className="text-emerald-700">{seatInfo.remainingSeats} Seats Left</strong>;
+                          })()}
                         </div>
                       </dl>
                     </div>

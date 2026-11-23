@@ -502,7 +502,7 @@ export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]>
                 const localOverrides = JSON.parse(
                   localStorage.getItem("parivattan_admin_batch_overrides") || "{}"
                 );
-                const merged = { ...cloudOverrides, ...localOverrides };
+                const merged = { ...localOverrides, ...cloudOverrides };
                 localStorage.setItem(
                   "parivattan_admin_batch_overrides",
                   JSON.stringify(merged)

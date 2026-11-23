@@ -1008,9 +1008,14 @@ export default function AdmissionsPage() {
                     <span className="rounded-full bg-red-100 text-red-800 border border-red-200 px-3 py-1 text-xs font-bold flex items-center gap-1">
                       <AlertTriangle size={13} /> Admission Full (0 Seats Left)
                     </span>
+                  ) : batchSeats.remainingSeats <= 5 ? (
+                    <span className="rounded-full bg-amber-100 text-amber-900 border border-amber-300 px-3 py-1 text-xs font-bold flex items-center gap-1.5 shadow-2xs">
+                      <span className="h-2 w-2 rounded-full bg-amber-500 animate-ping"></span>
+                      <Users size={13} /> Only {batchSeats.remainingSeats} Seats Left! Fast Filling
+                    </span>
                   ) : (
                     <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 text-xs font-bold flex items-center gap-1">
-                      <Users size={13} /> {batchSeats.remainingSeats <= 4 ? `Only ${batchSeats.remainingSeats} Seats Left!` : `${batchSeats.remainingSeats} Seats Remaining`}
+                      <Users size={13} /> {batchSeats.remainingSeats} Seats Remaining
                     </span>
                   )}
                 </div>
@@ -1337,7 +1342,7 @@ export default function AdmissionsPage() {
                         const s = getBatchSeatsInfo(b.id);
                         return (
                           <option key={b.id} value={b.id}>
-                            {b.name} ({b.days}) {s.isFull ? "— [ADMISSION FULL (0 Left)]" : `— [${s.remainingSeats} Seats Remaining / ${s.totalSeats}]`}
+                            {b.name} ({b.days}) {s.isFull ? "— [ADMISSION FULL (0 Left)]" : s.remainingSeats <= 5 ? `— [🔥 ONLY ${s.remainingSeats} SEATS LEFT! Fast Filling]` : `— [${s.remainingSeats} Seats Remaining / ${s.totalSeats}]`}
                           </option>
                         );
                       })}

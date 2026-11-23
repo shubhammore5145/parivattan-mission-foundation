@@ -566,6 +566,8 @@ export interface BatchSeatsStatus {
   days: string;
   time: string;
   totalSeats: number;
+  realEnrolled: number;
+  extraEnrolled: number;
   enrolled: number;
   remainingSeats: number;
   isFull: boolean;
@@ -695,7 +697,15 @@ export const matchAdmissionToBatchId = (admission: any): string | null => {
 
 export const getBatchSeatsInfo = (
   batchId: string
-): { totalSeats: number; enrolled: number; remainingSeats: number; isFull: boolean; isManuallyFull?: boolean } => {
+): {
+  totalSeats: number;
+  realEnrolled: number;
+  extraEnrolled: number;
+  enrolled: number;
+  remainingSeats: number;
+  isFull: boolean;
+  isManuallyFull?: boolean;
+} => {
   let defaultSeats = 30;
   for (const c of getStoredCourses()) {
     for (const lvl of c.levels) {
@@ -717,9 +727,10 @@ export const getBatchSeatsInfo = (
       ? batchOverride.totalSeats
       : config.totalSeats;
     const isManuallyFull = Boolean(batchOverride.isManuallyFull);
+    const extraEnrolled = Number(batchOverride.extraEnrolled) || 0;
 
     // 2. Count actual registered admissions for this batch
-    let registeredCount = 0;
+    let matchingCount = 0;
     try {
       const storedMap = JSON.parse(localStorage.getItem("parivattan_batch_intake_map") || "{}");
       const manualIntake = Number(storedMap[batchId]) || 0;
@@ -745,24 +756,27 @@ export const getBatchSeatsInfo = (
       try { addAdmissions(JSON.parse(localStorage.getItem("parivattan_student_admissions") || "[]")); } catch {}
       try { addAdmissions(JSON.parse(localStorage.getItem("parivattan_course_registrations") || "[]")); } catch {}
 
-      let matchingCount = 0;
       for (const adm of allAdmissions) {
         if (matchAdmissionToBatchId(adm) === batchId) {
           matchingCount++;
         }
       }
 
-      registeredCount = Math.max(manualIntake, matchingCount);
+      matchingCount = Math.max(manualIntake, matchingCount);
     } catch {
       // ignore
     }
 
-    const enrolled = config.initialEnrolled + registeredCount;
+    const realEnrolled = config.initialEnrolled + matchingCount;
+    // Total displayed enrolled is the sum of real students and admin urgency boost
+    const enrolled = Math.max(0, realEnrolled + extraEnrolled);
     const remainingSeats = isManuallyFull ? 0 : Math.max(0, totalSeats - enrolled);
     const isFull = isManuallyFull || remainingSeats <= 0;
 
     return {
       totalSeats,
+      realEnrolled,
+      extraEnrolled,
       enrolled,
       remainingSeats,
       isFull,
@@ -772,6 +786,8 @@ export const getBatchSeatsInfo = (
     const remainingSeats = Math.max(0, config.totalSeats - config.initialEnrolled);
     return {
       totalSeats: config.totalSeats,
+      realEnrolled: config.initialEnrolled,
+      extraEnrolled: 0,
       enrolled: config.initialEnrolled,
       remainingSeats,
       isFull: remainingSeats <= 0,
@@ -938,6 +954,8 @@ export const getAllBatchesSeatsList = (): BatchSeatsStatus[] => {
           days: b.days,
           time: b.time,
           totalSeats: info.totalSeats,
+          realEnrolled: info.realEnrolled,
+          extraEnrolled: info.extraEnrolled,
           enrolled: info.enrolled,
           remainingSeats: info.remainingSeats,
           isFull: info.isFull,
@@ -947,6 +965,114 @@ export const getAllBatchesSeatsList = (): BatchSeatsStatus[] => {
     });
   });
   return list;
+};
+
+/**
+ * Adjusts extra urgency admissions / remaining seats for a batch.
+ * - delta: +1 adds 1 admission (decreases remaining seats by 1), -1 removes 1 added admission (increases remaining seats by 1)
+ * - targetRemaining: sets remaining seats directly to this exact number
+ * - extraEnrolled: sets extra admissions boost directly
+ */
+export const adjustBatchSeatsUrgency = (
+  batchId: string,
+  options: { delta?: number; targetRemaining?: number; extraEnrolled?: number }
+): void => {
+  try {
+    const overrides = JSON.parse(localStorage.getItem("parivattan_admin_batch_overrides") || "{}");
+    const current = overrides[batchId] || {};
+    const info = getBatchSeatsInfo(batchId);
+
+    let nextExtra = Number(current.extraEnrolled) || 0;
+
+    if (typeof options.delta === "number") {
+      nextExtra = Math.max(0, nextExtra + options.delta);
+    } else if (typeof options.targetRemaining === "number") {
+      const real = info.realEnrolled || 0;
+      nextExtra = Math.max(0, info.totalSeats - real - Math.max(0, options.targetRemaining));
+    } else if (typeof options.extraEnrolled === "number") {
+      nextExtra = Math.max(0, options.extraEnrolled);
+    }
+
+    overrides[batchId] = {
+      ...current,
+      extraEnrolled: nextExtra,
+    };
+
+    localStorage.setItem("parivattan_admin_batch_overrides", JSON.stringify(overrides));
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("batch-seats-updated"));
+    }
+    saveBatchOverridesToCloud(overrides).catch(() => {});
+  } catch (e) {
+    console.warn("Could not adjust batch seats urgency", e);
+  }
+};
+
+/**
+ * Resets extra simulated admissions back to 0 for a specific batch (shows purely real student admissions)
+ */
+export const resetBatchSeatsUrgency = (batchId: string): void => {
+  try {
+    const overrides = JSON.parse(localStorage.getItem("parivattan_admin_batch_overrides") || "{}");
+    if (overrides[batchId]) {
+      delete overrides[batchId].extraEnrolled;
+      localStorage.setItem("parivattan_admin_batch_overrides", JSON.stringify(overrides));
+    }
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("batch-seats-updated"));
+    }
+    saveBatchOverridesToCloud(overrides).catch(() => {});
+  } catch (e) {
+    console.warn("Could not reset batch seats urgency", e);
+  }
+};
+
+/**
+ * Reset all batches back to purely real student admissions
+ */
+export const resetAllBatchesSeatsUrgency = (): void => {
+  try {
+    const overrides = JSON.parse(localStorage.getItem("parivattan_admin_batch_overrides") || "{}");
+    for (const key of Object.keys(overrides)) {
+      if (overrides[key]) {
+        delete overrides[key].extraEnrolled;
+      }
+    }
+    localStorage.setItem("parivattan_admin_batch_overrides", JSON.stringify(overrides));
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("batch-seats-updated"));
+    }
+    saveBatchOverridesToCloud(overrides).catch(() => {});
+  } catch (e) {
+    console.warn("Could not reset all batch seats urgency", e);
+  }
+};
+
+/**
+ * Quick Urgency Preset: Set all batches to fast-filling status (e.g. 75% full, remaining seats limited)
+ */
+export const applyFastFillingUrgencyToAllBatches = (fillPercentage = 75): void => {
+  try {
+    const overrides = JSON.parse(localStorage.getItem("parivattan_admin_batch_overrides") || "{}");
+    const allBatches = getAllBatchesSeatsList();
+
+    for (const b of allBatches) {
+      const targetEnrolled = Math.round((b.totalSeats * fillPercentage) / 100);
+      const neededExtra = Math.max(0, targetEnrolled - (b.realEnrolled || 0));
+      overrides[b.batchId] = {
+        ...overrides[b.batchId],
+        extraEnrolled: neededExtra,
+      };
+    }
+
+    localStorage.setItem("parivattan_admin_batch_overrides", JSON.stringify(overrides));
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("batch-seats-updated"));
+    }
+    saveBatchOverridesToCloud(overrides).catch(() => {});
+  } catch (e) {
+    console.warn("Could not apply fast filling urgency to all batches", e);
+  }
 };
 
 export interface UpcomingCourse {

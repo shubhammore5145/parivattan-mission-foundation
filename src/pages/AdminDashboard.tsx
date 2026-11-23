@@ -43,6 +43,10 @@ import {
   TrendingUp,
   Shield,
   Activity,
+  Minus,
+  Flame,
+  Zap,
+  Target,
   Globe,
   Sparkles,
   ChevronRight,
@@ -75,6 +79,10 @@ import {
   updateBatchSeatCapacity,
   toggleBatchManualFull,
   resetBatchEnrollment,
+  adjustBatchSeatsUrgency,
+  resetBatchSeatsUrgency,
+  resetAllBatchesSeatsUrgency,
+  applyFastFillingUrgencyToAllBatches,
   BatchSeatsStatus,
   getStoredCourses,
   matchAdmissionToBatchId,
@@ -328,6 +336,8 @@ export default function AdminDashboard() {
   const [showBatchSeatsManager, setShowBatchSeatsManager] = useState(false);
   const [editingCapacityBatchId, setEditingCapacityBatchId] = useState<string | null>(null);
   const [customCapacityInput, setCustomCapacityInput] = useState<number>(30);
+  const [editingRemainingBatchId, setEditingRemainingBatchId] = useState<string | null>(null);
+  const [customRemainingInput, setCustomRemainingInput] = useState<number>(3);
 
   // Visitors State
   const [visitorStats, setVisitorStats] = useState<VisitorStats>(() => {
@@ -3529,116 +3539,304 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {/* Batch Seats Cards (Collapsible Seat Controller) */}
+              {/* Batch Seats Cards (Collapsible Seat Controller & Urgency Manager) */}
               {showBatchSeatsManager && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-5 bg-stone-100/60 rounded-3xl border border-stone-200 animate-in fade-in duration-200">
-                  {batchSeatsList.map((b) => {
-                    const isEditing = editingCapacityBatchId === b.batchId;
-                    const pct = Math.min(100, Math.round((b.enrolled / b.totalSeats) * 100));
-
-                    return (
-                      <div
-                        key={b.batchId}
-                        className={`rounded-2xl border p-4 bg-white transition flex flex-col justify-between shadow-xs ${
-                          b.isFull ? "border-rose-300 ring-1 ring-rose-300/40" : "border-stone-200"
-                        }`}
-                      >
-                        <div>
-                          <div className="flex items-center justify-between gap-2 mb-2">
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-[#b5623b]">
-                              {b.flag} {b.courseName} • {b.levelName}
-                            </span>
-                            {b.isFull ? (
-                              <span className="text-[10px] font-bold bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full border border-rose-200">
-                                FULL (Closed)
-                              </span>
-                            ) : (
-                              <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200">
-                                {b.remainingSeats} Seats Left
-                              </span>
-                            )}
-                          </div>
-                          <h4 className="font-bold text-sm text-[#1b2b25]">{b.batchName}</h4>
-                          <p className="text-xs text-stone-500 mt-0.5">{b.days} • {b.time}</p>
-
-                          {/* Progress bar */}
-                          <div className="mt-3">
-                            <div className="flex justify-between text-[11px] text-stone-600 mb-1">
-                              <span>Enrolled: <strong>{b.enrolled}</strong></span>
-                              <span>Total: <strong>{b.totalSeats}</strong> ({pct}%)</span>
-                            </div>
-                            <div className="h-2 w-full rounded-full bg-stone-100 overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all duration-300 ${
-                                  pct >= 100 ? "bg-rose-500" : pct >= 75 ? "bg-amber-500" : "bg-emerald-500"
-                                }`}
-                                style={{ width: `${pct}%` }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Controls */}
-                        <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between gap-2 text-xs">
-                          {isEditing ? (
-                            <div className="flex items-center gap-1.5 w-full">
-                              <input
-                                type="number"
-                                min={1}
-                                max={200}
-                                value={customCapacityInput}
-                                onChange={(e) => setCustomCapacityInput(parseInt(e.target.value) || 1)}
-                                className="w-16 px-2 py-1 text-xs border border-stone-300 rounded-lg font-bold"
-                              />
-                              <button
-                                onClick={() => {
-                                  updateBatchSeatCapacity(b.batchId, customCapacityInput);
-                                  setEditingCapacityBatchId(null);
-                                  loadBatchSeats();
-                                  toast.success(`Capacity set to ${customCapacityInput}`);
-                                }}
-                                className="px-2.5 py-1 bg-[#b5623b] text-white rounded-lg font-bold text-[11px]"
-                              >
-                                Save
-                              </button>
-                              <button
-                                onClick={() => setEditingCapacityBatchId(null)}
-                                className="px-2 py-1 bg-stone-100 text-stone-600 rounded-lg text-[11px]"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => {
-                                  setEditingCapacityBatchId(b.batchId);
-                                  setCustomCapacityInput(b.totalSeats);
-                                }}
-                                className="text-stone-600 hover:text-[#b5623b] font-semibold text-[11px] flex items-center gap-1"
-                              >
-                                <Edit2 size={12} /> Set Capacity
-                              </button>
-                              <button
-                                onClick={() => {
-                                  toggleBatchManualFull(b.batchId);
-                                  loadBatchSeats();
-                                  toast.success("Batch status toggled");
-                                }}
-                                className={`px-2.5 py-1 rounded-lg font-bold text-[11px] border transition ${
-                                  b.isFull
-                                    ? "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
-                                    : "bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100"
-                                }`}
-                              >
-                                {b.isFull ? "Reopen Seats" : "Mark Full"}
-                              </button>
-                            </>
-                          )}
-                        </div>
+                <div className="space-y-4 p-5 bg-gradient-to-br from-stone-100/90 to-amber-50/40 rounded-3xl border border-stone-200/90 animate-in fade-in duration-200 shadow-xs">
+                  {/* Urgency Control Panel Header */}
+                  <div className="p-4 rounded-2xl bg-white border border-stone-200 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#b5623b] to-amber-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                        <Flame size={20} className="animate-pulse" />
                       </div>
-                    );
-                  })}
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-bold text-sm text-[#1b2b25]">
+                            Admission Momentum & Urgency Controller (सीट व ॲडमिशन व्यवस्थापन)
+                          </h4>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                            Live Website Sync
+                          </span>
+                        </div>
+                        <p className="text-xs text-stone-500 mt-0.5">
+                          येथून तुम्ही ॲडमिशन वाढवून शिल्लक सीट्स (Remaining Seats) कमी करू शकता जेणेकरून विद्यार्थ्यांना बॅच वेगाने भरत असल्याचे दिसेल. नंतर हवे तेव्हा तुम्ही ते परत पूर्ववत (Decrease / Reset) करू शकता.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Quick Global Action Buttons */}
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          applyFastFillingUrgencyToAllBatches(75);
+                          loadBatchSeats();
+                          toast.success("सर्व बॅचेस 75% भरलेल्या सेट केल्या! शिल्लक सीट्स कमी झाल्या.");
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#b5623b] hover:bg-[#964724] text-white text-xs font-bold transition shadow-2xs"
+                      >
+                        <Zap size={13} />
+                        <span>Fill All to 75% (Fast-Filling)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          resetAllBatchesSeatsUrgency();
+                          loadBatchSeats();
+                          toast.success("सर्व बॅचेस मूळ (Real) ॲडमिशन संख्येवर पूर्ववत केल्या!");
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-stone-300 bg-white hover:bg-stone-50 text-stone-700 text-xs font-bold transition shadow-2xs"
+                      >
+                        <RotateCcw size={13} />
+                        <span>Reset All to Real</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Grid of Batch Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {batchSeatsList.map((b) => {
+                      const isEditingCapacity = editingCapacityBatchId === b.batchId;
+                      const isEditingRemaining = editingRemainingBatchId === b.batchId;
+                      const pct = Math.min(100, Math.round((b.enrolled / b.totalSeats) * 100));
+                      const isUrgent = b.remainingSeats <= 5 && !b.isFull;
+
+                      return (
+                        <div
+                          key={b.batchId}
+                          className={`rounded-2xl border p-4.5 bg-white transition flex flex-col justify-between shadow-xs ${
+                            b.isFull
+                              ? "border-rose-300 ring-1 ring-rose-300/40"
+                              : isUrgent
+                              ? "border-amber-300 ring-1 ring-amber-300/40"
+                              : "border-stone-200"
+                          }`}
+                        >
+                          <div>
+                            {/* Card Header */}
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <span className="text-[11px] font-bold uppercase tracking-wider text-[#b5623b]">
+                                {b.flag} {b.courseName} • {b.levelName}
+                              </span>
+                              {b.isFull ? (
+                                <span className="text-[10px] font-bold bg-rose-100 text-rose-700 px-2.5 py-0.5 rounded-full border border-rose-200 flex items-center gap-1">
+                                  FULL (Closed)
+                                </span>
+                              ) : isUrgent ? (
+                                <span className="text-[10px] font-bold bg-amber-100 text-amber-900 px-2.5 py-0.5 rounded-full border border-amber-300 flex items-center gap-1 animate-pulse">
+                                  <Flame size={11} className="text-amber-600" />
+                                  Only {b.remainingSeats} Seats Left!
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                                  {b.remainingSeats} Seats Available
+                                </span>
+                              )}
+                            </div>
+                            <h4 className="font-bold text-sm text-[#1b2b25]">{b.batchName}</h4>
+                            <p className="text-xs text-stone-500 mt-0.5">{b.days} • {b.time}</p>
+
+                            {/* Progress bar */}
+                            <div className="mt-3">
+                              <div className="flex justify-between text-[11px] text-stone-600 mb-1">
+                                <span>Enrolled Shown: <strong>{b.enrolled}</strong></span>
+                                <span>Total Seats: <strong>{b.totalSeats}</strong> ({pct}%)</span>
+                              </div>
+                              <div className="h-2 w-full rounded-full bg-stone-100 overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-300 ${
+                                    pct >= 100 ? "bg-rose-500" : pct >= 75 ? "bg-amber-500" : "bg-emerald-500"
+                                  }`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Enrolled Breakdown Pills */}
+                            <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] p-2.5 rounded-xl bg-stone-50 border border-stone-200/80">
+                              <div>
+                                <span className="text-stone-500 block text-[10px]">Real Students:</span>
+                                <strong className="text-stone-800 font-bold">{b.realEnrolled || 0}</strong>
+                              </div>
+                              <div>
+                                <span className="text-stone-500 block text-[10px]">Urgency Boost:</span>
+                                <strong className={b.extraEnrolled > 0 ? "text-amber-700 font-bold" : "text-stone-600"}>
+                                  {b.extraEnrolled > 0 ? `+${b.extraEnrolled} Added` : "0 Added"}
+                                </strong>
+                              </div>
+                              <div className="col-span-2 pt-1 border-t border-stone-200/60 flex items-center justify-between">
+                                <span className="text-stone-500 text-[10px]">Remaining on Website:</span>
+                                <strong className={`font-bold ${isUrgent ? "text-amber-700" : "text-emerald-700"}`}>
+                                  {b.remainingSeats} Seats Left
+                                </strong>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Quick Urgency & Seat Controls */}
+                          <div className="mt-4 pt-3 border-t border-stone-200/90 space-y-2 text-xs">
+                            {/* Row 1: Direct Remaining Seats Editor */}
+                            {isEditingRemaining ? (
+                              <div className="flex items-center gap-1.5 w-full bg-amber-50 p-2 rounded-xl border border-amber-200">
+                                <span className="text-[11px] font-bold text-amber-900 whitespace-nowrap">
+                                  Set Remaining:
+                                </span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={b.totalSeats}
+                                  value={customRemainingInput}
+                                  onChange={(e) => setCustomRemainingInput(Math.max(0, parseInt(e.target.value) || 0))}
+                                  className="w-16 px-2 py-1 text-xs border border-stone-300 rounded-lg font-bold bg-white"
+                                  placeholder="Seats"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    adjustBatchSeatsUrgency(b.batchId, { targetRemaining: customRemainingInput });
+                                    setEditingRemainingBatchId(null);
+                                    loadBatchSeats();
+                                    toast.success(`उर्वरित सीट्स ${customRemainingInput} सेट केल्या!`);
+                                  }}
+                                  className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px]"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingRemainingBatchId(null)}
+                                  className="px-2 py-1 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-lg text-[11px]"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between gap-1.5">
+                                <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">
+                                  Urgency Controls:
+                                </span>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    title="Decrease 1 admission (increases remaining seats by 1)"
+                                    disabled={b.extraEnrolled <= 0}
+                                    onClick={() => {
+                                      adjustBatchSeatsUrgency(b.batchId, { delta: -1 });
+                                      loadBatchSeats();
+                                      toast.success("-1 Admission (Remaining seats increased by 1)");
+                                    }}
+                                    className="px-2 py-1 bg-stone-100 hover:bg-stone-200 disabled:opacity-40 disabled:cursor-not-allowed text-stone-700 rounded-lg font-bold text-[11px] flex items-center gap-0.5 border border-stone-200"
+                                  >
+                                    <Minus size={11} /> 1 Adm
+                                  </button>
+                                  <button
+                                    type="button"
+                                    title="Add 1 admission (decreases remaining seats by 1)"
+                                    disabled={b.remainingSeats <= 0}
+                                    onClick={() => {
+                                      adjustBatchSeatsUrgency(b.batchId, { delta: 1 });
+                                      loadBatchSeats();
+                                      toast.success("+1 Admission (Remaining seats decreased by 1)");
+                                    }}
+                                    className="px-2 py-1 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg font-bold text-[11px] flex items-center gap-0.5 shadow-2xs"
+                                  >
+                                    <Plus size={11} /> 1 Adm
+                                  </button>
+                                  <button
+                                    type="button"
+                                    title="Type exact remaining seats you want to show"
+                                    onClick={() => {
+                                      setEditingRemainingBatchId(b.batchId);
+                                      setCustomRemainingInput(b.remainingSeats);
+                                    }}
+                                    className="px-2 py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg font-semibold text-[11px] border border-stone-200 flex items-center gap-1"
+                                  >
+                                    <Target size={11} /> Set Left
+                                  </button>
+                                  {b.extraEnrolled > 0 && (
+                                    <button
+                                      type="button"
+                                      title="Reset this batch back to verified real student admissions"
+                                      onClick={() => {
+                                        resetBatchSeatsUrgency(b.batchId);
+                                        loadBatchSeats();
+                                        toast.success("मूळ ॲडमिशनवर पूर्ववत केले!");
+                                      }}
+                                      className="px-1.5 py-1 text-rose-600 hover:bg-rose-50 rounded-lg font-semibold text-[11px]"
+                                    >
+                                      <RotateCcw size={11} />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Row 2: Capacity & Manual Full Controls */}
+                            <div className="pt-2 border-t border-stone-100 flex items-center justify-between gap-2 text-xs">
+                              {isEditingCapacity ? (
+                                <div className="flex items-center gap-1.5 w-full">
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={200}
+                                    value={customCapacityInput}
+                                    onChange={(e) => setCustomCapacityInput(parseInt(e.target.value) || 1)}
+                                    className="w-16 px-2 py-1 text-xs border border-stone-300 rounded-lg font-bold"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      updateBatchSeatCapacity(b.batchId, customCapacityInput);
+                                      setEditingCapacityBatchId(null);
+                                      loadBatchSeats();
+                                      toast.success(`Capacity set to ${customCapacityInput}`);
+                                    }}
+                                    className="px-2.5 py-1 bg-[#b5623b] text-white rounded-lg font-bold text-[11px]"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingCapacityBatchId(null)}
+                                    className="px-2 py-1 bg-stone-100 text-stone-600 rounded-lg text-[11px]"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingCapacityBatchId(b.batchId);
+                                      setCustomCapacityInput(b.totalSeats);
+                                    }}
+                                    className="text-stone-600 hover:text-[#b5623b] font-semibold text-[11px] flex items-center gap-1"
+                                  >
+                                    <Edit2 size={12} /> Set Capacity ({b.totalSeats})
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      toggleBatchManualFull(b.batchId);
+                                      loadBatchSeats();
+                                      toast.success("Batch status toggled");
+                                    }}
+                                    className={`px-2.5 py-1 rounded-lg font-bold text-[11px] border transition ${
+                                      b.isFull
+                                        ? "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+                                        : "bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100"
+                                    }`}
+                                  >
+                                    {b.isFull ? "Reopen Seats" : "Mark Full"}
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
