@@ -10,6 +10,7 @@ import {
   getCourseLevelById,
   getBatchSeatsInfo,
 } from "@/data/languageCoursesData";
+import { syncBatchSeatsFromCloud } from "@/lib/batch-seats-sync";
 import { CountryFlagIcon } from "@/components/common/CountryFlagIcon";
 import {
   Calendar,
@@ -63,6 +64,14 @@ export default function CourseDetailPage() {
 
   const level = course.levels.find((l) => l.id === selectedLevelId) || course.levels[0];
   const [showRegisterForm, setShowRegisterForm] = useState(false);
+  const [, setSeatsVersion] = useState(0);
+
+  useEffect(() => {
+    syncBatchSeatsFromCloud();
+    const handleSeatsUpdate = () => setSeatsVersion((v) => v + 1);
+    window.addEventListener("batch-seats-updated", handleSeatsUpdate);
+    return () => window.removeEventListener("batch-seats-updated", handleSeatsUpdate);
+  }, []);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });

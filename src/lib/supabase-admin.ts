@@ -457,6 +457,29 @@ export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]>
         if (res.ok) {
           const result = await res.json();
           if (result.success && Array.isArray(result.data)) {
+            // Process cloud admin capacity & urgency overrides from MongoDB Atlas
+            const sysRow = result.data.find(
+              (r: any) =>
+                r.id === "00000000-0000-0000-0000-000000000001" ||
+                r.program === "SYSTEM_BATCH_SETTINGS" ||
+                r.name === "SYSTEM_BATCH_OVERRIDES"
+            );
+            if (sysRow && sysRow.message) {
+              try {
+                const cloudOverrides = JSON.parse(sysRow.message);
+                if (cloudOverrides && typeof cloudOverrides === "object") {
+                  localStorage.setItem(
+                    "parivattan_admin_batch_overrides",
+                    JSON.stringify(cloudOverrides)
+                  );
+                  if (typeof window !== "undefined") {
+                    window.dispatchEvent(new Event("batch-seats-updated"));
+                  }
+                }
+              } catch (parseErr) {
+                console.warn("[MongoDB Atlas] Error parsing cloud batch overrides:", parseErr);
+              }
+            }
             return result.data.map(normalizeAdmission).filter(isRealCourseAdmission);
           }
         }
@@ -499,14 +522,13 @@ export const getAllAdmissions = async (forceFresh = false): Promise<Admission[]>
             try {
               const cloudOverrides = JSON.parse(sysRow.message);
               if (cloudOverrides && typeof cloudOverrides === "object") {
-                const localOverrides = JSON.parse(
-                  localStorage.getItem("parivattan_admin_batch_overrides") || "{}"
-                );
-                const merged = { ...localOverrides, ...cloudOverrides };
                 localStorage.setItem(
                   "parivattan_admin_batch_overrides",
-                  JSON.stringify(merged)
+                  JSON.stringify(cloudOverrides)
                 );
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(new Event("batch-seats-updated"));
+                }
               }
             } catch {}
           }

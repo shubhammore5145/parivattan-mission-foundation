@@ -880,7 +880,7 @@ export const recalculateBatchSeatsFromAdmissions = (admissionsList?: any[]): voi
 };
 
 // Admin Capacity Management Functions
-export const updateBatchSeatCapacity = (batchId: string, newTotalSeats: number): void => {
+export const updateBatchSeatCapacity = async (batchId: string, newTotalSeats: number): Promise<{ success: boolean }> => {
   try {
     const overrides = JSON.parse(localStorage.getItem("parivattan_admin_batch_overrides") || "{}");
     overrides[batchId] = {
@@ -891,13 +891,14 @@ export const updateBatchSeatCapacity = (batchId: string, newTotalSeats: number):
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("batch-seats-updated"));
     }
-    saveBatchOverridesToCloud(overrides).catch(() => {});
+    return await saveBatchOverridesToCloud(overrides);
   } catch (e) {
     console.warn("Could not update batch seat capacity", e);
+    return { success: false };
   }
 };
 
-export const toggleBatchManualFull = (batchId: string): boolean => {
+export const toggleBatchManualFull = async (batchId: string): Promise<boolean> => {
   try {
     const overrides = JSON.parse(localStorage.getItem("parivattan_admin_batch_overrides") || "{}");
     const current = Boolean(overrides[batchId]?.isManuallyFull);
@@ -909,7 +910,7 @@ export const toggleBatchManualFull = (batchId: string): boolean => {
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("batch-seats-updated"));
     }
-    saveBatchOverridesToCloud(overrides).catch(() => {});
+    await saveBatchOverridesToCloud(overrides);
     return !current;
   } catch (e) {
     console.warn("Could not toggle batch full status", e);
@@ -917,7 +918,7 @@ export const toggleBatchManualFull = (batchId: string): boolean => {
   }
 };
 
-export const resetBatchEnrollment = (batchId: string): void => {
+export const resetBatchEnrollment = async (batchId: string): Promise<{ success: boolean }> => {
   try {
     const stored = JSON.parse(localStorage.getItem("parivattan_batch_intake_map") || "{}");
     stored[batchId] = 0;
@@ -932,9 +933,10 @@ export const resetBatchEnrollment = (batchId: string): void => {
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("batch-seats-updated"));
     }
-    saveBatchOverridesToCloud(overrides).catch(() => {});
+    return await saveBatchOverridesToCloud(overrides);
   } catch (e) {
     console.warn("Could not reset batch enrollment", e);
+    return { success: false };
   }
 };
 
@@ -973,10 +975,10 @@ export const getAllBatchesSeatsList = (): BatchSeatsStatus[] => {
  * - targetRemaining: sets remaining seats directly to this exact number
  * - extraEnrolled: sets extra admissions boost directly
  */
-export const adjustBatchSeatsUrgency = (
+export const adjustBatchSeatsUrgency = async (
   batchId: string,
   options: { delta?: number; targetRemaining?: number; extraEnrolled?: number }
-): void => {
+): Promise<{ success: boolean }> => {
   try {
     const overrides = JSON.parse(localStorage.getItem("parivattan_admin_batch_overrides") || "{}");
     const current = overrides[batchId] || {};
@@ -1002,16 +1004,17 @@ export const adjustBatchSeatsUrgency = (
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("batch-seats-updated"));
     }
-    saveBatchOverridesToCloud(overrides).catch(() => {});
+    return await saveBatchOverridesToCloud(overrides);
   } catch (e) {
     console.warn("Could not adjust batch seats urgency", e);
+    return { success: false };
   }
 };
 
 /**
  * Resets extra simulated admissions back to 0 for a specific batch (shows purely real student admissions)
  */
-export const resetBatchSeatsUrgency = (batchId: string): void => {
+export const resetBatchSeatsUrgency = async (batchId: string): Promise<{ success: boolean }> => {
   try {
     const overrides = JSON.parse(localStorage.getItem("parivattan_admin_batch_overrides") || "{}");
     if (overrides[batchId]) {
@@ -1021,16 +1024,17 @@ export const resetBatchSeatsUrgency = (batchId: string): void => {
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("batch-seats-updated"));
     }
-    saveBatchOverridesToCloud(overrides).catch(() => {});
+    return await saveBatchOverridesToCloud(overrides);
   } catch (e) {
     console.warn("Could not reset batch seats urgency", e);
+    return { success: false };
   }
 };
 
 /**
  * Reset all batches back to purely real student admissions
  */
-export const resetAllBatchesSeatsUrgency = (): void => {
+export const resetAllBatchesSeatsUrgency = async (): Promise<{ success: boolean }> => {
   try {
     const overrides = JSON.parse(localStorage.getItem("parivattan_admin_batch_overrides") || "{}");
     for (const key of Object.keys(overrides)) {
@@ -1042,16 +1046,17 @@ export const resetAllBatchesSeatsUrgency = (): void => {
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("batch-seats-updated"));
     }
-    saveBatchOverridesToCloud(overrides).catch(() => {});
+    return await saveBatchOverridesToCloud(overrides);
   } catch (e) {
     console.warn("Could not reset all batch seats urgency", e);
+    return { success: false };
   }
 };
 
 /**
  * Quick Urgency Preset: Set all batches to fast-filling status (e.g. 75% full, remaining seats limited)
  */
-export const applyFastFillingUrgencyToAllBatches = (fillPercentage = 75): void => {
+export const applyFastFillingUrgencyToAllBatches = async (fillPercentage = 75): Promise<{ success: boolean }> => {
   try {
     const overrides = JSON.parse(localStorage.getItem("parivattan_admin_batch_overrides") || "{}");
     const allBatches = getAllBatchesSeatsList();
@@ -1069,9 +1074,10 @@ export const applyFastFillingUrgencyToAllBatches = (fillPercentage = 75): void =
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("batch-seats-updated"));
     }
-    saveBatchOverridesToCloud(overrides).catch(() => {});
+    return await saveBatchOverridesToCloud(overrides);
   } catch (e) {
     console.warn("Could not apply fast filling urgency to all batches", e);
+    return { success: false };
   }
 };
 

@@ -169,6 +169,7 @@ export async function createAdmissionInMongo(admissionData) {
       delete cleanUpdate._id;
       delete cleanUpdate.created_at;
       await collection.updateOne({ _id: existing._id }, { $set: cleanUpdate });
+      invalidateAdmissionsCache();
       return {
         ...record,
         id: existing.id || finalId,

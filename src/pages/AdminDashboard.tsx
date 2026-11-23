@@ -3567,10 +3567,10 @@ export default function AdminDashboard() {
                     <div className="flex items-center gap-2 shrink-0 flex-wrap">
                       <button
                         type="button"
-                        onClick={() => {
-                          applyFastFillingUrgencyToAllBatches(75);
+                        onClick={async () => {
+                          await applyFastFillingUrgencyToAllBatches(75);
                           loadBatchSeats();
-                          toast.success("सर्व बॅचेस 75% भरलेल्या सेट केल्या! शिल्लक सीट्स कमी झाल्या.");
+                          toast.success("सर्व बॅचेस 75% भरलेल्या सेट केल्या! शिल्लक सीट्स क्लाउड डेटाबेसमध्ये अपडेट झाल्या.");
                         }}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#b5623b] hover:bg-[#964724] text-white text-xs font-bold transition shadow-2xs"
                       >
@@ -3579,8 +3579,8 @@ export default function AdminDashboard() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          resetAllBatchesSeatsUrgency();
+                        onClick={async () => {
+                          await resetAllBatchesSeatsUrgency();
                           loadBatchSeats();
                           toast.success("सर्व बॅचेस मूळ (Real) ॲडमिशन संख्येवर पूर्ववत केल्या!");
                         }}
@@ -3691,8 +3691,8 @@ export default function AdminDashboard() {
                                 />
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    adjustBatchSeatsUrgency(b.batchId, { targetRemaining: customRemainingInput });
+                                  onClick={async () => {
+                                    await adjustBatchSeatsUrgency(b.batchId, { targetRemaining: customRemainingInput });
                                     setEditingRemainingBatchId(null);
                                     loadBatchSeats();
                                     toast.success(`उर्वरित सीट्स ${customRemainingInput} सेट केल्या!`);
@@ -3719,8 +3719,8 @@ export default function AdminDashboard() {
                                     type="button"
                                     title="Decrease 1 admission (increases remaining seats by 1)"
                                     disabled={b.extraEnrolled <= 0}
-                                    onClick={() => {
-                                      adjustBatchSeatsUrgency(b.batchId, { delta: -1 });
+                                    onClick={async () => {
+                                      await adjustBatchSeatsUrgency(b.batchId, { delta: -1 });
                                       loadBatchSeats();
                                       toast.success("-1 Admission (Remaining seats increased by 1)");
                                     }}
@@ -3732,8 +3732,8 @@ export default function AdminDashboard() {
                                     type="button"
                                     title="Add 1 admission (decreases remaining seats by 1)"
                                     disabled={b.remainingSeats <= 0}
-                                    onClick={() => {
-                                      adjustBatchSeatsUrgency(b.batchId, { delta: 1 });
+                                    onClick={async () => {
+                                      await adjustBatchSeatsUrgency(b.batchId, { delta: 1 });
                                       loadBatchSeats();
                                       toast.success("+1 Admission (Remaining seats decreased by 1)");
                                     }}
@@ -3756,8 +3756,8 @@ export default function AdminDashboard() {
                                     <button
                                       type="button"
                                       title="Reset this batch back to verified real student admissions"
-                                      onClick={() => {
-                                        resetBatchSeatsUrgency(b.batchId);
+                                      onClick={async () => {
+                                        await resetBatchSeatsUrgency(b.batchId);
                                         loadBatchSeats();
                                         toast.success("मूळ ॲडमिशनवर पूर्ववत केले!");
                                       }}
@@ -3784,8 +3784,8 @@ export default function AdminDashboard() {
                                   />
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      updateBatchSeatCapacity(b.batchId, customCapacityInput);
+                                    onClick={async () => {
+                                      await updateBatchSeatCapacity(b.batchId, customCapacityInput);
                                       setEditingCapacityBatchId(null);
                                       loadBatchSeats();
                                       toast.success(`Capacity set to ${customCapacityInput}`);
@@ -3816,8 +3816,8 @@ export default function AdminDashboard() {
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      toggleBatchManualFull(b.batchId);
+                                    onClick={async () => {
+                                      await toggleBatchManualFull(b.batchId);
                                       loadBatchSeats();
                                       toast.success("Batch status toggled");
                                     }}

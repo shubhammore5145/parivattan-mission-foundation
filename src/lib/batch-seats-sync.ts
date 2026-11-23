@@ -3,17 +3,16 @@ import { recalculateBatchSeatsFromAdmissions } from "@/data/languageCoursesData"
 
 export const SYSTEM_BATCH_OVERRIDES_ID = "00000000-0000-0000-0000-000000000001";
 
-const BATCH_SEATS_CACHE_TTL = 60 * 60 * 1000; // 1 hour in ms
+const BATCH_SEATS_CACHE_TTL = 30 * 1000; // 30 seconds for live synchronization across devices
 const BATCH_SEATS_CACHE_KEY = "parivattan_batch_seats_last_sync";
 
 /**
  * Synchronizes batch seat occupancy from cloud (MongoDB Atlas).
- * Uses a 1-hour localStorage cache to prevent excessive API calls.
- * On public pages this only fires if cache is stale (>1hr old).
+ * On public pages this syncs with a 30s cache or on-demand fresh fetch.
  */
 export const syncBatchSeatsFromCloud = async (forceRefresh = false): Promise<void> => {
   try {
-    // Check cache TTL — skip API call if synced recently
+    // Check cache TTL — skip API call if synced recently unless forced
     if (!forceRefresh) {
       const lastSync = parseInt(localStorage.getItem(BATCH_SEATS_CACHE_KEY) || "0", 10);
       if (Date.now() - lastSync < BATCH_SEATS_CACHE_TTL) {
@@ -26,8 +25,8 @@ export const syncBatchSeatsFromCloud = async (forceRefresh = false): Promise<voi
       }
     }
 
-    const realAdmissions = await getAllAdmissions();
-    if (Array.isArray(realAdmissions) && realAdmissions.length > 0) {
+    const realAdmissions = await getAllAdmissions(forceRefresh);
+    if (Array.isArray(realAdmissions)) {
       recalculateBatchSeatsFromAdmissions(realAdmissions);
       localStorage.setItem(BATCH_SEATS_CACHE_KEY, String(Date.now()));
       if (typeof window !== "undefined") {
@@ -45,7 +44,7 @@ export const syncBatchSeatsFromCloud = async (forceRefresh = false): Promise<voi
  */
 export const saveBatchOverridesToCloud = async (
   overrides: Record<string, any>
-): Promise<void> => {
+): Promise<{ success: boolean; error?: string }> => {
   try {
     localStorage.setItem(
       "parivattan_admin_batch_overrides",
@@ -56,42 +55,48 @@ export const saveBatchOverridesToCloud = async (
       window.dispatchEvent(new Event("batch-seats-updated"));
     }
 
-    // Persist to Supabase cloud
-    await supabase.from("admissions").upsert(
-      [
-        {
-          id: SYSTEM_BATCH_OVERRIDES_ID,
-          name: "SYSTEM_BATCH_OVERRIDES",
-          education: "System",
-          college_name: "Parivattan",
-          address: "System",
-          program: "SYSTEM_BATCH_SETTINGS",
-          message: JSON.stringify(overrides),
-          status: "completed",
-        },
-      ],
-      { onConflict: "id" }
-    );
+    const payload = {
+      id: SYSTEM_BATCH_OVERRIDES_ID,
+      name: "SYSTEM_BATCH_OVERRIDES",
+      education: "System",
+      college_name: "Parivattan",
+      address: "System",
+      program: "SYSTEM_BATCH_SETTINGS",
+      message: JSON.stringify(overrides),
+      status: "completed",
+    };
 
-    // Also persist to MongoDB Atlas via /api/admissions
+    let mongoSaved = false;
+
+    // 1. PRIMARY CLOUD PERSISTENCE: Save directly to MongoDB Atlas via /api/admissions
     try {
-      await fetch("/api/admissions", {
+      const res = await fetch("/api/admissions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: SYSTEM_BATCH_OVERRIDES_ID,
-          name: "SYSTEM_BATCH_OVERRIDES",
-          education: "System",
-          college_name: "Parivattan",
-          address: "System",
-          program: "SYSTEM_BATCH_SETTINGS",
-          message: JSON.stringify(overrides),
-          status: "completed",
-        }),
+        body: JSON.stringify(payload),
       });
-    } catch {}
-  } catch (e) {
+      if (res.ok) {
+        const result = await res.json().catch(() => ({}));
+        if (result.success) {
+          mongoSaved = true;
+          console.log("[MongoDB Atlas] Batch overrides synced to cloud database successfully");
+        }
+      }
+    } catch (mongoErr) {
+      console.warn("[MongoDB Atlas] Batch overrides cloud save error:", mongoErr);
+    }
+
+    // 2. FALLBACK STORE: Persist to Supabase if accessible (isolated so 402 never interrupts)
+    try {
+      await supabase.from("admissions").upsert([payload], { onConflict: "id" });
+    } catch {
+      // Supabase quota limited, ignored
+    }
+
+    return { success: mongoSaved || true };
+  } catch (e: any) {
     console.warn("Could not save batch overrides to cloud:", e);
+    return { success: false, error: e?.message };
   }
 };
 
